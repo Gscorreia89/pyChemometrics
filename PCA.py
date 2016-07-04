@@ -45,20 +45,22 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
             self.x_std = self.x.std()
             self.x_std /= power
 
-        if self.y is not None and scale_y is True:
-            self.y_std = self.y.std()
-            self.y_std /= power
-
         return None
 
-    def fit(self, x):
+    def fit(self, x, scale=1, method=KFold, **crossval_kwargs):
         """
 
         :param x:
         :return:
         """
 
-        self._model.fit(x)
+        self._model.fit(x, copy=True)
+
+        self.pipeline = make_pipeline(method, self._model)
+
+        for ncomps in range(0, self.model._ncomps):
+            self.model._ncomps = ncomps
+            cvoutput = self.pipeline(self.x, self.y)
 
         return None
 
@@ -85,29 +87,15 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
 
         return None
 
-    def cross_validation(self, method=KFold, **crossval_kwargs):
-
-        self.pipeline = make_pipeline(Kfold)
-        return None
-
     def score_plot(self, lvs=[1,2], which_scores='T'):
 
         if which_scores == 'T':
             pass
         elif which_scores == 'Tcv':
             pass
-        elif which_scores == 'U':
-            pass
-        elif which_scores == 'Ucv':
-            pass
-        elif which_scores == 'TU':
-            pass
-        elif which_scores == 'TUcv':
-            pass
 
         return None
 
-    def coeffs_plot(self, lv=1, coeffs='weights'):
+    def coeffs_plot(self, lv=1, coeffs='weightscv'):
 
         return None
-
