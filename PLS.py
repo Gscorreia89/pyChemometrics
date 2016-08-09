@@ -1,5 +1,4 @@
-from sklearn.base import RegressorMixin
-import DimensionalityReductionAbstract
+from sklearn.base import RegressorMixin, BaseEstimator, TransformerMixin
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.cross_validation import KFold, StratifiedKFold
@@ -8,7 +7,7 @@ import numpy as np
 __author__ = 'gd2212'
 
 
-class PLS(DimensionalityReductionAbstract, RegressorMixin):
+class PLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def __init__(self, n_comps=2, pls_algorithm=PLSRegression,  metadata=None, **pls_type_kwargs):
         """
@@ -23,7 +22,7 @@ class PLS(DimensionalityReductionAbstract, RegressorMixin):
         """
 
         try:
-            super(self, PLS).__init__(metadata)
+            # Do PCA first then worry about this later
             self._model = pls_algorithm(n_comps, **pls_type_kwargs)
 
             self.x_means = np.mean(self.x, axis=0)
@@ -45,7 +44,6 @@ class PLS(DimensionalityReductionAbstract, RegressorMixin):
         :param scale_y:
         :return:
         """
-        super(self, DimensionalityReductionAbstract).scale(power, scale_y)
         return None
 
     def fit(self, x, y):
@@ -67,7 +65,7 @@ class PLS(DimensionalityReductionAbstract, RegressorMixin):
         """
         return self._model.fit_transform(x, y, **fit_params)
 
-    def inverse_transform(self, ):
+    def inverse_transform(self):
 
         return self._model.inverse_transform(x, y)
 
@@ -78,7 +76,7 @@ class PLS(DimensionalityReductionAbstract, RegressorMixin):
         :param sample_weight:
         :return:
         """
-
+        # Check this
         r2x = self._model.score(x, y)
         r2y = self._model.score(y, x)
 
@@ -87,6 +85,7 @@ class PLS(DimensionalityReductionAbstract, RegressorMixin):
     def predict(cls, x=None, y=None):
 
         return None
+
 
     def cross_validation(self, method=KFold, **crossval_kwargs):
         self.pp = Pipeline()
@@ -99,5 +98,4 @@ class PLS(DimensionalityReductionAbstract, RegressorMixin):
     def coeffs_plot(self, lv=1, coeffs='weights'):
         return None
 
-    def __hotellingT2(self, ):
 
