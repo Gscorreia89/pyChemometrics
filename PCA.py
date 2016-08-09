@@ -169,9 +169,12 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         :param scale_y:
         :return:
         """
+
+        # Reshape this, no need for self.scale_power
         if self.scale_power != 0:
-            self.x_std = self.x.std()
-            self.x_std /= power
+            # do this properly and add something for a log
+            x_std = self.X.std()
+            self.scalingvector = self.x_std ** power
 
         return None
 
