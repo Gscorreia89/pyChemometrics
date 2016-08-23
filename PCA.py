@@ -93,7 +93,7 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def predict(self, x=None):
         """
-        A bit weird for pca... but should h
+        A bit weird for pca... but should
         :param x:
         :return:
         """
