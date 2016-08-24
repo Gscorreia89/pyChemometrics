@@ -2,7 +2,7 @@ import pandas as pds
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
 from sklearn.decomposition import PCA as skPCA
 from sklearn.pipeline import make_pipeline
-from sklearn.cross_validation import KFold, StratifiedKFold
+from sklearn.cross_validation import _PartitionIterator, cross_val_score
 import numpy as np
 
 __author__ = 'gd2212'
@@ -29,11 +29,11 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         try:
             # Metadata assumed to be pandas dataframe only
             if metadata is not None:
-                if not not isinstance(metadata, pds.DataFrame):
+                if not isinstance(metadata, pds.DataFrame):
                     raise TypeError("Metadata must be provided as pandas dataframe")
             # The actual classifier can change, but needs to be a scikit-learn BaseEstimator
             # Changes this later for "PCA like only" - either check their hierarchy or make a list
-            if not isinstance(pca_algorithm, BaseEstimator):
+            if not issubclass(pca_algorithm, BaseEstimator):
                 raise TypeError("Scikit-learn model please")
             # The kwargs provided for the model are exactly the same as those
             # go and check for these examples the correct exception to throw when kwarg is not valid
@@ -45,7 +45,7 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         except ValueError as verr:
             print(verr.args[0])
 
-    def fit(self, x, scale=1, method=KFold, **crossval_kwargs):
+    def fit(self, x, scale=1, **fit_params):
         """
         Fit function. Acts exacly as in scikit-learn, but
         :param x:
@@ -57,14 +57,10 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         # study the best way to do this
         # split **fit_params from **crossval_kwargs
         try:
-            self._model.fit(x, copy=True)
 
-            self.pipeline = make_pipeline(method, self._model)
-
-            for ncomps in range(0, self.model._ncomps):
-                self.model._ncomps = ncomps
-                cvoutput = self.pipeline(self.x, self.y)
-
+            # Add scaling here...
+            self._model.fit(x, **fit_params)
+            self.scores = self.transform(x)
             return None
 
         except Exception as exp:
@@ -81,23 +77,43 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
 
         return self._model.fit_transform(x, **fit_params)
 
-    def score(self, x, sample_weight=None):
+    def transform(self, x):
+        """
+
+        :param x:
+        :return:
+        """
+
+        return self._model.transform(x)
+
+    def score(self, x):
         """
         Enables output of an R^2, and is expected by regressor mixin
-        In theory PCA can be used without this, but makes some sense.
+        In theory PCA can be used.
         :param x:
         :param sample_weight:
         :return:
         """
+        self.model_.score(self, x, x, sample_weight=None)
+
         return None
 
-    def predict(self, x=None):
+    def inverse_transform(self, scores):
         """
-        A bit weird for pca... but should
+
+        :param scores:
+        :return:
+        """
+        return self._model.inverse_transform(scores)
+
+    def predict(self, x):
+        """
+        A bit weird for pca... but as part of regressor mixin?
         :param x:
         :return:
         """
-        return None
+
+        return self.inverse_transform(x)
 
     @property
     def performance_metrics(self):
@@ -162,6 +178,31 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         except Exception as exp:
             raise exp
 
+    @property
+    def loadings(self, comp=1):
+        """
+
+        :param comp:
+        :return:
+        """
+        try:
+            loading = self._model.components_[:, comp-1]
+            return loading
+        except AttributeError as atre:
+            raise atre
+
+    @property
+    def scores(self, comp=1):
+        """
+
+        :param comp:
+        :return:
+        """
+        try:
+            return self.scores[:, comp-1]
+        except AttributeError as atre:
+            raise atre
+
     def scale(self, power=1, scale_y=True):
         """
         The usual scaling functions will be here
@@ -180,8 +221,21 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
 
     # Check this one carefully ... good oportunity to build in nested cross-validation
     # and stratified k-folds
-    def cross_validation(self, method=KFold, **crossval_kwargs):
-        self.pp = make_pipeline
+    def cross_validation(self, data,  method=7, **crossval_kwargs):
+
+        try:
+            if not isinstance(method, _PartitionIterator):
+                raise TypeError("Scikit-learn cross-validation object please")
+
+            scores = cross_val_score(self._model, data, cv=method, **crossval_kwargs)
+
+            return None
+
+        except TypeError as terp:
+            raise terp
+
+    def permutationtest(self, data, method=7, **crossval_kwargs):
+        "Use the built in functionaliy"
         return None
 
     def score_plot(self, pcs=[1,2], hotelingt=0.95):
