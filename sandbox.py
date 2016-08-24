@@ -3,14 +3,13 @@ __author__ = 'gd2212'
 
 import pandas as pds
 import os
-import PCA
+from PCA import PCA
+from sklearn.decomposition import KernelPCA
 
-os.chdir(r'C:\Users\Goncalo\PycharmProjects\Chemometrics')
 matrix = pds.read_csv('ExampleFile(TRACElipofitmat).csv')
 
 xmat = matrix.iloc[:, 8:]
 
-
-ples = PCA.PCA()
+ples = PCA(pca_algorithm=KernelPCA)
 
 

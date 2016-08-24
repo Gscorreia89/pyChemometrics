@@ -38,6 +38,10 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
             # The kwargs provided for the model are exactly the same as those
             # go and check for these examples the correct exception to throw when kwarg is not valid
             self._model = pca_algorithm(n_comps, **pca_type_kwargs)
+            # These will be none until object is fitted.
+            self._scores = None
+            self._centeringvector = None
+            self._scalingvector = None
 
         except TypeError as terp:
             print(terp.args[0])
@@ -61,7 +65,6 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
             # Add scaling here...
             self._model.fit(x, **fit_params)
             self.scores = self.transform(x)
-            return None
 
         except Exception as exp:
             raise exp
@@ -148,9 +151,9 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         try:
             if not isinstance(value, np.array):
                 raise TypeError('Value provided must be numpy array')
-            elif not value.shape == self.centeringvector.shape:
+            elif not value.shape == self._centeringvector.shape:
                 raise ValueError('Value provided must have same length as number of variables')
-            self.centeringvector = value
+            self._centeringvector = value
         except Exception as exp:
             raise exp
 
@@ -199,8 +202,20 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         :return:
         """
         try:
-            return self.scores[:, comp-1]
+            return self._scores[:, comp-1]
         except AttributeError as atre:
+            raise atre
+
+    @scores.setter
+    def scores(self, scores):
+        """
+
+        :param comp:
+        :return:
+        """
+        try:
+            self._scores = scores
+        except Exception as atre:
             raise atre
 
     def scale(self, power=1, scale_y=True):
