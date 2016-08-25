@@ -37,6 +37,7 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
                 raise TypeError("Scikit-learn model please")
             # The kwargs provided for the model are exactly the same as those
             # go and check for these examples the correct exception to throw when kwarg is not valid
+            # TO DO: Set the sklearn params for PCA to be a junction of the custom ones and the "core" params of model
             self._model = pca_algorithm(n_comps, **pca_type_kwargs)
             # These will be none until object is fitted.
             self._scores = None
