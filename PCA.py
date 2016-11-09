@@ -50,10 +50,11 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         except ValueError as verr:
             print(verr.args[0])
 
-    def fit(self, x, scale=1, **fit_params):
+    def fit(self, x, y=None, **fit_params):
         """
-        Fit function. Acts exacly as in scikit-learn, but
+        Fit function. Acts exactly as in scikit-learn, but
         :param x:
+        :param scale:
         :return:
 
         """
@@ -64,6 +65,7 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         try:
 
             # Add scaling here...
+
             self._model.fit(x, **fit_params)
             self.scores = self.transform(x)
 
@@ -127,8 +129,8 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         """
         # this is wrong now, but find the default way to see if the model has been fited
         if self._model.fit():
-            print
-            return None
+
+            return {'R2X': self._model.explained_variance_}
         else:
             # check this properyl, and might need to calculate var explained in other ways
             metricsdict = {'VarExplained': self._model.Var_exp}
@@ -207,31 +209,23 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         except AttributeError as atre:
             raise atre
 
-    @scores.setter
-    def scores(self, scores):
-        """
-
-        :param comp:
-        :return:
-        """
-        try:
-            self._scores = scores
-        except Exception as atre:
-            raise atre
-
-    def scale(self, power=1, scale_y=True):
+    def scale(self, scaling=1):
         """
         The usual scaling functions will be here
-        :param power:
-        :param scale_y:
+        :scaling power:
+
         :return:
         """
-
         # Reshape this, no need for self.scale_power
-        if self.scale_power != 0:
+        if self.scaling != 0:
             # do this properly and add something for a log
-            x_std = self.X.std()
-            self.scalingvector = self.x_std ** power
+            if callable(scaling):
+                self.scalingvector = scaling
+            else:
+                x_std = self.X.std()
+                self.scalingvector = self.x_std ** scaling
+        else:
+            self.x /= self.scalingvector
 
         return None
 
