@@ -1,8 +1,8 @@
 import pandas as pds
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
 from sklearn.decomposition import PCA as skPCA
-from sklearn.pipeline import make_pipeline
-from sklearn.cross_validation import _PartitionIterator, cross_val_score
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import cross_val_score
 import numpy as np
 
 __author__ = 'gd2212'
@@ -43,6 +43,7 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
             self._scores = None
             self._centeringvector = None
             self._scalingvector = None
+            self.ncomps = n_comps
 
         except TypeError as terp:
             print(terp.args[0])
@@ -59,6 +60,8 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
 
         """
         # always Include cross-validation here?
+        # The answer is no, otherwise we force a load of useless CV's if
+        # we use this into other sklearn pipelines...
         # Finish the independent cv method and
         # study the best way to do this
         # split **fit_params from **crossval_kwargs
@@ -244,10 +247,6 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as terp:
             raise terp
 
-    def permutationtest(self, data, method=7, **crossval_kwargs):
-        "Use the built in functionaliy"
-        return None
-
     def score_plot(self, pcs=[1,2], hotelingt=0.95):
         if len(pcs) == 1:
             # do something decent for the 1D  score plot
@@ -271,3 +270,9 @@ class PCA(BaseEstimator, RegressorMixin, TransformerMixin):
         :return:
         """
         return None
+
+
+def bro_svd(V, X):
+    a = np.sum(np.dot(np.dot(V.T, X.T), np.dot(V.T, X))**2)
+
+    return None
