@@ -1,73 +1,100 @@
-from sklearn.base import RegressorMixin, BaseEstimator, TransformerMixin
-from sklearn.cross_decomposition import PLSRegression
-from sklearn.pipeline import make_pipeline
-from sklearn.cross_validation import KFold, StratifiedKFold
 import numpy as np
+import pandas as pds
+from sklearn.cross_decomposition import PLSRegression
+from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
+from sklearn.cross_decomposition.pls_ import PLSRegression
+from ChemometricsScaler import ChemometricsScaler
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import BaseCrossValidator, KFold
+from ChemometricsScaler import ChemometricsScaler
+
 
 __author__ = 'gd2212'
 
 
 class PLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
-    def __init__(self, n_comps=2, pls_algorithm=PLSRegression,  metadata=None, **pls_type_kwargs):
+    def __init__(self, ncomps=2, pls_algorithm=PLSRegression, scaling=ChemometricsScaler(), metadata=None,**pls_type_kwargs):
         """
 
-        :param x:
-        :param copy:
+        :param ncomps:
+        :param pls_algorithm:
+        :param scaling:
         :param metadata:
-        :param n_comps:
-        :param pca_algorithm:
-        :param pca_type_kwargs:
-        :return:
+        :param pls_type_kwargs:
         """
-
         try:
-            # Do PCA first then worry about this later
-            self._model = pls_algorithm(n_comps, **pls_type_kwargs)
+            # Metadata assumed to be pandas dataframe only
+            if metadata is not None:
+                if not isinstance(metadata, pds.DataFrame):
+                    raise TypeError("Metadata must be provided as pandas dataframe")
+            # The actual classifier can change, but needs to be a scikit-learn BaseEstimator
+            # Changes this later for "PCA like only" - either check their hierarchy or make a list
 
-            self.x_means = np.mean(self.x, axis=0)
-            self.x_std = np.std(self.x, axis=0)
+            if not issubclass(pls_algorithm, BaseEstimator):
+                raise TypeError("Scikit-learn model please")
+            if not issubclass(scaling, TransformerMixin):
+                raise TypeError("Scikit-learn Transformer-like object please")
 
-            self.y_means = np.mean(y, axis=0)
-            self.y_std = np.std(y, axis=0)
-            # Start with no scaling
-            self.x_scalepower = 0
-            self.y_scalepower = 0
+            # Add a check for partial fit methods? As in deploy partial fit child class if PCA is incremental??
+            #types.MethodType(self)
+            # The kwargs provided for the model are exactly the same as those
+            # go and check for these examples the correct exception to throw when kwarg is not valid
+            # TO DO: Set the sklearn params for PCA to be a junction of the custom ones and the "core" params of model
+            self._model = pls_algorithm(ncomps, **pls_type_kwargs)
+            # These will be non-existant until object is fitted.
+            # self.scores = None
+            # self.loadings = None
+            self.ncomps = ncomps
+            self.scaler = scaling
+            self.cvParameters = None
+            self.modelParameters = None
 
-        except TypeError:
-            print()
+        except TypeError as terp:
+            print(terp.args[0])
+        except ValueError as verr:
+            print(verr.args[0])
 
-    def scale(self, power=1, scale_y=True):
+    def fit(self, x, y, **fit_params):
         """
-
-        :param power:
-        :param scale_y:
-        :return:
-        """
-        return None
-
-    def fit(self, x, y):
-        """
-
+        Fit function. Acts exactly as in scikit-learn, but
         :param x:
+        :param scale:
         :return:
-        """
-        self._model.fit(x, y)
-        return None
 
-    def fit_transform(self, x, y=None, **fit_params):
         """
+        try:
+            # Scaling
+            xscaled = self.fit_transform(x)
+            yscaled = self.fit_transform(y)
+            self._model.fit(x=xscaled, y=yscaled, **fit_params)
+            self.scores = self.transform(x)
+            self.loadings = self._model.x_loadings_
+            self.yloads = self._model.y_loadings_
+            self.weights = self._model.x_weights_
+            self.modelParameters = {'VarianceExplained'}
 
-        :param x:
-        :param y:
+        except Exception as exp:
+            raise exp
+
+    def fit_transform(self, x, **fit_params):
+        """
+        Combination of fit and output the scores, nothing special
+        :param x: Data to fit
         :param fit_params:
         :return:
         """
-        return self._model.fit_transform(x, y, **fit_params)
 
-    def inverse_transform(self):
+        return self._model.fit_transform(x, **fit_params)
 
-        return self._model.inverse_transform(x, y)
+    def transform(self, x):
+        """
+        Calculate the projection of the data into the lower dimensional space
+        :param x:
+        :return:
+        """
+
+        return self._model.transform(x)
 
     def score(self, x, y, sample_weight=None):
         """
@@ -82,13 +109,56 @@ class PLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         return None
 
-    def predict(cls, x=None, y=None):
+    def predict(self, x=None, y=None):
 
         return None
 
+    def cross_validation(self, x, y,  method=KFold(7, True), outputdist=False, bro_press=True,**crossval_kwargs):
+        """
+        # Check this one carefully ... good oportunity to build in nested cross-validation
+        # and stratified k-folds
+        :param data:
+        :param method:
+        :param outputdist: Output the whole distribution for (useful when Bootstrapping is used)
+        :param crossval_kwargs:
+        :return:
+        """
 
-    def cross_validation(self, method=KFold, **crossval_kwargs):
-        self.pp = Pipeline()
+        try:
+            if not isinstance(method, BaseCrossValidator):
+                raise TypeError("Scikit-learn cross-validation object please")
+
+            Pipeline = ([('scaler', self.scaler), ('pca', self._model)])
+
+            # Check if global model is fitted... and if not, fit using x
+            press = 0
+            for xtrain, xtest in KFold.split(x):
+                Pipeline.fit_transform(xtest)
+                if bro_press:
+                    for var in range(0, xtest.shape[1]):
+                        xpred = Pipeline.predict(xtest, var)
+                        press += 1
+                else:
+                    xpred = Pipeline.fit_transform(xtest)
+                    press += 1
+                #    Pipeline.predict(xtopred)
+            # Introduce loop here to align loadings due to sign indeterminacy.
+            # Calculate total sum of squares
+
+            q_squared = 1 - (press/SS)
+            # Assemble the stuff in the end
+            self.cvParameters = {}
+
+            return None
+        
+        except TypeError as terp:
+            raise terp
+
+    def permute_test(self, nperms = 1000, crossVal=KFold(7, True)):
+        permuted
+        for perm in range(0, nperms):
+
+
         return None
 
     def score_plot(self, lvs=[1,2], scores="T"):

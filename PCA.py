@@ -41,6 +41,7 @@ class PCA(BaseEstimator, TransformerMixin):
 
             # Add a check for partial fit methods? As in deploy partial fit child class if PCA is incremental??
             types.MethodType(self)
+
             # The kwargs provided for the model are exactly the same as those
             # go and check for these examples the correct exception to throw when kwarg is not valid
             # TO DO: Set the sklearn params for PCA to be a junction of the custom ones and the "core" params of model
@@ -233,10 +234,6 @@ class PCA(BaseEstimator, TransformerMixin):
         except TypeError as terp:
             raise terp
 
-    def permute_test(self):
-
-        return None
-
     def score_plot(self, pcs=[1,2], hotelingt=0.95):
         if len(pcs) == 1:
             # do something decent for the 1D  score plot
@@ -252,7 +249,7 @@ class PCA(BaseEstimator, TransformerMixin):
         """
         return None
 
-    def coeffs_plot(self, lv=1, coeffs='weightscv'):
+    def loadings_plot(self, lv=1, coeffs='weightscv'):
         """
 
         :param lv:
