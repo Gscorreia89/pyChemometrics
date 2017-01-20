@@ -126,75 +126,75 @@ class PCA(BaseEstimator, TransformerMixin):
         """
         # remove the vars from the original loadings
         for samp in range(0, x.shape[0]):
+            self.scaler.transform(x)
+
         #    xtopred = x
         #    Pipeline.predict(xtopred)
         #projection = np.dot(np.dot(to_pred, np.linalg.pinv(to_predloads).T), loadings)
         return self.inverse_transform(x)
 
     def impute(self, x):
-        return False
+        return NotImplementedError
 
     @property
-    def loadings(self, comp=1):
-        """
-
-        :param comp:
-        :return:
-        """
-        try:
-            loading = self._model.components_[:, comp-1]
-            return loading
-        except AttributeError as atre:
-            raise atre
-
-    @property
-    def ncomps(self, ncomps=1):
+    def ncomps(self):
         """
         important to make sure changing n comps here ACTUALLY changes the fit.
         :param ncomps:
         :return:
         """
         try:
-            pass
+            return self.ncomps
+        except AttributeError as atre:
+            raise atre
+        
+    @ncomps.setter
+    def ncomps(self, ncomps=1):
+        """
+        To make sure messing with this resets the model
+        :param ncomps:
+        :return:
+        """
+        try:
+            return None
         except AttributeError as atre:
             raise atre
 
     @property
-    def scores(self, comp=1):
-        """
-
-        :param comp:
-        :return:
-        """
+    def VIP(self):
         try:
-            return self._scores[:, comp-1]
+            return None
+        except AttributeError as atre:
+            raise AttributeError("Model not fitted")
+
+    @property
+    def regression_coefficients(self):
+        try:
+            np.dot(np.dot(self.weights.T, self.weights))
+            return None
+        except AttributeError as atre:
+            raise AttributeError("Model not fitted")
+
+    @property
+    def scaler(self):
+        try:
+            return self.scaler
         except AttributeError as atre:
             raise atre
 
-    def scale(self, scaling=1):
-        """
-        The usual scaling functions will be here
-        # To destroy - replaced with a scaling object inside
-         Use a setter just for this to be OO pedantic?
-         or go with the nice and easy approach?
-        :scaling power:
+    @scaler.setter
+    def scaler(self, scaler):
+        try:
+            if not issubclass(scaler, TransformerMixin):
+                raise TypeError("Scikit-learn Transformer-like object please")
+            self.scaler = scaler
+            return None
+        except AttributeError as atre:
+            raise atre
+        except TypeError as typerr:
+            raise typerr
 
-        :return:
-        """
-        # Reshape this, no need for self.scale_power
-        if self.scaling != 0:
-            # do this properly and add something for a log
-            if callable(scaling):
-                self.scalingvector = scaling
-            else:
-                x_std = self.X.std()
-                self.scalingvector = self.x_std ** scaling
-        else:
-            self.x /= self.scalingvector
-
-        return None
-
-    def cross_validation(self, x,  method=KFold(7, True), outputdist=False, bro_press=True,**crossval_kwargs):
+    def cross_validation(self, x,  method=KFold(7, True), outputdist=False, bro_press=True, **crossval_kwargs):
         """
         # Check this one carefully ... good oportunity to build in nested cross-validation
         # and stratified k-folds
@@ -211,9 +211,16 @@ class PCA(BaseEstimator, TransformerMixin):
             Pipeline = ([('scaler', self.scaler), ('pca', self._model)])
 
             # Check if global model is fitted... and if not, fit using x
+            if self.loadings is None:
+                self.fit(x)
+            # Initialise predictive residual sum of squares variable
             press = 0
+            # Calculate Sum of Squares SS
+            ss = 0
+            loadings = np.zeros((KFold.n_splits(), x.shape[1]))
             for xtrain, xtest in KFold.split(x):
                 Pipeline.fit_transform(xtest)
+                loadings.append(Pipeline.get_params()['pca'])
                 if bro_press:
                     for var in range(0, xtest.shape[1]):
                         xpred = Pipeline.predict(xtest, var)
@@ -222,17 +229,32 @@ class PCA(BaseEstimator, TransformerMixin):
                     xpred = Pipeline.fit_transform(xtest)
                     press += 1
                 #    Pipeline.predict(xtopred)
-            # Introduce loop here to align loadings due to sign indeterminacy.
-            # Calculate total sum of squares
+            # Create matrices for each component loading containing the cv values in each round
+            # nrows = nrounds, ncolumns = n_variables
+            loads = [np.array(loadings[x] for x in loadings)]
 
-            q_squared = 1 - (press/SS)
+            # Introduce loop here to align loadings due to sign indeterminacy.
+            for cvround in range(0,KFold.n_splits(x)):
+                for cv_comploadings in loads:
+                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_comploadings)), np.sum(np.abs(self.loadings[] - cv_comploadings * -1))]))
+                    if choice == 1:
+                        -1*choice
+            # Calculate total sum of squares
+            # Q^2X
+            q_squared = 1 - (press/ss)
             # Assemble the stuff in the end
+
             self.cvParameters = {}
 
             return None
 
         except TypeError as terp:
             raise terp
+
+    def permute_test(self, nperms = 1000, crossVal=KFold(7, True)):
+        #permuted
+        #for perm in range(0, nperms):
+        return NotImplementedError
 
     def score_plot(self, pcs=[1,2], hotelingt=0.95):
         if len(pcs) == 1:
