@@ -40,15 +40,18 @@ class PCA(BaseEstimator, TransformerMixin):
                 raise TypeError("Scikit-learn Transformer-like object please")
 
             # Add a check for partial fit methods? As in deploy partial fit child class if PCA is incremental??
-            types.MethodType(self)
+            # By default it will work, but having the partial_fit function acessible might be usefull
+            #types.MethodType(self, partial_fit)
+            #def partial_fit():
+            #    returnx
 
             # The kwargs provided for the model are exactly the same as those
             # go and check for these examples the correct exception to throw when kwarg is not valid
             # TO DO: Set the sklearn params for PCA to be a junction of the custom ones and the "core" params of model
             self._model = pca_algorithm(ncomps, **pca_type_kwargs)
             # These will be non-existant until object is fitted.
-            #self.scores = None
-            #self.loadings = None
+            self.scores = None
+            self.loadings = None
             self.ncomps = ncomps
             self.scaler = scaling
             self.cvParameters = None
@@ -73,7 +76,8 @@ class PCA(BaseEstimator, TransformerMixin):
             xscaled = self.scaler(x)
             self._model.fit(xscaled, **fit_params)
             self.scores = self.transform(x)
-            #self.modelParameters = {'VarianceExplained'}
+            self.loadings = self._model.components_
+            self.modelParameters = {'VarianceExplained':self._model.explained_variance_, 'ProportionVarExp':self._model.explained_variance_ratio_}
         except Exception as exp:
             raise exp
 
@@ -125,12 +129,12 @@ class PCA(BaseEstimator, TransformerMixin):
         :return:
         """
         # remove the vars from the original loadings
-        for samp in range(0, x.shape[0]):
-            self.scaler.transform(x)
-
-        #    xtopred = x
-        #    Pipeline.predict(xtopred)
-        #projection = np.dot(np.dot(to_pred, np.linalg.pinv(to_predloads).T), loadings)
+        for vars in vars_to_pred:
+            for samp in range(0, x.shape[0]):
+                self.scaler.transform(x)
+            #    xtopred = x
+            #    Pipeline.predict(xtopred)
+            #projection = np.dot(np.dot(to_pred, np.linalg.pinv(to_predloads).T), loadings)
         return self.inverse_transform(x)
 
     def impute(self, x):
@@ -139,7 +143,7 @@ class PCA(BaseEstimator, TransformerMixin):
     @property
     def ncomps(self):
         """
-        important to make sure changing n comps here ACTUALLY changes the fit.
+        Getter not important...
         :param ncomps:
         :return:
         """
@@ -147,7 +151,7 @@ class PCA(BaseEstimator, TransformerMixin):
             return self.ncomps
         except AttributeError as atre:
             raise atre
-        
+
     @ncomps.setter
     def ncomps(self, ncomps=1):
         """
@@ -156,24 +160,15 @@ class PCA(BaseEstimator, TransformerMixin):
         :return:
         """
         try:
+            self.ncomps = ncomps
+            self._model = 1
+            self.modelParameters = None
+            self.loadings = None
+            self.scores = None
+            self.cvParameters = None
             return None
         except AttributeError as atre:
             raise atre
-
-    @property
-    def VIP(self):
-        try:
-            return None
-        except AttributeError as atre:
-            raise AttributeError("Model not fitted")
-
-    @property
-    def regression_coefficients(self):
-        try:
-            np.dot(np.dot(self.weights.T, self.weights))
-            return None
-        except AttributeError as atre:
-            raise AttributeError("Model not fitted")
 
     @property
     def scaler(self):
@@ -216,10 +211,17 @@ class PCA(BaseEstimator, TransformerMixin):
             # Initialise predictive residual sum of squares variable
             press = 0
             # Calculate Sum of Squares SS
-            ss = 0
-            loadings = np.zeros((KFold.n_splits(), x.shape[1]))
+            ss = np.sum((x - np.mean(x, 1))**2)
+            loadings = []
+            cv_varexplained = []
             for xtrain, xtest in KFold.split(x):
-                Pipeline.fit_transform(xtest)
+                Pipeline.fit(x[xtrain, :])
+                # Calculate R2/Variance Explained in test set
+                testset_scores = Pipeline.transform(x[xtest,:])
+                rss = np.sum((x[xtest,:] - Pipeline.inverse_transform(testset_scores))**2)
+                tss = np.sum((x[xtest, :] - np.mean(x[xtest,:], 0))**2)
+                cv_varexplained.append(1-(rss/tss))
+                # Append the loadings to
                 loadings.append(Pipeline.get_params()['pca'])
                 if bro_press:
                     for var in range(0, xtest.shape[1]):
@@ -227,25 +229,31 @@ class PCA(BaseEstimator, TransformerMixin):
                         press += 1
                 else:
                     xpred = Pipeline.fit_transform(xtest)
-                    press += 1
+                    press += np.sum(()**2)
                 #    Pipeline.predict(xtopred)
             # Create matrices for each component loading containing the cv values in each round
             # nrows = nrounds, ncolumns = n_variables
-            loads = [np.array(loadings[x] for x in loadings)]
+            cv_loads = []
+            for comp in range(0, self.ncomps):
+                cv_loads.append(np.array([loadings[x][comp] for x in loadings]))
 
             # Introduce loop here to align loadings due to sign indeterminacy.
             for cvround in range(0,KFold.n_splits(x)):
-                for cv_comploadings in loads:
-                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_comploadings)), np.sum(np.abs(self.loadings[] - cv_comploadings * -1))]))
+                for currload in range(0, self.ncomps):
+                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_loads[currload][cvround, :])), np.sum(np.abs(self.loadings - cv_loads[currload][cvround,: ] * -1))]))
                     if choice == 1:
-                        -1*choice
+                        cv_loads[currload][cvround, :] = -1*cv_loads[currload][cvround, :]
+
             # Calculate total sum of squares
             # Q^2X
             q_squared = 1 - (press/ss)
             # Assemble the stuff in the end
 
-            self.cvParameters = {}
-
+            self.cvParameters = {'Mean_VarianceExplained':1, 'Stdev_VarianceExplained':1,
+                                'Q2':q_squared, 'Mean_Loadings':1, 'Stdev_Loadings'}
+            if outputdist:
+                self.cvParameters['CV_VarianceExplained'] = cv_varexplained
+                self.cvParameters['CV_Loadings'] = 1
             return None
 
         except TypeError as terp:

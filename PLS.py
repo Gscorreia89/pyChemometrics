@@ -42,8 +42,12 @@ class PLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # TO DO: Set the sklearn params for PCA to be a junction of the custom ones and the "core" params of model
             self._model = pls_algorithm(ncomps, **pls_type_kwargs)
             # These will be non-existant until object is fitted.
-            # self.scores = None
-            # self.loadings = None
+            self.loadings_ = None
+            self.scores_t = None
+            self.scores_u = None
+            self.weights = None
+            self.loadings_p = None
+            self.loadings_c = None
             self.ncomps = ncomps
             self.scaler = scaling
             self.cvParameters = None
@@ -67,9 +71,9 @@ class PLS(BaseEstimator, RegressorMixin, TransformerMixin):
             xscaled = self.fit_transform(x)
             yscaled = self.fit_transform(y)
             self._model.fit(x=xscaled, y=yscaled, **fit_params)
-            self.scores = self.transform(x)
-            self.loadings = self._model.x_loadings_
-            self.yloads = self._model.y_loadings_
+            self.scores_t = self.transform(x)
+            self.loadings_p = self._model.x_loadings_
+            self.loadings_c = self._model.y_loadings_
             self.weights = self._model.x_weights_
             self.modelParameters = {'VarianceExplained'}
 
@@ -138,17 +142,6 @@ class PLS(BaseEstimator, RegressorMixin, TransformerMixin):
             return None
         except AttributeError as atre:
             raise atre
-    @property
-    def scores(self, comp=1):
-        """
-
-        :param comp:
-        :return:
-        """
-        try:
-            return self._scores[:, comp-1]
-        except AttributeError as atre:
-            raise atre
 
     @property
     def scaler(self):
@@ -166,6 +159,32 @@ class PLS(BaseEstimator, RegressorMixin, TransformerMixin):
             return None
         except AttributeError as atre:
             raise atre
+        except TypeError as typerr:
+            raise typerr
+
+    @property
+    def VIP(self):
+        try:
+            return None
+        except AttributeError as atre:
+            raise AttributeError("Model not fitted")
+
+    @property
+    def regression_coefficients(self):
+        try:
+            np.dot(np.dot(self.weights.T, self.weights))
+            return None
+        except AttributeError as atre:
+            raise AttributeError("Model not fitted")
+
+    @property
+    def hotelling_T2(self, comps):
+        try:
+            return None
+        except AttributeError as atre:
+            raise atre
+        except ValueError as valerr:
+            raise valerr
         except TypeError as typerr:
             raise typerr
 
