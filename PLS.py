@@ -172,7 +172,7 @@ class PLS(BaseEstimator, RegressorMixin, TransformerMixin):
     @property
     def regression_coefficients(self):
         try:
-            np.dot(np.dot(self.weights.T, self.weights))
+            #np.dot(np.dot(self.weights.T, self.weights))
             return None
         except AttributeError as atre:
             raise AttributeError("Model not fitted")

@@ -1,15 +1,16 @@
 import pandas as pds
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
 from sklearn.decomposition import PCA as skPCA
+from sklearn.decomposition.base import _BasePCA
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import cross_val_score, BaseCrossValidator, KFold
 import numpy as np
+from sklearn.base import clone
 from ChemometricsScaler import ChemometricsScaler
-import types
 __author__ = 'gd2212'
 
 
-class PCA(BaseEstimator, TransformerMixin):
+class ChemometricsPCA(BaseEstimator, TransformerMixin):
     """
     General PCA class
     Inherits from Base Estimator, and TransformerMixin, to act as a legit fake
@@ -19,7 +20,8 @@ class PCA(BaseEstimator, TransformerMixin):
     # This class inherits from Base Estimator, and TransformerMixin to act as believable
     # scikit-learn PCA classifier
     # Constant usage of kwargs ensures that everything from scikit-learn can be used directly
-    def __init__(self, ncomps=2, pca_algorithm=skPCA, scaling=ChemometricsScaler(), metadata=None, **pca_type_kwargs):
+    def __init__(self, ncomps=2, pca_algorithm=skPCA, scaler=ChemometricsScaler(), metadata=None, **pca_type_kwargs):
+
         """
         :param metadata:
         :param n_comps:
@@ -29,15 +31,17 @@ class PCA(BaseEstimator, TransformerMixin):
         """
         try:
             # Metadata assumed to be pandas dataframe only
-            if metadata is not None:
-                if not isinstance(metadata, pds.DataFrame):
+            if (metadata is not None) and (metadata is not isinstance(metadata, pds.DataFrame)):
                     raise TypeError("Metadata must be provided as pandas dataframe")
             # The actual classifier can change, but needs to be a scikit-learn BaseEstimator
             # Changes this later for "PCA like only" - either check their hierarchy or make a list
-            if not issubclass(pca_algorithm, BaseEstimator):
+            #print(type(pca_algorithm))
+            # Perform the check but avoid abstract base class runs. PCA needs number of comps anyway!
+            pca_algorithm = pca_algorithm(n_components=ncomps)
+            if not isinstance(pca_algorithm, (_BasePCA, BaseEstimator, TransformerMixin)):
                 raise TypeError("Scikit-learn model please")
-            if not issubclass(scaling, TransformerMixin):
-                raise TypeError("Scikit-learn Transformer-like object please")
+            if not isinstance(scaler, TransformerMixin) or scaler is None:
+                raise TypeError("Scikit-learn Transformer-like object or None")
 
             # Add a check for partial fit methods? As in deploy partial fit child class if PCA is incremental??
             # By default it will work, but having the partial_fit function acessible might be usefull
@@ -48,20 +52,26 @@ class PCA(BaseEstimator, TransformerMixin):
             # The kwargs provided for the model are exactly the same as those
             # go and check for these examples the correct exception to throw when kwarg is not valid
             # TO DO: Set the sklearn params for PCA to be a junction of the custom ones and the "core" params of model
-            self._model = pca_algorithm(ncomps, **pca_type_kwargs)
-            # These will be non-existant until object is fitted.
+            #self.pca_algorithm = pca_algorithm(ncomps, **pca_type_kwargs)
+            self.pca_algorithm = pca_algorithm
+
+            # Most initialized as non, before object is fitted.
             self.scores = None
             self.loadings = None
+            self._ncomps = None
+            self._scaler = None
             self.ncomps = ncomps
-            self.scaler = scaling
+            self.scaler = scaler
             self.cvParameters = None
             self.modelParameters = None
 
         except TypeError as terp:
             print(terp.args[0])
+            raise terp
 
         except ValueError as verr:
             print(verr.args[0])
+            raise verr
 
     def fit(self, x, **fit_params):
         """
@@ -73,11 +83,17 @@ class PCA(BaseEstimator, TransformerMixin):
         """
         try:
             # Scaling
-            xscaled = self.scaler(x)
-            self._model.fit(xscaled, **fit_params)
-            self.scores = self.transform(x)
-            self.loadings = self._model.components_
-            self.modelParameters = {'VarianceExplained':self._model.explained_variance_, 'ProportionVarExp':self._model.explained_variance_ratio_}
+            if self.scaler:
+                xscaled = self.scaler.fit_transform(x)
+                self.pca_algorithm.fit(xscaled, **fit_params)
+                self.scores = self.transform(xscaled)
+            else:
+                self.pca_algorithm.fit(x, **fit_params)
+                self.scores = self.transform(x)
+            # Kernel PCA and other non-linear methods might not have explicit loadings - safeguard against this
+            if hasattr(self.pca_algorithm, 'components_'):
+                self.loadings = self.pca_algorithm.components_
+            self.modelParameters = {'VarianceExplained': self.pca_algorithm.explained_variance_, 'ProportionVarExp': self.pca_algorithm.explained_variance_ratio_}
         except Exception as exp:
             raise exp
 
@@ -88,19 +104,26 @@ class PCA(BaseEstimator, TransformerMixin):
         :param fit_params:
         :return:
         """
+        try:
+            self.fit(x)
+            return self.pca_algorithm.fit_transform(x, **fit_params)
 
-        return self._model.fit_transform(x, **fit_params)
+        except Exception as exp:
+            raise exp
 
-    def transform(self, x):
+    def transform(self, x, **transform_kwargs):
         """
         Calculate the projection of the data into the lower dimensional space
         :param x:
         :return:
         """
+        if self.scaler:
+            xscaled = self.scaler.transform(x)
+            return self.pca_algorithm.transform(xscaled, **transform_kwargs)
+        else:
+            return self.pca_algorithm.transform(x, **transform_kwargs)
 
-        return self._model.transform(x)
-
-    def score(self, x):
+    def score(self, x, **score_kwargs):
         """
         Keeping the original likelihood method of probabilistic PCA.
         The R2 is already obtained by the SVD so...
@@ -108,9 +131,14 @@ class PCA(BaseEstimator, TransformerMixin):
         :param sample_weight:
         :return:
         """
-        self.model_.score(self, x, sample_weight=None)
-
-        return None
+        try:
+            if self.scaler:
+                xscaled = self.scaler.transform(x)
+                return self.pca_algorithm.score(xscaled, **score_kwargs)
+            else:
+                return self.pca_algorithm.score(x, **score_kwargs)
+        except Exception as exp:
+            return None
 
     def inverse_transform(self, scores):
         """
@@ -118,7 +146,8 @@ class PCA(BaseEstimator, TransformerMixin):
         :param scores:
         :return:
         """
-        return self._model.inverse_transform(scores)
+
+        return self.pca_algorithm.inverse_transform(scores)
 
     def predict(self, x, vars_to_pred):
         """
@@ -135,7 +164,7 @@ class PCA(BaseEstimator, TransformerMixin):
             #    xtopred = x
             #    Pipeline.predict(xtopred)
             #projection = np.dot(np.dot(to_pred, np.linalg.pinv(to_predloads).T), loadings)
-        return self.inverse_transform(x)
+        return self.pca_algorithm.inverse_transform(x)
 
     def impute(self, x):
         return NotImplementedError
@@ -143,25 +172,26 @@ class PCA(BaseEstimator, TransformerMixin):
     @property
     def ncomps(self):
         """
-        Getter not important...
+        Although this getter is not so important
         :param ncomps:
         :return:
         """
         try:
-            return self.ncomps
+            return self._ncomps
         except AttributeError as atre:
             raise atre
 
     @ncomps.setter
     def ncomps(self, ncomps=1):
         """
-        To make sure messing with this resets the model
+        The ncomps property can be used to
         :param ncomps:
         :return:
         """
         try:
-            self.ncomps = ncomps
-            self._model = 1
+            self._ncomps = ncomps
+            self.pca_algorithm = clone(self.pca_algorithm, safe=True)
+            self.pca_algorithm.n_components = ncomps
             self.modelParameters = None
             self.loadings = None
             self.scores = None
@@ -173,17 +203,23 @@ class PCA(BaseEstimator, TransformerMixin):
     @property
     def scaler(self):
         try:
-            return self.scaler
+            return self._scaler
         except AttributeError as atre:
             raise atre
 
     @scaler.setter
     def scaler(self, scaler):
         try:
-            if not issubclass(scaler, TransformerMixin):
-                raise TypeError("Scikit-learn Transformer-like object please")
-            self.scaler = scaler
+            if not isinstance(scaler, TransformerMixin) or scaler is None:
+                raise TypeError("Scikit-learn Transformer-like object or None")
+            self._scaler = scaler
+            self.pca_algorithm = clone(self.pca_algorithm, safe=True)
+            self.modelParameters = None
+            self.loadings = None
+            self.scores = None
+            self.cvParameters = None
             return None
+
         except AttributeError as atre:
             raise atre
         except TypeError as typerr:
@@ -203,57 +239,76 @@ class PCA(BaseEstimator, TransformerMixin):
         try:
             if not isinstance(method, BaseCrossValidator):
                 raise TypeError("Scikit-learn cross-validation object please")
-            Pipeline = ([('scaler', self.scaler), ('pca', self._model)])
 
-            # Check if global model is fitted... and if not, fit using x
+            if self.scaler:
+                Pipeline = ([('scaler', self.scaler), ('pca', self.pca_algorithm)])
+            else:
+                Pipeline = ([('pca', self.pca_algorithm)])
+            # Check if global model is fitted... and if not, fit it using all of X
             if self.loadings is None:
                 self.fit(x)
             # Initialise predictive residual sum of squares variable
             press = 0
             # Calculate Sum of Squares SS
             ss = np.sum((x - np.mean(x, 1))**2)
-            loadings = []
+            # Initialise list for loadings and for the VarianceExplained in the test set values
+
+            if hasattr(self.pca_algorithm, 'components_'):
+                loadings = []
             cv_varexplained = []
+
             for xtrain, xtest in KFold.split(x):
                 Pipeline.fit(x[xtrain, :])
                 # Calculate R2/Variance Explained in test set
                 testset_scores = Pipeline.transform(x[xtest,:])
                 rss = np.sum((x[xtest,:] - Pipeline.inverse_transform(testset_scores))**2)
                 tss = np.sum((x[xtest, :] - np.mean(x[xtest,:], 0))**2)
+                # Append the var explained in test set for this round and loadings
                 cv_varexplained.append(1-(rss/tss))
-                # Append the loadings to
-                loadings.append(Pipeline.get_params()['pca'])
+                if hasattr(self.pca_algorithm, 'components_'):
+                    loadings.append(Pipeline.get_params()['pca'].components_)
                 if bro_press:
                     for var in range(0, xtest.shape[1]):
                         xpred = Pipeline.predict(xtest, var)
-                        press += 1
+                        press += np.sum((xtest - xpred)**2)
                 else:
                     xpred = Pipeline.fit_transform(xtest)
-                    press += np.sum(()**2)
+                    press += np.sum((xtest - xpred)**2)
                 #    Pipeline.predict(xtopred)
+
             # Create matrices for each component loading containing the cv values in each round
             # nrows = nrounds, ncolumns = n_variables
-            cv_loads = []
-            for comp in range(0, self.ncomps):
-                cv_loads.append(np.array([loadings[x][comp] for x in loadings]))
 
-            # Introduce loop here to align loadings due to sign indeterminacy.
-            for cvround in range(0,KFold.n_splits(x)):
-                for currload in range(0, self.ncomps):
-                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_loads[currload][cvround, :])), np.sum(np.abs(self.loadings - cv_loads[currload][cvround,: ] * -1))]))
-                    if choice == 1:
-                        cv_loads[currload][cvround, :] = -1*cv_loads[currload][cvround, :]
+            # Check that the PCA model has loadings
+            if hasattr(self.pca_algorithm, 'components_'):
+                cv_loads = []
+                for comp in range(0, self.ncomps):
+                    cv_loads.append(np.array([loadings[x][comp] for x in loadings]))
+
+                # Align loadings due to sign indeterminacy.
+                for cvround in range(0, KFold.n_splits(x)):
+                    for currload in range(0, self.ncomps):
+                        choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_loads[currload][cvround, :])), np.sum(np.abs(self.loadings - cv_loads[currload][cvround,: ] * -1))]))
+                        if choice == 1:
+                            cv_loads[currload][cvround, :] = -1*cv_loads[currload][cvround, :]
 
             # Calculate total sum of squares
             # Q^2X
             q_squared = 1 - (press/ss)
             # Assemble the stuff in the end
 
-            self.cvParameters = {'Mean_VarianceExplained':1, 'Stdev_VarianceExplained':1,
-                                'Q2':q_squared, 'Mean_Loadings':1, 'Stdev_Loadings'}
+            self.cvParameters = {'Mean_VarianceExplained': 1, 'Stdev_VarianceExplained': 1,
+                                'Q2': q_squared}
+
             if outputdist:
                 self.cvParameters['CV_VarianceExplained'] = cv_varexplained
-                self.cvParameters['CV_Loadings'] = 1
+            # Check that the PCA model has loadings
+            if hasattr(self.pca_algorithm, 'components_'):
+                self.cvParameters['Mean_Loadings'] = 1
+                self.cvParameters['Stdev_Loadings'] = 1
+                if outputdist:
+                    self.cvParameters['CV_Loadings'] = cv_loads
+
             return None
 
         except TypeError as terp:

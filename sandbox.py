@@ -2,9 +2,11 @@ __author__ = 'gd2212'
 # general file for testing, to get started
 
 import pandas as pds
-from PCA import PCA
+from PCA import ChemometricsPCA as chempca
 from sklearn.decomposition import KernelPCA
+from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+from sklearn.base import clone
 
 # Read lipofit data, perfect example for CV testing since it has classes and nested data
 matrix = pds.read_csv('ExampleFile(TRACElipofitmat).csv')
@@ -13,12 +15,15 @@ xmat = matrix.iloc[:, 8:]
 
 # Kernel model, including kw
 
-regularpca = PCA()
-rbfkernelPCA = PCA(pca_algorithm=KernelPCA, **{'kernel': 'rbf'})
+a = chempca()
+a.fit(xmat)
+regularpca = pc()
+#bfkernelPCA = PCA(pca_algorithm=KernelPCA, **{'kernel': 'rbf'})
 
-pcascores = regularpca.fit_transform(xmat)
-rbfscores = rbfkernelPCA.fit_transform(xmat)
+pcascores = regularpca.fit(xmat)
+#rbfscores = rbfkernelPCA.fit_transform(xmat)
 
+restart_pca = clone(pcamodel, safe=True)
 
 # for now improvised scoreplot...
 plt.figure()
