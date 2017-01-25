@@ -3,14 +3,14 @@ from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition.base import _BasePCA
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import cross_val_score, BaseCrossValidator, KFold
+from sklearn.model_selection import BaseCrossValidator, KFold
 import numpy as np
 from sklearn.base import clone
 from ChemometricsScaler import ChemometricsScaler
 __author__ = 'gd2212'
 
 
-class ChemometricsPCA(BaseEstimator, TransformerMixin):
+class ChemometricsPCA(_BasePCA):
     """
     General PCA class
     Inherits from Base Estimator, and TransformerMixin, to act as a legit fake
@@ -36,7 +36,7 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
             # The actual classifier can change, but needs to be a scikit-learn BaseEstimator
             # Changes this later for "PCA like only" - either check their hierarchy or make a list
             #print(type(pca_algorithm))
-            # Perform the check but avoid abstract base class runs. PCA needs number of comps anyway!
+            # Perform the check with is instance but avoid abstract base class runs. PCA needs number of comps anyway!
             pca_algorithm = pca_algorithm(n_components=ncomps)
             if not isinstance(pca_algorithm, (_BasePCA, BaseEstimator, TransformerMixin)):
                 raise TypeError("Scikit-learn model please")
@@ -52,7 +52,6 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
             # The kwargs provided for the model are exactly the same as those
             # go and check for these examples the correct exception to throw when kwarg is not valid
             # TO DO: Set the sklearn params for PCA to be a junction of the custom ones and the "core" params of model
-            #self.pca_algorithm = pca_algorithm(ncomps, **pca_type_kwargs)
             self.pca_algorithm = pca_algorithm
 
             # Most initialized as non, before object is fitted.
@@ -64,6 +63,7 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
             self.scaler = scaler
             self.cvParameters = None
             self.modelParameters = None
+            self._isfitted = False
 
         except TypeError as terp:
             print(terp.args[0])
@@ -83,7 +83,7 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
         """
         try:
             # Scaling
-            if self.scaler:
+            if self.scaler is not None:
                 xscaled = self.scaler.fit_transform(x)
                 self.pca_algorithm.fit(xscaled, **fit_params)
                 self.scores = self.transform(xscaled)
@@ -94,6 +94,7 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
             if hasattr(self.pca_algorithm, 'components_'):
                 self.loadings = self.pca_algorithm.components_
             self.modelParameters = {'VarianceExplained': self.pca_algorithm.explained_variance_, 'ProportionVarExp': self.pca_algorithm.explained_variance_ratio_}
+            self._isfitted = True
         except Exception as exp:
             raise exp
 
@@ -106,8 +107,7 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
         """
         try:
             self.fit(x)
-            return self.pca_algorithm.fit_transform(x, **fit_params)
-
+            return self.transform(x)
         except Exception as exp:
             raise exp
 
@@ -117,7 +117,7 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
         :param x:
         :return:
         """
-        if self.scaler:
+        if self.scaler is not None:
             xscaled = self.scaler.transform(x)
             return self.pca_algorithm.transform(xscaled, **transform_kwargs)
         else:
@@ -132,7 +132,7 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
         :return:
         """
         try:
-            if self.scaler:
+            if self.scaler is not None:
                 xscaled = self.scaler.transform(x)
                 return self.pca_algorithm.score(xscaled, **score_kwargs)
             else:
@@ -146,10 +146,14 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
         :param scores:
         :return:
         """
+        if self.scaler is not None:
+            xinv_prescaled = self.pca_algorithm.inverse_transform(scores)
+            xinv = self.scaler.inverse_transform(xinv_prescaled)
+            return xinv
+        else:
+            return self.pca_algorithm.inverse_transform(scores)
 
-        return self.pca_algorithm.inverse_transform(scores)
-
-    def predict(self, x, vars_to_pred):
+    def _press_impute(self, x, var_to_pred):
         """
         A bit weird for pca...
         The idea is to place missing data imputation here!
@@ -157,17 +161,18 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
         :param vars_to_pred: which variables are to be predicted
         :return:
         """
-        # remove the vars from the original loadings
-        for vars in vars_to_pred:
-            for samp in range(0, x.shape[0]):
-                self.scaler.transform(x)
-            #    xtopred = x
-            #    Pipeline.predict(xtopred)
-            #projection = np.dot(np.dot(to_pred, np.linalg.pinv(to_predloads).T), loadings)
-        return self.pca_algorithm.inverse_transform(x)
+        if self.scaler is not None:
+            xscaled = self.scaler.transform(x)
+        else:
+            xscaled = x
 
-    def impute(self, x):
-        return NotImplementedError
+        to_pred = np.delete(xscaled, var_to_pred, axis=1)
+        topred_loads = np.delete(self.loadings.T, var_to_pred, axis=0)
+        imputed_x = np.dot(np.dot(to_pred, np.linalg.pinv(topred_loads).T), self.loadings)
+        if self.scaler is not None:
+            imputed_x = self.scaler.inverse_transform(imputed_x)
+
+        return imputed_x
 
     @property
     def ncomps(self):
@@ -240,41 +245,41 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
             if not isinstance(method, BaseCrossValidator):
                 raise TypeError("Scikit-learn cross-validation object please")
 
-            if self.scaler:
-                Pipeline = ([('scaler', self.scaler), ('pca', self.pca_algorithm)])
-            else:
-                Pipeline = ([('pca', self.pca_algorithm)])
             # Check if global model is fitted... and if not, fit it using all of X
-            if self.loadings is None:
+            if self._isfitted is False:
                 self.fit(x)
+            cv_pipeline = self
             # Initialise predictive residual sum of squares variable
             press = 0
             # Calculate Sum of Squares SS
-            ss = np.sum((x - np.mean(x, 1))**2)
+            ss = np.sum((x - np.mean(x, 0))**2)
             # Initialise list for loadings and for the VarianceExplained in the test set values
 
             if hasattr(self.pca_algorithm, 'components_'):
                 loadings = []
             cv_varexplained = []
 
-            for xtrain, xtest in KFold.split(x):
-                Pipeline.fit(x[xtrain, :])
+            for xtrain, xtest in method.split(x):
+                cv_pipeline.fit(x[xtrain, :])
                 # Calculate R2/Variance Explained in test set
-                testset_scores = Pipeline.transform(x[xtest,:])
-                rss = np.sum((x[xtest,:] - Pipeline.inverse_transform(testset_scores))**2)
-                tss = np.sum((x[xtest, :] - np.mean(x[xtest,:], 0))**2)
+
+                testset_scores = cv_pipeline.transform(x[xtest, :])
+                rss = np.sum((x[xtest, :] - cv_pipeline.inverse_transform(testset_scores))**2)
+                tss = np.sum((x[xtest, :] - np.mean(x[xtest, :], 0))**2)
+
                 # Append the var explained in test set for this round and loadings
-                cv_varexplained.append(1-(rss/tss))
+                cv_varexplained.append(cv_pipeline.pca_algorithm.explained_variance_)
                 if hasattr(self.pca_algorithm, 'components_'):
-                    loadings.append(Pipeline.get_params()['pca'].components_)
-                if bro_press:
-                    for var in range(0, xtest.shape[1]):
-                        xpred = Pipeline.predict(xtest, var)
-                        press += np.sum((xtest - xpred)**2)
+                    loadings.append(cv_pipeline.loadings)
+
+                if bro_press is True:
+                    for column in range(0, x[xtest, :].shape[1]):
+                        xpred = cv_pipeline._press_impute(x[xtest, :], column)
+                        press += np.sum((x[xtest, column] - xpred[:, column])**2)
                 else:
-                    xpred = Pipeline.fit_transform(xtest)
-                    press += np.sum((xtest - xpred)**2)
-                #    Pipeline.predict(xtopred)
+                    pred_scores = cv_pipeline.fit_transform(x[xtest, :])
+                    pred_x = cv_pipeline.inverse_transform(pred_scores)
+                    press += np.sum((x[xtest, :] - pred_x)**2)
 
             # Create matrices for each component loading containing the cv values in each round
             # nrows = nrounds, ncolumns = n_variables
@@ -283,10 +288,10 @@ class ChemometricsPCA(BaseEstimator, TransformerMixin):
             if hasattr(self.pca_algorithm, 'components_'):
                 cv_loads = []
                 for comp in range(0, self.ncomps):
-                    cv_loads.append(np.array([loadings[x][comp] for x in loadings]))
+                    cv_loads.append(np.array([x[comp] for x in loadings]))
 
                 # Align loadings due to sign indeterminacy.
-                for cvround in range(0, KFold.n_splits(x)):
+                for cvround in range(0, method.n_splits):
                     for currload in range(0, self.ncomps):
                         choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_loads[currload][cvround, :])), np.sum(np.abs(self.loadings - cv_loads[currload][cvround,: ] * -1))]))
                         if choice == 1:
