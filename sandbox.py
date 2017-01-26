@@ -22,24 +22,33 @@ a.fit(xmat)
 a.cross_validation(xmat.values, bro_press=True)
 
 # Bro_press comparison
+ncomps = 3
+
 qsquareds = []
-for ncomps in range(1, 10):
-    pca = chempca(ncomps=ncomps)
+r2test = []
+for curr_ncomp in range(1, ncomps+1):
+    pca = chempca(ncomps=curr_ncomp)
     pca.cross_validation(x=xmat.values, bro_press=True)
     qsquareds.append(pca.cvParameters['Q2'])
+    r2test.append(pca.cvParameters['Mean_VarianceExplained_Train'])
 
 qsquareds_nobro= []
-for ncomps in range(1, 10):
-    pca = chempca(ncomps=ncomps)
+r2test_nobro = []
+for curr_ncomp in range(1, ncomps+1):
+    pca = chempca(ncomps=curr_ncomp)
     pca.cross_validation(x=xmat.values, bro_press=False)
     qsquareds_nobro.append(pca.cvParameters['Q2'])
+    r2test_nobro.append(pca.cvParameters['Mean_VarianceExplained_Train'])
 
 %matplotlib qt
 width = 0.35
 fig, ax = plt.subplots()
-left = np.arange(0, ncomps)
-ax.bar(left, qsquareds, width, color='r', alpha=0.5)
-ax.bar(left + width, qsquareds_nobro, width)
+left = np.arange(1, ncomps+1)
+ax.bar(left , qsquareds_nobro, width/4)
+ax.bar(left + 0.25*width, qsquareds, width/4, color='r', alpha=0.5)
+ax.bar(left + 0.5*width, r2test_nobro, width/4, color='g')
+ax.bar(left + 0.75*width, r2test, width/4, color='k')
+
 plt.show()
 
 

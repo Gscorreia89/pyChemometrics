@@ -95,7 +95,7 @@ class ChemometricsPCA(_BasePCA):
             # Kernel PCA and other non-linear methods might not have explicit loadings - safeguard against this
             if hasattr(self.pca_algorithm, 'components_'):
                 self.loadings = self.pca_algorithm.components_
-            self.modelParameters = {'VarianceExplained': self.pca_algorithm.explained_variance_, 'ProportionVarExp': self.pca_algorithm.explained_variance_ratio_}
+            self.modelParameters = {'VarExp': self.pca_algorithm.explained_variance_, 'VarExpRatio': self.pca_algorithm.explained_variance_ratio_}
             self._isfitted = True
         except Exception as exp:
             raise exp
@@ -287,14 +287,14 @@ class ChemometricsPCA(_BasePCA):
             # model fitted with the training set in the test set.
             cv_varexplained_training = []
             cv_varexplained_test = []
-            
+
             for xtrain, xtest in method.split(x):
                 cv_pipeline.fit(x[xtrain, :])
                 # Calculate R2/Variance Explained in test set
                 # To calculat an R2X in the test set
                 tss = np.sum((x[xtest, :] - np.mean(x[xtest, :], 0))**2)
                 # Append the var explained in training set for this round and loadings for this round
-                cv_varexplained_training.append(cv_pipeline.pca_algorithm.explained_variance_)
+                cv_varexplained_training.append(cv_pipeline.pca_algorithm.explained_variance_ratio_)
                 if hasattr(self.pca_algorithm, 'components_'):
                     loadings.append(cv_pipeline.loadings)
 
@@ -337,15 +337,15 @@ class ChemometricsPCA(_BasePCA):
             q_squared = 1 - (total_press/ss)
             # Assemble the dictionary and data matrices
 
-            self.cvParameters = {'Mean_VarianceExplained_Train': [np.mean(x, 0) for x in cv_varexplained_training],
-                                 'Stdev_VarianceExplained_Train': [np.std(x, 0) for x in cv_varexplained_training],
-                                'Mean_VarianceExplained_Test': np.mean(cv_varexplained_test),
-                                 'Stdev_VarianceExplained_Test': np.std(cv_varexplained_test),
+            self.cvParameters = {'Mean_VarExpRatio_Train': np.array(cv_varexplained_training).mean(axis=0),
+                                 'Stdev_VarExpRatio_Train': np.array(cv_varexplained_training).mean(axis=0),
+                                'Mean_VarExp_Test': np.mean(cv_varexplained_test),
+                                 'Stdev_VarExp_Test': np.std(cv_varexplained_test),
                                  'Q2': q_squared}
 
             if outputdist:
-                self.cvParameters['CV_VarianceExplained_Training'] = cv_varexplained_training
-                self.cvParameters['CV_VarianceExplained_Test'] = cv_varexplained_test
+                self.cvParameters['CV_VarExp_Training'] = cv_varexplained_training
+                self.cvParameters['CV_VarExp_Test'] = cv_varexplained_test
             # Check that the PCA model has loadings
             if hasattr(self.pca_algorithm, 'components_'):
                 self.cvParameters['Mean_Loadings'] = [np.mean(x, 0) for x in cv_loads]
@@ -360,7 +360,7 @@ class ChemometricsPCA(_BasePCA):
 
     def permutationtest_loadings(self, x, nperms=1000):
         """
-
+        Permutation test to assess significance of variable belonging to a loading.
         :param x:
         :param nperms:
         :return:
@@ -395,12 +395,14 @@ class ChemometricsPCA(_BasePCA):
                                                  np.sum(np.abs(self.loadings - permuted_loads[currload][perm_n, :] * -1))]))
                     if choice == 1:
                         permuted_loads[currload][perm_n, :] = -1 * permuted_loads[currload][perm_n, :]
+                        
             return permuted_loads
         except Exception as exp:
             raise exp
 
-    def permutationtest(self, x, nperms=1000):
+    def permutationtest_components(self, x, nperms=1000):
         """
+        Permutation test for whole component
 
         :param x:
         :param nperms:
@@ -423,7 +425,8 @@ class ChemometricsPCA(_BasePCA):
                 permute_class.fit(x)
                 x = orig
                 permuted_varExp.append(permute_class.ModelParameters[''])
-            return permuted_loads
+            return permuted_varExp
+
         except Exception as exp:
             raise exp
 
