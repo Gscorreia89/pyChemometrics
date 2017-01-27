@@ -267,7 +267,7 @@ class ChemometricsPCA(_BasePCA):
                 raise TypeError("Scikit-learn cross-validation object please")
 
             # Check if global model is fitted... and if not, fit it using all of X
-            if self._isfitted is False:
+            if self._isfitted is False or self.loadings is None:
                 self.fit(x)
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
@@ -337,20 +337,20 @@ class ChemometricsPCA(_BasePCA):
             q_squared = 1 - (total_press/ss)
             # Assemble the dictionary and data matrices
 
-            self.cvParameters = {'Mean_VarExpRatio_Train': np.array(cv_varexplained_training).mean(axis=0),
-                                 'Stdev_VarExpRatio_Train': np.array(cv_varexplained_training).mean(axis=0),
+            self.cvParameters = {'Mean_VarExpRatio_Training': np.array(cv_varexplained_training).mean(axis=0),
+                                 'Stdev_VarExpRatio_Training': np.array(cv_varexplained_training).mean(axis=0),
                                 'Mean_VarExp_Test': np.mean(cv_varexplained_test),
                                  'Stdev_VarExp_Test': np.std(cv_varexplained_test),
                                  'Q2': q_squared}
 
-            if outputdist:
-                self.cvParameters['CV_VarExp_Training'] = cv_varexplained_training
+            if outputdist is True:
+                self.cvParameters['CV_VarExpRatio_Training'] = cv_varexplained_training
                 self.cvParameters['CV_VarExp_Test'] = cv_varexplained_test
             # Check that the PCA model has loadings
             if hasattr(self.pca_algorithm, 'components_'):
                 self.cvParameters['Mean_Loadings'] = [np.mean(x, 0) for x in cv_loads]
                 self.cvParameters['Stdev_Loadings'] = [np.std(x, 0) for x in cv_loads]
-                if outputdist:
+                if outputdist is True:
                     self.cvParameters['CV_Loadings'] = cv_loads
 
             return None
@@ -367,7 +367,7 @@ class ChemometricsPCA(_BasePCA):
         """
         try:
             # Check if global model is fitted... and if not, fit it using all of X
-            if self._isfitted is False:
+            if self._isfitted is False or self.loadings is None:
                 self.fit(x)
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
@@ -420,11 +420,11 @@ class ChemometricsPCA(_BasePCA):
             for permutation in range(0, nperms):
                 # Copy original column order, shuffle array in place...
                 orig = np.copy(x)
-                np.random.shuffle(x.T)
+                #np.random.shuffle(x.T)
                 # ... Fit model and replace original data
                 permute_class.fit(x)
                 x = orig
-                permuted_varExp.append(permute_class.ModelParameters[''])
+                permuted_varExp.append(permute_class.ModelParameters['VarExpRatio'])
             return permuted_varExp
 
         except Exception as exp:
