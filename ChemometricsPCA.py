@@ -252,6 +252,17 @@ class ChemometricsPCA(_BasePCA):
         except TypeError as typerr:
             raise typerr
 
+    @property
+    def hotelling_T2(self, comps):
+        try:
+            return None
+        except AttributeError as atre:
+            raise atre
+        except ValueError as valerr:
+            raise valerr
+        except TypeError as typerr:
+            raise typerr
+        
     def cross_validation(self, x,  method=KFold(7, True), outputdist=False, bro_press=True, **crossval_kwargs):
         """
         General cross Validation method
