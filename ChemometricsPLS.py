@@ -76,16 +76,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # returned by inverse_transform, etc
             if self.x_scaler is not None:
                 xscaled = self.x_scaler.fit_transform(x)
-                yscaled = self.y_scaler.fit_transform(y)
-
-                self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
-                self.scores_t = self.transform(xscaled)
-                #self.scores_u
-
             else:
-                self.pLS_algorithm.fit(x, y, **fit_params)
-                self.scores = self.transform(x)
+                xscaled = x
+            if self.y_scaler is not None:
+                yscaled = self.y_scaler.fit_transform(y)
+            else:
+                yscaled = y
 
+            self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
+            self.scores_t = self.transform(xscaled)
             self.loadings_p = self.pls_algorithm.x_loadings_
             self.loadings_c = self.pls_algorithm.y_loadings_
             self.weights = self.pls_algorithm.x_weights_
@@ -111,16 +110,21 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def transform(self, x, **transform_kwargs):
         """
         Calculate the projection of the data into the lower dimensional space
+        TO DO as Pls does not contain this...
         :param x:
         :return:
         """
-        if self.x_scaler is not None:
-            xscaled = self.x_scaler.transform(x)
-            return self.pls. algorithm.transform(xscaled, **transform_kwargs)
-        else:
-            return self.pls_algorithm.transform(x, **transform_kwargs)
 
-        return self._model.transform(x)
+        if self.x_scaler is not None:
+            xscaled = self.x_scaler.fit_transform(x)
+        else:
+            xscaled = x
+        if self.y_scaler is not None:
+            yscaled = self.y_scaler.fit_transform(y)
+        else:
+            yscaled = y
+
+        return self.pls. algorithm.transform(xscaled, **transform_kwargs)
 
     def inverse_transform(self, scores):
         """
@@ -128,6 +132,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :param scores:
         :return:
         """
+        if self.x_scaler is not None:
+            xscaled = self.x_scaler.fit_transform(x)
+        else:
+            xscaled = x
+        if self.y_scaler is not None:
+            yscaled = self.y_scaler.fit_transform(y)
+        else:
+            yscaled = y
+
         return self._model.inverse_transform(scores)
 
     def score(self, x, y, sample_weight=None):
@@ -286,7 +299,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             return None
         except AttributeError as atre:
             raise AttributeError("Model not fitted")
-        
+
     @property
     def hotelling_T2(self, comps):
         try:

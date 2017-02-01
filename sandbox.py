@@ -11,35 +11,29 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Read lipofit data, perfect example for CV testing since it has classes and nested data
-matrix = pds.read_csv('ExampleFile(TRACElipofitmat).csv')
+#matrix = pds.read_csv('ExampleFile(TRACElipofitmat).csv')
 # the X matrix
-xmat = matrix.iloc[:, 8::]
+#xmat = matrix.iloc[:, 8::]
 
 # Kernel model, including kw
-
-a = chempca(3)
-a.fit(xmat)
-a.cross_validation(xmat.values, bro_press=True)
+matrix = pds.read_csv('CSVD S LNEG_intensityData.csv')
+xmat = matrix
+#a = chempca(3)
+#a.fit(xmat)
+#a.cross_validation(xmat.values, bro_press=True)
 
 
 # Bro_press comparison
 ncomps = 3
 
-qsquareds = []
-r2test = []
-for curr_ncomp in range(1, ncomps+1):
-    pca = chempca(ncomps=curr_ncomp)
-    pca.cross_validation(x=xmat.values, bro_press=True)
-    qsquareds.append(pca.cvParameters['Q2'])
-    r2test.append(pca.cvParameters['Mean_VarianceExplained_Train'])
-
 qsquareds_nobro= []
 r2test_nobro = []
 for curr_ncomp in range(1, ncomps+1):
     pca = chempca(ncomps=curr_ncomp)
-    pca.cross_validation(x=xmat.values, bro_press=False)
+    pca.cross_validation(x=xmat.values, bro_press=True)
     qsquareds_nobro.append(pca.cvParameters['Q2'])
-    r2test_nobro.append(pca.cvParameters['Mean_VarianceExplained_Train'])
+    r2test_nobro.append(pca.modelParameters['R2X'])
+
 
 %matplotlib qt
 width = 0.35
