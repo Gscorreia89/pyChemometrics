@@ -297,7 +297,8 @@ class ChemometricsPCA(_BasePCA):
             # Initialise predictive residual sum of squares variable (for whole CV routine)
             total_press = 0
             # Calculate Sum of Squares SS in whole dataset
-            ss = np.sum((x - np.mean(x, 0))**2)
+            #ss = np.sum((self.scaler.transform(x) - np.mean(x, 0))**2)
+            ss = np.sum((self.scaler.transform(x)) ** 2)
             # Initialise list for loadings and for the VarianceExplained in the test set values
             # Check if model has loadings, as in case of kernelPCA these are not available
             if hasattr(self.pca_algorithm, 'components_'):
