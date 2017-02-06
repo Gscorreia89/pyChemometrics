@@ -313,7 +313,9 @@ class ChemometricsPCA(_BasePCA):
                 cv_pipeline.fit(x[xtrain, :])
                 # Calculate R2/Variance Explained in test set
                 # To calculat an R2X in the test set
-                tss = np.sum((x[xtest, :] - np.mean(x[xtest, :], 0))**2)
+                xtest_scaled = cv_pipeline.scaler.transform(x[xtest, :])
+                # A bit redundant the mean subtraction but leave it for now.
+                tss = np.sum((xtest_scaled - np.mean(x[xtest, :], 0))**2)
                 # Append the var explained in training set for this round and loadings for this round
                 cv_varexplained_training.append(cv_pipeline.pca_algorithm.explained_variance_ratio_)
                 if hasattr(self.pca_algorithm, 'components_'):
@@ -322,16 +324,16 @@ class ChemometricsPCA(_BasePCA):
                 if bro_press is True:
                     press_testset = 0
                     for column in range(0, x[xtest, :].shape[1]):
-                        xpred = cv_pipeline._press_impute(x[xtest, :], column)
-                        press_testset += np.sum((x[xtest, column] - xpred[:, column]) ** 2)
+                        xpred = cv_pipeline.scaler.transform(cv_pipeline._press_impute(x[xtest, :], column))
+                        press_testset += np.sum((xtest_scaled[:, column] - xpred[:, column]) ** 2)
                     cv_varexplained_test.append(1 - (press_testset / tss))
                     total_press += press_testset
 
                 else:
                     # RSS for row wise cross-validation
                     pred_scores = cv_pipeline.transform(x[xtest, :])
-                    pred_x = cv_pipeline.inverse_transform(pred_scores)
-                    rss = np.sum((x[xtest, :] - pred_x) ** 2)
+                    pred_x = cv_pipeline.scaler.transform(cv_pipeline.inverse_transform(pred_scores))
+                    rss = np.sum((xtest_scaled - pred_x) ** 2)
                     total_press += rss
                     cv_varexplained_test.append(1 - (rss/tss))
 
