@@ -315,7 +315,7 @@ class ChemometricsPCA(_BasePCA):
                 # To calculat an R2X in the test set
                 xtest_scaled = cv_pipeline.scaler.transform(x[xtest, :])
                 # A bit redundant the mean subtraction but leave it for now.
-                tss = np.sum((xtest_scaled - np.mean(x[xtest, :], 0))**2)
+                tss = np.sum((xtest_scaled - np.mean(xtest_scaled, 0))**2)
                 # Append the var explained in training set for this round and loadings for this round
                 cv_varexplained_training.append(cv_pipeline.pca_algorithm.explained_variance_ratio_)
                 if hasattr(self.pca_algorithm, 'components_'):
@@ -336,7 +336,6 @@ class ChemometricsPCA(_BasePCA):
                     rss = np.sum((xtest_scaled - pred_x) ** 2)
                     total_press += rss
                     cv_varexplained_test.append(1 - (rss/tss))
-
 
             # Create matrices for each component loading containing the cv values in each round
             # nrows = nrounds, ncolumns = n_variables
