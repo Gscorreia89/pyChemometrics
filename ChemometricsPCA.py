@@ -89,9 +89,9 @@ class ChemometricsPCA(_BasePCA):
                 xscaled = self.scaler.fit_transform(x)
                 self.pca_algorithm.fit(xscaled, **fit_params)
                 self.scores = self.pca_algorithm.transform(xscaled)
-                ss = np.sum((x - np.mean(x, 0)) ** 2)
-                predicted = self.scaler.inverse_transform(self.pca_algorithm.inverse_transform(self.scores))
-                rss = np.sum((x - predicted) ** 2)
+                ss = np.sum((xscaled - np.mean(xscaled, 0)) ** 2)
+                predicted = self.pca_algorithm.inverse_transform(self.scores)
+                rss = np.sum((xscaled - predicted) ** 2)
                 # variance explained from scikit learn stored as well
                 self.modelParameters = {'R2X': 1 - (rss/ss), 'VarExpRatio': self.pca_algorithm.explained_variance_ratio_,
                                         'VarExp': self.pca_algorithm.explained_variance_}

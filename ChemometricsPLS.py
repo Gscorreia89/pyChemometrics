@@ -88,7 +88,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.loadings_p = self.pls_algorithm.x_loadings_
             self.loadings_c = self.pls_algorithm.y_loadings_
             self.weights = self.pls_algorithm.x_weights_
-            self.modelParameters = {'R2Y': self.pca_algorithm.explained_variance_, 'R2X': self.pca_algorithm.explained_variance_ratio_}
+            self.modelParameters = {'R2Y': self.pls_algorithm.explained_variance_, 'R2X': self.pls_algorithm.explained_variance_ratio_}
             self._isfitted = True
 
         except Exception as exp:
@@ -96,7 +96,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def fit_transform(self, x, **fit_params):
         """
-        Combination of fit and output the scores, nothing special
+        Obtain scores in X
         :param x: Data to fit
         :param fit_params:
         :return:
@@ -107,24 +107,27 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except Exception as exp:
             raise exp
 
-    def transform(self, x, **transform_kwargs):
+    def transform(self, x=None, y=None, **transform_kwargs):
         """
         Calculate the projection of the data into the lower dimensional space
         TO DO as Pls does not contain this...
         :param x:
         :return:
         """
+        try:
+            if self.x_scaler is not None:
+                xscaled = self.x_scaler.fit_transform(x)
+            else:
+                xscaled = x
+            if self.y_scaler is not None:
+                yscaled = self.y_scaler.fit_transform(y)
+            else:
+                yscaled = y
 
-        if self.x_scaler is not None:
-            xscaled = self.x_scaler.fit_transform(x)
-        else:
-            xscaled = x
-        if self.y_scaler is not None:
-            yscaled = self.y_scaler.fit_transform(y)
-        else:
-            yscaled = y
+                return self.pls. algorithm.transform(xscaled, **transform_kwargs)
 
-        return self.pls. algorithm.transform(xscaled, **transform_kwargs)
+        except Exception as exp:
+            raise exp
 
     def inverse_transform(self, scores):
         """
@@ -286,24 +289,40 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     @property
     def regression_coefficients(self):
+        """
+
+        :return:
+        """
         try:
-            #np.dot(np.dot(self.weights.T, self.weights))
-            return None
+            if self._isfitted is not None:
+                return self.pls_algorithm.coefs_
+            else:
+                return None
+
         except AttributeError as atre:
             raise AttributeError("Model not fitted")
 
     @property
-    def w_SIMPLS(self):
+    def r_SIMPLS(self):
+        """
+
+        :return:
+        """
         try:
-            # np.dot(np.dot(self.weights.T, self.weights))
-            return None
+            if self._isfitted:
+                return self.pls_algorithm.x_rotations_
+            else:
+                return None
         except AttributeError as atre:
             raise AttributeError("Model not fitted")
 
     @property
     def hotelling_T2(self, comps):
         try:
-            return None
+            for comp in comps:
+                self.scores_t[:, comp]
+            hoteling = 1
+            return hoteling
         except AttributeError as atre:
             raise atre
         except ValueError as valerr:
@@ -311,7 +330,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as typerr:
             raise typerr
 
-    def cross_validation(self, x, y,  method=KFold(7, True), outputdist=False, bro_press=True,**crossval_kwargs):
+    def cross_validation(self, x, y,  cv_method=KFold(7, True), outputdist=False, bro_press=True,**crossval_kwargs):
         """
         # Check this one carefully ... good oportunity to build in nested cross-validation
         # and stratified k-folds
@@ -326,34 +345,47 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             if not isinstance(method, BaseCrossValidator):
                 raise TypeError("Scikit-learn cross-validation object please")
 
-            Pipeline = ([('scaler', self.scaler), ('pca', self._model)])
+            # Check if global model is fitted... and if not, fit it using all of X
+            if self._isfitted is False or self.loadings is None:
+                self.fit(x)
+            # Make a copy of the object, to ensure the internal state doesn't come out differently from the
+            # cross validation method call...
+            cv_pipeline = copy.deepcopy(self)
+
+            # Initialise predictive residual sum of squares variable (for whole CV routine)
+            total_press = 0
+            # Calculate Sum of Squares SS in whole dataset
+            ssy = np.sum((y - np.mean(y, 0))**2)
+            ssx = np.sum((x - np.mean(x, 0))**2)
 
             # Check if global model is fitted... and if not, fit using x
             # Initialise predictive residual sum of squares variable
-            press = 0
-            # Calculate Sum of Squares SS
-            ss_x = 0
-            ss_y = 0
-            P = []
-            T = []
-            W = []
-            U = []
-            # As assessed in the test set..., opossed to PRESS
-            R2X = []
-            R2Y = []
 
-            for xtrain, xtest in KFold.split(x):
-                Pipeline.fit_transform(xtest)
-                if bro_press:
-                    for var in range(0, xtest.shape[1]):
-                        xpred = Pipeline.predict(xtest, var)
-                        press += 1
-                else:
-                    xpred = Pipeline.fit_transform(xtest)
-                    press += 1
+            pressy = 0
+            pressx = 0
+
+            # Calculate Sum of Squares SS
+
+            P = list()
+            C = list()
+            T = list()
+            W = list()
+            U = list()
+            # As assessed in the test set..., opossed to PRESS
+            R2X = list()
+            R2Y = list()
+
+            for xtrain, xtest, ytrain, ytest in cv_method.split(x, y):
+                Pipeline.fit_transform()
+                for var in range(0, xtest.shape[1]):
+                xpred = Pipeline.predict(xtest, var)
+                press += 1
+
                 #    Pipeline.predict(xtopred)
             # Introduce loop here to align loadings due to sign indeterminacy.
             # Introduce loop here to align loadings due to sign indeterminacy.
+
+
             for cvround in range(0,KFold.n_splits(x)):
                 for cv_comploadings in loads:
                     choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_comploadings)), np.sum(np.abs(self.loadings[] - cv_comploadings * -1))]))
@@ -361,7 +393,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                         -1*choice
 
             # Calculate total sum of squares
-            q_squared = 1 - (press/ss)
+            q_squaredy = 1 - (press/ssy)
+            q_squaredx = 1 - (press/ssx)
             # Assemble the stuff in the end
 
 
