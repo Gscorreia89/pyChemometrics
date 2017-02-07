@@ -44,7 +44,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # Most initialized as None, before object is fitted.
             self.scores_t = None
             self.scores_u = None
-            self.weights = None
+            self.weights_w = None
+            self.weights_y = None
             self.loadings_p = None
             self.loadings_c = None
             self._ncomps = None
@@ -85,16 +86,18 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
             self.scores_t = self.transform(xscaled)
+            self.scores_u = self.transform(None, yscaled)
             self.loadings_p = self.pls_algorithm.x_loadings_
             self.loadings_c = self.pls_algorithm.y_loadings_
-            self.weights = self.pls_algorithm.x_weights_
+            self.weights_w = self.pls_algorithm.x_weights_
+            self.weights_y = self.pls_algorithm.y_weights_
             self.modelParameters = {'R2Y': self.pls_algorithm.explained_variance_, 'R2X': self.pls_algorithm.explained_variance_ratio_}
             self._isfitted = True
 
         except Exception as exp:
             raise exp
 
-    def fit_transform(self, x, **fit_params):
+    def fit_transform(self, x, y ,**fit_params):
         """
         Obtain scores in X
         :param x: Data to fit
@@ -102,8 +105,16 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :return:
         """
         try:
-            self.fit(x, **fit_params)
-            return self.transform(x)
+            self.fit(x, y,**fit_params)
+            if self.x_scaler is not None:
+                xscaled = self.x_scaler.fit_transform(x)
+            else:
+                xscaled = x
+            if self.y_scaler is not None:
+                yscaled = self.y_scaler.fit_transform(y)
+            else:
+                yscaled = y
+            return self.transform(xscaled, y=None), self.transform(x=None, y=yscaled)
         except Exception as exp:
             raise exp
 
@@ -115,26 +126,32 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :return:
         """
         try:
-            if self.x_scaler is not None:
-                xscaled = self.x_scaler.fit_transform(x)
-            else:
-                xscaled = x
-            if self.y_scaler is not None:
-                yscaled = self.y_scaler.fit_transform(y)
-            else:
-                yscaled = y
+            if x is not None:
+                if self.x_scaler is not None:
+                    xscaled = self.x_scaler.fit_transform(x)
+                else:
+                    xscaled = x
+            elif y is not None:
+                if self.y_scaler is not None:
+                    yscaled = self.y_scaler.fit_transform(y)
+                else:
+                    yscaled = y
 
-                return self.pls. algorithm.transform(xscaled, **transform_kwargs)
+
+            return self.pls_algorithm.transform(xscaled, **transform_kwargs)
 
         except Exception as exp:
             raise exp
 
-    def inverse_transform(self, scores):
+    def inverse_transform(self, t=None, u=None):
         """
 
         :param scores:
         :return:
         """
+
+        self._model.inverse_transform(t)
+
         if self.x_scaler is not None:
             xscaled = self.x_scaler.fit_transform(x)
         else:
@@ -144,7 +161,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         else:
             yscaled = y
 
-        return self._model.inverse_transform(scores)
+
+        return self._model.inverse_transform(t)
+
 
     def score(self, x, y, sample_weight=None):
         """
@@ -161,12 +180,14 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def predict(self, x=None, y=None):
         try:
-            if x is None:
-                self.scores_u
-                predicted = 1
+
             if y is None:
                 self.scores_t
                 predicted = 1
+            if x is None:
+                prediction = np.dot(self.regression_coefficients)
+                predicted = 1
+
             return predicted
 
         except Exception as exp:
@@ -201,8 +222,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.scores_t = None
             self.scores_u = None
             self.loadings_c = None
-            self.weights = None
+            self.x_weights = None
             self.cvParameters = None
+            self.modelParameters = None
 
             return None
         except AttributeError as atre:
@@ -283,6 +305,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     @property
     def VIP(self):
         try:
+            np.sum(self.x_weights_**2)
             return None
         except AttributeError as atre:
             raise AttributeError("Model not fitted")
@@ -342,7 +365,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         try:
-            if not isinstance(method, BaseCrossValidator):
+            if not isinstance(cv_method, BaseCrossValidator):
                 raise TypeError("Scikit-learn cross-validation object please")
 
             # Check if global model is fitted... and if not, fit it using all of X

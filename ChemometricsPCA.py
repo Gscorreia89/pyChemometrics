@@ -297,7 +297,6 @@ class ChemometricsPCA(_BasePCA):
             # Initialise predictive residual sum of squares variable (for whole CV routine)
             total_press = 0
             # Calculate Sum of Squares SS in whole dataset
-            #ss = np.sum((self.scaler.transform(x) - np.mean(x, 0))**2)
             ss = np.sum((self.scaler.transform(x)) ** 2)
             # Initialise list for loadings and for the VarianceExplained in the test set values
             # Check if model has loadings, as in case of kernelPCA these are not available
@@ -315,8 +314,7 @@ class ChemometricsPCA(_BasePCA):
                 # Calculate R2/Variance Explained in test set
                 # To calculat an R2X in the test set
                 xtest_scaled = cv_pipeline.scaler.transform(x[xtest, :])
-                # A bit redundant the mean subtraction but leave it for now.
-                tss = np.sum((xtest_scaled - np.mean(xtest_scaled, 0))**2)
+                tss = np.sum((xtest_scaled)**2)
                 # Append the var explained in training set for this round and loadings for this round
                 cv_varexplained_training.append(cv_pipeline.pca_algorithm.explained_variance_ratio_)
                 if hasattr(self.pca_algorithm, 'components_'):
