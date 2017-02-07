@@ -274,7 +274,7 @@ class ChemometricsPCA(_BasePCA):
         except TypeError as typerr:
             raise typerr
 
-    def cross_validation(self, x,  method=KFold(7, True), outputdist=False, bro_press=True, **crossval_kwargs):
+    def cross_validation(self, x,  method=KFold(7, True), outputdist=False, bro_press=True, testset_scale=False, **crossval_kwargs):
         """
         General cross Validation method
         :param data:
@@ -314,7 +314,10 @@ class ChemometricsPCA(_BasePCA):
                 cv_pipeline.fit(x[xtrain, :])
                 # Calculate R2/Variance Explained in test set
                 # To calculat an R2X in the test set
-                xtest_scaled = cv_pipeline.scaler.fit_transform(x[xtest, :])
+                if testset_scale:
+                    xtest_scaled = cv_pipeline.scaler.fit_transform(x[xtest, :])
+                else:
+                    xtest_scaled = cv_pipeline.scaler.transform(x[xtest, :])
                 tss = np.sum((xtest_scaled)**2)
                 # Append the var explained in training set for this round and loadings for this round
                 cv_varexplained_training.append(cv_pipeline.pca_algorithm.explained_variance_ratio_)
