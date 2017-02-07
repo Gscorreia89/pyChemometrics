@@ -39,9 +39,13 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 raise TypeError("Scikit-learn Transformer-like object or None")
             if not isinstance(yscaler, TransformerMixin) or yscaler is None:
                 raise TypeError("Scikit-learn Transformer-like object or None")
-            # Force scaling to false, as this will be handled by the provided scaler
-            self.pls_algorithm = pls_algorithm(ncomps, scale=False, **pls_type_kwargs)
+            if xscaler is None:
+                xscaler = ChemometricsScaler(0, with_std=False)
+                # Force scaling to false, as this will be handled by the provided scaler
+            if yscaler is None:
+                yscaler = ChemometricsScaler(0, with_std=False)
 
+            self.pls_algorithm = pls_algorithm(ncomps, scale=False, **pls_type_kwargs)
             # Most initialized as None, before object is fitted.
             self.scores_t = None
             self.scores_u = None
@@ -79,11 +83,11 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             if self.x_scaler is not None:
                 xscaled = self.x_scaler.fit_transform(x)
             else:
-                xscaled = x
+                xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
             if self.y_scaler is not None:
                 yscaled = self.y_scaler.fit_transform(y)
             else:
-                yscaled = y
+                yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
 
             self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
             self.scores_t = self.transform(xscaled)
@@ -92,7 +96,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.loadings_c = self.pls_algorithm.y_loadings_
             self.weights_w = self.pls_algorithm.x_weights_
             self.weights_y = self.pls_algorithm.y_weights_
-            self.modelParameters = {'R2Y': self.pls_algorithm.explained_variance_, 'R2X': self.pls_algorithm.explained_variance_ratio_}
+
+            tssx = np.sum(xscaled**2)
+            tssy = np.sum(yscaled**2)
+
+            R2Xpercomp = 1
+            R2X = 1
+            R2Ypercomp = 1
+            R2Y = 1
+            self.modelParameters = {'R2Y_total': self.pls_algorithm.explained_variance_, 'R2Y': self.pls_algorithm.explained_variance_ratio_}
             self._isfitted = True
 
         except Exception as exp:
@@ -110,11 +122,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             if self.x_scaler is not None:
                 xscaled = self.x_scaler.fit_transform(x)
             else:
-                xscaled = x
+                xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
             if self.y_scaler is not None:
                 yscaled = self.y_scaler.fit_transform(y)
             else:
-                yscaled = y
+                yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
+
             return self.transform(xscaled, y=None), self.transform(x=None, y=yscaled)
         except Exception as exp:
             raise exp
@@ -131,12 +144,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 if self.x_scaler is not None:
                     xscaled = self.x_scaler.fit_transform(x)
                 else:
-                    xscaled = x
+                    xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
             elif y is not None:
                 if self.y_scaler is not None:
                     yscaled = self.y_scaler.fit_transform(y)
                 else:
-                    yscaled = y
+                    yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
 
 
             return self.pls_algorithm.transform(xscaled, **transform_kwargs)
@@ -164,7 +177,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
 
         return self._model.inverse_transform(t)
-
 
     def score(self, x, y, sample_weight=None):
         """
@@ -250,8 +262,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :return:
         """
         try:
-            if not isinstance(scaler, TransformerMixin) or scaler is None:
+
+            if not (isinstance(scaler, TransformerMixin) or scaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
+            if scaler is None:
+                scaler = ChemometricsScaler(0, with_std=False)
+
             self._x_scaler = scaler
             self.pls_algorithm = clone(self.pls_algorithm, safe=True)
             self.modelParameters = None
@@ -286,18 +302,23 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :return:
         """
         try:
-            if not isinstance(scaler, TransformerMixin) or scaler is None:
+            if not (isinstance(scaler, TransformerMixin) or scaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
+            if scaler is None:
+                scaler = ChemometricsScaler(0, with_std=False)
+
             self._y_scaler = scaler
             self.pls_algorithm = clone(self.pls_algorithm, safe=True)
             self.modelParameters = None
             self.cvParameters = None
             self.loadings_p = None
-            self.weights = None
+            self.weights_w = None
+            self.weights_y = None
             self.loadings_c = None
             self.scores_t = None
             self.scores_u = None
             return None
+
         except AttributeError as atre:
             raise atre
         except TypeError as typerr:
@@ -432,7 +453,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def permute_test(self, nperms = 1000, crossVal=KFold(7, True)):
         #permuted
         for perm in range(0, nperms):
-
+            p = 1
         return None
 
     def score_plot(self, lvs=[1,2], scores="T"):
@@ -441,7 +462,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def coeffs_plot(self, lv=1, coeffs='weights'):
         return None
-
 
     def __deepcopy__(self, memo):
         cls = self.__class__

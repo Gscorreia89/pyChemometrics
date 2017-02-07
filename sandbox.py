@@ -34,7 +34,7 @@ brdg = BayesianRidge(normalize=True)
 brdg.fit(xmat.values, y_cont.values)
 
 ples = PLSRegression(5, scale=False)
-ples.fit(scaler.fit_transform(xmat.values), y_cont.values)
+ples.fit(xmat.values, y_cont.values)
 
 ples_shrink = list()
 

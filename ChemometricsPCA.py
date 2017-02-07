@@ -37,9 +37,10 @@ class ChemometricsPCA(_BasePCA):
             pca_algorithm = pca_algorithm(n_components=ncomps)
             if not isinstance(pca_algorithm, (_BasePCA, BaseEstimator, TransformerMixin)):
                 raise TypeError("Scikit-learn model please")
-            if not isinstance(scaler, TransformerMixin) or scaler is None:
+            if not (isinstance(scaler, TransformerMixin) or scaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
-
+            if scaler is None:
+                scaler = ChemometricsScaler(0, with_std=False)
             # Add a check for partial fit methods? As in deploy partial fit child class if PCA is incremental??
             # By default it will work, but having the partial_fit function acessible might be usefull
             #types.MethodType(self, partial_fit)
@@ -248,8 +249,11 @@ class ChemometricsPCA(_BasePCA):
         :return:
         """
         try:
-            if not isinstance(scaler, TransformerMixin) or scaler is None:
+            if not (isinstance(scaler, TransformerMixin) or scaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
+            if scaler is None:
+                scaler = ChemometricsScaler(0, with_std=False)
+
             self._scaler = scaler
             self.pca_algorithm = clone(self.pca_algorithm, safe=True)
             self.modelParameters = None
