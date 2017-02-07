@@ -8,6 +8,7 @@ import numpy as np
 from sklearn.base import clone
 from ChemometricsScaler import ChemometricsScaler
 import copy
+from copy import deepcopy
 
 
 __author__ = 'gd2212'
@@ -440,5 +441,14 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def coeffs_plot(self, lv=1, coeffs='weights'):
         return None
+
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, deepcopy(v, memo))
+        return result
 
 

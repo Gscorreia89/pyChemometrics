@@ -6,6 +6,7 @@ from sklearn.utils.sparsefuncs import (inplace_column_scale,
 from sklearn.utils.validation import check_is_fitted, FLOAT_DTYPES
 from scipy import sparse
 import numpy
+from copy import deepcopy
 
 
 class ChemometricsScaler(BaseEstimator, TransformerMixin):
@@ -227,6 +228,15 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
                 X += self.mean_
 
         return X
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, deepcopy(v, memo))
+        return result
+
 
 
 def _handle_zeros_in_scale(scale, copy=True):

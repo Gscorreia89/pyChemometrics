@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.base import clone
 from ChemometricsScaler import ChemometricsScaler
 import copy
+from copy import deepcopy
 __author__ = 'gd2212'
 
 
@@ -262,9 +263,9 @@ class ChemometricsPCA(_BasePCA):
         except TypeError as typerr:
             raise typerr
 
-    @property
     def hotelling_T2(self, comps):
         try:
+            self.scores[:, comps]
             return None
         except AttributeError as atre:
             raise atre
@@ -297,7 +298,7 @@ class ChemometricsPCA(_BasePCA):
             # Initialise predictive residual sum of squares variable (for whole CV routine)
             total_press = 0
             # Calculate Sum of Squares SS in whole dataset
-            ss = np.sum((self.scaler.transform(x)) ** 2)
+            ss = np.sum((cv_pipeline.scaler.transform(x)) ** 2)
             # Initialise list for loadings and for the VarianceExplained in the test set values
             # Check if model has loadings, as in case of kernelPCA these are not available
             if hasattr(self.pca_algorithm, 'components_'):
@@ -313,7 +314,7 @@ class ChemometricsPCA(_BasePCA):
                 cv_pipeline.fit(x[xtrain, :])
                 # Calculate R2/Variance Explained in test set
                 # To calculat an R2X in the test set
-                xtest_scaled = cv_pipeline.scaler.transform(x[xtest, :])
+                xtest_scaled = cv_pipeline.scaler.fit_transform(x[xtest, :])
                 tss = np.sum((xtest_scaled)**2)
                 # Append the var explained in training set for this round and loadings for this round
                 cv_varexplained_training.append(cv_pipeline.pca_algorithm.explained_variance_ratio_)
@@ -327,7 +328,6 @@ class ChemometricsPCA(_BasePCA):
                         press_testset += np.sum((xtest_scaled[:, column] - xpred[:, column]) ** 2)
                     cv_varexplained_test.append(1 - (press_testset / tss))
                     total_press += press_testset
-
                 else:
                     # RSS for row wise cross-validation
                     pred_scores = cv_pipeline.transform(x[xtest, :])
@@ -474,3 +474,12 @@ class ChemometricsPCA(_BasePCA):
         :return:
         """
         return None
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, deepcopy(v, memo))
+        return result
+
