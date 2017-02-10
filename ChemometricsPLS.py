@@ -50,15 +50,16 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.scores_t = None
             self.scores_u = None
             self.weights_w = None
-            self.weights_y = None
+            self.weights_c = None
             self.loadings_p = None
-            self.loadings_c = None
+            self.loadings_q = None
             self._ncomps = None
             self.ncomps = ncomps
             self._x_scaler = None
             self._y_scaler = None
             self.x_scaler = xscaler
             self.y_scaler = yscaler
+            self.simpls_r = None
             self.cvParameters = None
             self.modelParameters = None
             self._isfitted = False
@@ -80,6 +81,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # This scaling check is always performed to ensure running model with scaling or with scaling == None
             # always give consistent results (same type of data scale expected for fitting,
             # returned by inverse_transform, etc
+            # For no scaling, mean centering is performed nevertheless
             if self.x_scaler is not None:
                 xscaled = self.x_scaler.fit_transform(x)
             else:
@@ -90,21 +92,44 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
 
             self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
+
+            # This object is designed to fit flexibly both PLSRegression/PLSCanonical/PLS-SVD, etc
+            # The actual components found might differ (depending on emphasis on Y/ symmetry between X and Y, type of deflation, etc
+            # and this has to be taken into consideration, but the actual nomenclature/definitions should be "the same"
+            # Nomenclature is as follows:
+            # Scores - projection of X are called T
+            # Scores - Projection of Y are called U
+            # Loadings - Vector/multivariate directions associated with T on X are called P (equivalent to PCA)
+            # Loadings - Vector/multivariate directions associated with U on Y are called q
+            # Weights - Weights/directions of maximum covariance with Y of the X block are called W
+            # Weights - Weights/directions of maximum covariance with X of the Y block block are called C
+            # These "y-weights" tend to be almost negligible (not in the calculation though... ) of PLS1/PLS Regression
+            # but are necessary in multi-Y/SVD-PLS/PLS2
+            # Rotations/SIMPLS R - Loadings after the first component do not represent
+            # the original variables. The rotations.
+
+            # The predictive model for, assuming the full model and default NIPALS/PLS Regression nomenclature
             self.scores_t = self.transform(xscaled)
             self.scores_u = self.transform(None, yscaled)
             self.loadings_p = self.pls_algorithm.x_loadings_
-            self.loadings_c = self.pls_algorithm.y_loadings_
+            self.loadings_q = self.pls_algorithm.y_loadings_
             self.weights_w = self.pls_algorithm.x_weights_
-            self.weights_y = self.pls_algorithm.y_weights_
-
-            tssx = np.sum(xscaled**2)
-            tssy = np.sum(yscaled**2)
-
+            self.weights_c = self.pls_algorithm.y_weights_
+            self.simpls_r = self.pls_algorithm.x_rotations_
+            # Calculate total sum of squares of X and Y for R2X and R2Y calculation
+            tssy = np.sum(yscaled ** 2)
+            tssx = np.sum(xscaled ** 2)
+            # Calculat RSSy/RSSx, R2Y/R2X
+            ypred = self.pls_algorithm.predict(xscaled)
+            # Introduce the bs - iner relation to have X = UbW'/ Y = TbQ' . at the moment its only working because for comp 1 , b= 1
+            xpred = np.dot(self.pls_algorithm.y_scores_, self.pls_algorithm.x_weights_.T)
+            rssy = np.sum(yscaled - (ypred)**2)
+            rssx = np.sum((xscaled - xpred)**2)
             R2Xpercomp = 1
-            R2X = 1
-            R2Ypercomp = 1
-            R2Y = 1
-            self.modelParameters = {'R2Y_total': self.pls_algorithm.explained_variance_, 'R2Y': self.pls_algorithm.explained_variance_ratio_}
+            R2Y = 1 - (rssy/tssy)
+            R2X = 1 - (rssx/tssx)
+
+            self.modelParameters = {'R2Y': R2Y, 'R2X': R2X}
             self._isfitted = True
 
         except Exception as exp:
@@ -234,8 +259,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.loadings_p = None
             self.scores_t = None
             self.scores_u = None
-            self.loadings_c = None
-            self.x_weights = None
+            self.loadings_q = None
+            self.x_weights_c = None
             self.cvParameters = None
             self.modelParameters = None
 
@@ -324,8 +349,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as typerr:
             raise typerr
 
-    @property
-    def VIP(self):
+    def VIP(self, mode='w'):
         try:
             np.sum(self.x_weights_**2)
             return None
@@ -347,21 +371,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except AttributeError as atre:
             raise AttributeError("Model not fitted")
 
-    @property
-    def r_SIMPLS(self):
-        """
-
-        :return:
-        """
-        try:
-            if self._isfitted:
-                return self.pls_algorithm.x_rotations_
-            else:
-                return None
-        except AttributeError as atre:
-            raise AttributeError("Model not fitted")
-
-    @property
     def hotelling_T2(self, comps):
         try:
             for comp in comps:

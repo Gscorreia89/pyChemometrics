@@ -11,36 +11,32 @@ from ChemometricsScaler import ChemometricsScaler as chemsc
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import Ridge, BayesianRidge
 
-ols = LinearRegression(fit_intercept=True, normalize=False, copy_X=True, n_jobs=1)
-ols.fit()
 
 # Read lipofit data, perfect example for CV testing since it has classes and nested data
 matrix = pds.read_csv('ExampleFile(TRACElipofitmat).csv')
 # the X matrix
-xmat = matrix.iloc[:, 9::]
+xmat = matrix.iloc[:, 8::]
 y_cont = matrix['TPTG in mg/dL']
 y_dis = matrix['Sex']
 y_dis = pds.Categorical(y_dis).codes
 
+
 scaler = chemsc(1)
 
-ols = LinearRegression(fit_intercept=False, normalize=True, copy_X=True, n_jobs=1)
-ols.fit(xmat.values, y_cont.values)
+ples = PLSRegression(3, scale=False)
 
-rdg = Ridge(alpha=0.1, fit_intercept=False, normalize=True)
-rdg.fit(xmat.values, y_cont.values)
+y = y_cont.values
+yc = y - np.mean(y)
 
-brdg = BayesianRidge(normalize=True)
-brdg.fit(xmat.values, y_cont.values)
+x = xmat.values
+xc = xmat.values - np.mean(xmat.values, 0)
 
-ples = PLSRegression(5, scale=False)
-ples.fit(xmat.values, y_cont.values)
+ples.fit(xc, yc)
 
-ples_shrink = list()
+yp = ples.predict(xc).squeeze()
 
-for ncomp in range(1, 51):
-    ples = PLSRegression(ncomp, scale=True)
-    ples.fit(scaler.fit_transform(xmat.values), y_cont.values)
-    ples_shrink.append(ples.coef_)
+rssy = np.sum((yc - yp)**2)
 
-ples_shrink = np.array(ples_shrink).squeeze()
+tssy = np.sum(yc**2)
+tssx = np.sum(xc**2)
+
