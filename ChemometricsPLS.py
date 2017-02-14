@@ -31,8 +31,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             if (metadata is not None) and (metadata is not isinstance(metadata, pds.DataFrame)):
                 raise TypeError("Metadata must be provided as pandas dataframe")
 
-            # Perform the check with is instance but avoid abstract base class runs. PCA needs number of comps anyway!
-            pls_algorithm = pls_algorithm(n_components=ncomps)
+            # Perform the check with is instance but avoid abstract base class runs.
+            self.pls_algorithm = pls_algorithm(ncomps, scale=False, **pls_type_kwargs)
             if not isinstance(pls_algorithm, (BaseEstimator, _PLS)):
                 raise TypeError("Scikit-learn model please")
             if not isinstance(xscaler, TransformerMixin) or xscaler is None:
@@ -46,8 +46,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             if yscaler is None:
                 yscaler = ChemometricsScaler(0, with_std=False)
 
-            self.pls_algorithm = pls_algorithm(ncomps, scale=False, **pls_type_kwargs)
-
             # This object is designed to fit flexibly both PLSRegression/PLSCanonical/ with different algorithms NIPALS and PLS-SVD
             # The actual components found might differ (depending on emphasis on Y/ symmetry between X and Y and type of deflation)
             # and this has to be taken into consideration, but the actual nomenclature/definitions should be the "same"
@@ -60,14 +58,22 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # Y - Weights - Weights/directions of maximum covariance with X of the Y block block are called C
             # These "y-weights" tend to be almost negligible (not in the calculation though... ) of PLS1/PLS Regression
             # but are necessary in multi-Y/SVD-PLS/PLS2
-            # Rotations/SIMPLS R - Loadings after the first component do not represent
-            # the original variables. The SIMPLS R act as a kind of "w - x - weights" vector
-            # which relates to the original X variables, irregardless of the deflation, and order of the component.
-            # See SIMPLS:
+
+            # X - Rotations - The rotation of X variables to LV space pinv(WP')W
+            # Y - Rotations - The rotation of Y variables to LV space pinv(CQ')C
+                # T = X W(P'W)^-1 = XW* (W* : p x k matrix)
+                # U = Y C(Q'C)^-1 = YC* (W* : q x k matrix)
+            # SIMPLS R and RY - Loadings after the first component do not represent
+            # the original variables. The SIMPLS R's act as a kind of "w - x - weights" vector
+            # which relates to the original X and Yvariables, irregardless of the deflation, and order of the component.
+            # See Sijmen de Jong, "SIMPLS: an alternative approach to partial least squares regression", Chemometrics
+            # and Intelligent Laboratory Systems 1992
 
             #   The predictive model for, assuming the full model and default NIPALS/PLS Regression nomenclature
             # Y = TbW
             # X = Ub
+            # The predictive model in an MLR sense, in regards to the original variables is
+            # Y = XB, where B are the regression coefficients and B = W*Q (the XW*/SIMPLS_R)
             # In terms of data decomposition or linear approximations to the original data blocks
             # Y = UQ' + F
             # X = TP' + E
@@ -79,7 +85,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.weights_c = None
             self.loadings_p = None
             self.loadings_q = None
-            self.simpls_r = None
+            self.rotations_ws = None
+            self.rotations_cs = None
 
             self._ncomps = None
             self.ncomps = ncomps
@@ -121,25 +128,26 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
 
             self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
-
-            self.scores_t = self.transform(xscaled)
-            self.scores_u = self.transform(None, yscaled)
+            # Expose the model parameters
             self.loadings_p = self.pls_algorithm.x_loadings_
             self.loadings_q = self.pls_algorithm.y_loadings_
             self.weights_w = self.pls_algorithm.x_weights_
             self.weights_c = self.pls_algorithm.y_weights_
-            self.simpls_r = self.pls_algorithm.x_rotations_
+            self.rotations_ws = self.pls_algorithm.x_rotations_
+            self.rotations_cs = self.pls.algorithm.y_rotations_
+            self.scores_t = self.pls_algorithm.x_scores_
+            self.scores_u = self.pls_algorithm.y_scores_
 
             # Calculate total sum of squares of X and Y for R2X and R2Y calculation
             tssy = np.sum(yscaled ** 2)
             tssx = np.sum(xscaled ** 2)
+
             # Calculat RSSy/RSSx, R2Y/R2X
-            if self.pls_algorithm.__d
             ypred = self.pls_algorithm.predict(xscaled)
             # Introduce the b's - inner relation to have X = UbW'/ Y = TbQ' . at the moment its only working because for comp 1 , b = 1
             # equivalent to sklearn.score, just exposed here for clarity and to ease further modification...
             xpred = np.dot(self.pls_algorithm.y_scores_, self.pls_algorithm.x_weights_.T)
-            rssy = np.sum(yscaled - (ypred)**2)
+            rssy = np.sum((yscaled - ypred)**2)
             rssx = np.sum((xscaled - xpred)**2)
             R2Y = 1 - (rssy/tssy)
             R2X = 1 - (rssx/tssx)
@@ -150,7 +158,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except Exception as exp:
             raise exp
 
-    def fit_transform(self, x, y ,**fit_params):
+    def fit_transform(self, x, y,**fit_params):
         """
         Obtain scores in X
         :param x: Data to fit
@@ -173,28 +181,47 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except Exception as exp:
             raise exp
 
-    def transform(self, x=None, **transform_kwargs):
+    def transform(self, x=None, y=None, **transform_kwargs):
         """
         Calculate the projection of the data into the lower dimensional space
-        TO DO as Pls does not contain this...
+        TO DO as PLS does not contain this...
         :param x:
         :return:
         """
         try:
-            if x is not None:
-                if self.x_scaler is not None:
-                    xscaled = self.x_scaler.fit_transform(x)
-                else:
-                    xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
+            # Check if model is fitted
+            if self._isfitted is True:
+                # If X and Y are passed, complain and do nothing
+                if x is not None and y is not None:
+                    raise ValueError('xx')
+                # If nothing is passed at all, complain and do nothing
+                elif x is None and y is None:
+                    raise ValueError('yy')
+                # If Y is given, return U
+                elif x is None:
+                    if self.y_scaler is not None:
+                        yscaled = self.y_scaler.fit_transform(y)
+                    else:
+                        yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
+                    # Taking advantage of rotations_y
+                    # Otherwise this would be the full calculation U = Y*pinv(CQ')*C
+                    U = np.dot(yscaled, self.rotations_cs)
+                    return U
+                # If X is given, return T
+                elif y is None:
+                    if self.x_scaler is not None:
+                        xscaled = self.x_scaler.fit_transform(x)
+                    else:
+                        xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
+                    # Taking advantage of the rotation_x
+                    # Otherwise this would be would be would be the full calculation T = X*pinv(WP')*W
+                    T = np.dot(xscaled, self.rotations_ws)
+                    return T
+            else:
+                raise ValueError('Model not fitted')
 
-            elif y is not None:
-                if self.y_scaler is not None:
-                    yscaled = self.y_scaler.fit_transform(y)
-                else:
-                    yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
-
-            return self.pls_algorithm.transform(xscaled, **transform_kwargs)
-
+        except ValueError as verr:
+            raise verr
         except Exception as exp:
             raise exp
 
@@ -206,16 +233,19 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         if t is not None:
+
+
+
             if self.x_scaler is not None:
                 xscaled = self.x_scaler.fit_transform(x)
             else:
-                xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
-
+                xscaled = ChemometricsScaler(0, with_std=False).fit_transform(xpred)
         elif u is not None:
+
             if self.y_scaler is not None:
                 yscaled = self.y_scaler.fit_transform(y)
             else:
-                yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
+                yscaled = ChemometricsScaler(0, with_std=False).fit_transform(ypred)
 
 
         return self._model.inverse_transform(t)
@@ -231,6 +261,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         try:
             if block_to_score not in ['X', 'Y']:
                 raise ValueError("message here")
+
             if self.x_scaler is not None:
                 xscaled = self.x_scaler.fit_transform(x)
             else:
@@ -256,9 +287,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             R2X = 1 - (rssx/tssx)
 
             if block_to_score == 'Y':
-                return self.pls_algorithm.score(xscaled, yscaled)
+                return R2Y
             else:
-                return self.pls_algorithm.score(x, x)
+                return R2X
 
         except ValueError as verr:
             raise verr
@@ -345,10 +376,14 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.modelParameters = None
             self.cvParameters = None
             self.loadings_p = None
-            self.weights = None
-            self.loadings_c = None
+            self.weights_w = None
+            self.weights_c = None
+            self.loadings_q = None
+            self.simpls_r = None
+            self.simpls_ry = None
             self.scores_t = None
             self.scores_u = None
+
             return None
         except AttributeError as atre:
             raise atre
@@ -385,8 +420,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.cvParameters = None
             self.loadings_p = None
             self.weights_w = None
-            self.weights_y = None
-            self.loadings_c = None
+            self.weights_c = None
+            self.loadings_q = None
+            self.simpls_r = None
+            self.simpls_ry = None
             self.scores_t = None
             self.scores_u = None
             return None
@@ -448,30 +485,27 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             # Check if global model is fitted... and if not, fit it using all of X
             if self._isfitted is False or self.loadings is None:
-                self.fit(x)
+                self.fit(x, y)
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
             cv_pipeline = copy.deepcopy(self)
 
             # Initialise predictive residual sum of squares variable (for whole CV routine)
-            total_press = 0
+            pressy = 0
+            pressx = 0
             # Calculate Sum of Squares SS in whole dataset
             ssy = np.sum((y - np.mean(y, 0))**2)
             ssx = np.sum((x - np.mean(x, 0))**2)
 
-            # Check if global model is fitted... and if not, fit using x
-            # Initialise predictive residual sum of squares variable
-
-            pressy = 0
-            pressx = 0
-
-            # Calculate Sum of Squares SS
-
-            P = list()
-            C = list()
-            T = list()
-            W = list()
-            U = list()
+            cv_loadings_p = list()
+            cv_loadings_q = list()
+            cv_weights_w = list()
+            cv_weights_c = list()
+            cv_scores_t = list()
+            cv_scores_u = list()
+            cv_simpls_r = list()
+            cv_simpls_ry = list()
+            cv_betacoefs = list()
             # As assessed in the test set..., opossed to PRESS
             R2X = list()
             R2Y = list()

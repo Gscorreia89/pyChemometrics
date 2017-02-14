@@ -55,6 +55,7 @@ class ChemometricsPCA(_BasePCA):
             # Most initialized as None, before object is fitted.
             self.scores = None
             self.loadings = None
+            self.leverages = None
             self._ncomps = None
             self._scaler = None
             self.ncomps = ncomps
@@ -172,7 +173,7 @@ class ChemometricsPCA(_BasePCA):
         else:
             return self.pca_algorithm.inverse_transform(scores)
 
-    def _press_impute(self, x, var_to_pred):
+    def _press_impute_pinv(self, x, var_to_pred):
         """
         Single value imputation method, essential to use in the cross-validation
         In theory can also be used to do missing data imputation.
@@ -180,6 +181,30 @@ class ChemometricsPCA(_BasePCA):
         1) Bro et al, Cross-validation of component models: A critical look at current methods,
         Analytical and Bioanalytical Chemistry 2008 - doi: 10.1007/s00216-007-1790-1
         2) amoeba's answer on CrossValidated: http://stats.stackexchange.com/a/115477
+        :param x:
+        :param var_to_pred: which variable is to be imputed from the others
+        :return:
+        """
+        # Scaling check for consistency
+        if self.scaler is not None:
+            xscaled = self.scaler.transform(x)
+        else:
+            xscaled = x
+        # Following from
+        to_pred = np.delete(xscaled, var_to_pred, axis=1)
+        topred_loads = np.delete(self.loadings.T, var_to_pred, axis=0)
+        imputed_x = np.dot(np.dot(to_pred, np.linalg.pinv(topred_loads).T), self.loadings)
+        if self.scaler is not None:
+            imputed_x = self.scaler.inverse_transform(imputed_x)
+
+        return imputed_x
+
+    def _press_impute_transpose(self, x, var_to_pred):
+        """
+        Single value imputation method, essential to use in the cross-validation
+        In theory can also be used to do missing data imputation.
+        Based on the approximation described in amoeba's answer
+        on CrossValidated: http://stats.stackexchange.com/a/115477
         :param x:
         :param var_to_pred: which variable is to be imputed from the others
         :return:
@@ -331,7 +356,7 @@ class ChemometricsPCA(_BasePCA):
                 if bro_press is True:
                     press_testset = 0
                     for column in range(0, x[xtest, :].shape[1]):
-                        xpred = cv_pipeline.scaler.transform(cv_pipeline._press_impute(x[xtest, :], column))
+                        xpred = cv_pipeline.scaler.transform(cv_pipeline._press_impute_pinv(x[xtest, :], column))
                         press_testset += np.sum((xtest_scaled[:, column] - xpred[:, column]) ** 2)
                     cv_varexplained_test.append(1 - (press_testset / tss))
                     total_press += press_testset
