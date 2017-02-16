@@ -303,7 +303,7 @@ class ChemometricsPCA(_BasePCA):
         except TypeError as typerr:
             raise typerr
 
-    def cross_validation(self, x,  method=KFold(7, True), outputdist=False, bro_press=True, testset_scale=False, **crossval_kwargs):
+    def cross_validation(self, x,  cv_method=KFold(7, True), outputdist=False, bro_press=True, testset_scale=False, **crossval_kwargs):
         """
         General cross Validation method
         :param data:
@@ -314,7 +314,7 @@ class ChemometricsPCA(_BasePCA):
         """
 
         try:
-            if not isinstance(method, BaseCrossValidator):
+            if not isinstance(cv_method, BaseCrossValidator):
                 raise TypeError("Scikit-learn cross-validation object please")
 
             # Check if global model is fitted... and if not, fit it using all of X
@@ -339,7 +339,7 @@ class ChemometricsPCA(_BasePCA):
             cv_varexplained_training = []
             cv_varexplained_test = []
 
-            for xtrain, xtest in method.split(x):
+            for xtrain, xtest in cv_method.split(x):
                 cv_pipeline.fit(x[xtrain, :])
                 # Calculate R2/Variance Explained in test set
                 # To calculat an R2X in the test set
@@ -379,7 +379,7 @@ class ChemometricsPCA(_BasePCA):
                 # Align loadings due to sign indeterminacy.
                 # Solution provided is to select the sign that gives a more similar profile to the
                 # Loadings calculated with the whole data.
-                for cvround in range(0, method.n_splits):
+                for cvround in range(0, cv_method.n_splits):
                     for currload in range(0, self.ncomps):
                         choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_loads[currload][cvround, :])), np.sum(np.abs(self.loadings - cv_loads[currload][cvround,: ] * -1))]))
                         if choice == 1:

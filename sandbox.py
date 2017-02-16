@@ -1,8 +1,5 @@
-__author__ = 'gd2212'
-# general file for testing, to get started
-
 import pandas as pds
-#from ChemometricsPLS import ChemometricsPLS as chempls
+from ChemometricsPLS import ChemometricsPLS as chempls
 from sklearn.cross_decomposition import PLSRegression, PLSCanonical, PLSSVD
 import matplotlib.pyplot as plt
 from sklearn.base import clone
@@ -16,35 +13,20 @@ from sklearn.linear_model import Ridge, BayesianRidge
 matrix = pds.read_csv('ExampleFile(TRACElipofitmat).csv')
 matrix = matrix[matrix['Outlier?'] != True]
 # the X matrix
-xmat = matrix.iloc[:, 9::]
+xmat = matrix.iloc[:, 10::]
 y_cont = matrix['TPTG in mg/dL']
+y_cont2 = matrix.iloc[:, 8:10]
+
 y_dis = matrix['Sex']
 y_dis = pds.Categorical(y_dis).codes
 
+scaler = chemsc(1)
 
-#scaler = chemsc(1)
-
-ples = PLSCanonical(1, scale=False)
+ples = chempls(2, xscaler=None, yscaler=None)
 
 y = y_cont.values
-yc = y - np.mean(y)
 
 x = xmat.values
-xc = xmat.values - np.mean(xmat.values, 0)
 
-ples.fit(xc, yc)
+ples.fit(x, y)
 
-yp = ples.predict(xc).squeeze()
-rssy = np.sum((yc - yp)**2)
-
-xp = np.dot(ples.x_scores_, ples.x_loadings_.T)
-rssx = np.sum((xc - xp)**2)
-tssy = np.sum(yc**2)
-tssx = np.sum(xc**2)
-
-r2x = 1 - (rssx/tssx)
-r2y = 1 - (rssy/tssy)
-
-
-xtypred = np.sum(np.dot(xp.T, yp))
-xtyor = np.sum(np.dot(xc.T, yc))
