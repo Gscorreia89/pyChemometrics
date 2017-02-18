@@ -1,12 +1,8 @@
 import pandas as pds
 from ChemometricsPLS import ChemometricsPLS as chempls
-from sklearn.cross_decomposition import PLSRegression, PLSCanonical, PLSSVD
 import matplotlib.pyplot as plt
-from sklearn.base import clone
 import numpy as np
 from ChemometricsScaler import ChemometricsScaler
-from sklearn.linear_model import LinearRegression
-from sklearn.linear_model import Ridge, BayesianRidge
 
 
 # Read lipofit data, perfect example for CV testing since it has classes and nested data
@@ -22,7 +18,7 @@ y_dis = pds.Categorical(y_dis).codes
 
 #scaler = chemsc(1)
 
-ples = chempls(1, xscaler=None, yscaler=None)
+ples = chempls(1, xscaler=ChemometricsScaler(1), yscaler=ChemometricsScaler(1))
 
 y = y_cont.values
 
@@ -30,3 +26,4 @@ x = xmat.values
 
 ples.fit(x, y)
 
+ples.cross_validation(x, y, testset_scale=True)

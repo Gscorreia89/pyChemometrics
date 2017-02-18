@@ -645,7 +645,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as typerr:
             raise typerr
 
-    def cross_validation(self, x, y,  cv_method=KFold(7, True), outputdist=False, testset_scale=False,
+    def cross_validation(self, x, y,  cv_method=KFold(7, False), outputdist=False, testset_scale=False,
                          **crossval_kwargs):
         """
 
@@ -663,7 +663,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 raise TypeError("Scikit-learn cross-validation object please")
 
             # Check if global model is fitted... and if not, fit it using all of X
-            if self._isfitted is False or self.loadings is None:
+            if self._isfitted is False:
                 self.fit(x, y)
 
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
@@ -671,17 +671,28 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             cv_pipeline = copy.deepcopy(self)
             ncvrounds = cv_method.get_n_splits()
 
+            if x.ndim > 1:
+                x_nvars = x.shape[1]
+            else:
+                x_nvars = 1
+
+            if y.ndim > 1:
+                y_nvars = y.shape[1]
+            else:
+                y_nvars = 1
+                y = y.reshape(-1, 1)
+
             # Initialize list structures to contain the fit
-            cv_loadings_p = np.zeros((ncvrounds, self.ncomps, x.shape[1]))
-            cv_loadings_q = np.zeros((ncvrounds, self.ncomps, y.shape[1]))
-            cv_weights_w = np.zeros((ncvrounds, self.ncomps, x.shape[1]))
-            cv_weights_c = np.zeros((ncvrounds, self.ncomps, y.shape[1]))
-            cv_scores_t = np.zeros((ncvrounds, self.ncomps, x.shape[0]))
-            cv_scores_u = np.zeros((ncvrounds, self.ncomps, y.shape[0]))
-            cv_rotations_ws = np.zeros((ncvrounds, self.ncomps, x.shape[1]))
-            cv_rotations_cs = np.zeros((ncvrounds, self.ncomps, y.shape[1]))
-            cv_betacoefs = np.zeros((ncvrounds, self.ncomps, x.shape[1]))
-            cv_vipsw = np.zeros((ncvrounds, self.ncomps, x.shape[1]))
+            cv_loadings_p = np.zeros((ncvrounds, x_nvars, self.ncomps))
+            cv_loadings_q = np.zeros((ncvrounds, y_nvars, self.ncomps))
+            cv_weights_w = np.zeros((ncvrounds, x_nvars, self.ncomps))
+            cv_weights_c = np.zeros((ncvrounds, y_nvars, self.ncomps))
+            #cv_scores_t = np.zeros((ncvrounds, x.shape[0], self.ncomps))
+            #cv_scores_u = np.zeros((ncvrounds, y.shape[0], self.ncomps))
+            cv_rotations_ws = np.zeros((ncvrounds, x_nvars, self.ncomps))
+            cv_rotations_cs = np.zeros((ncvrounds, y_nvars, self.ncomps))
+            cv_betacoefs = np.zeros((ncvrounds, x_nvars))
+            cv_vipsw = np.zeros((ncvrounds, x_nvars))
 
             # Initialise predictive residual sum of squares variable (for whole CV routine)
             pressy = 0
@@ -690,22 +701,38 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # Calculate Sum of Squares SS in whole dataset for future calculations
             ssx = np.sum((cv_pipeline.x_scaler.fit_transform(x)) ** 2)
             ssy = np.sum((cv_pipeline.y_scaler.fit_transform(y)) ** 2)
-
-            # As assessed in the test set..., opossed to PRESS
-            R2X_training = np.zeros((ncvrounds))
-            R2Y_training = np.zeros((ncvrounds))
+            print(ssy)
+            print(ssx)
+            # As assessed in the test set..., opposed to PRESS
+            R2X_training = np.zeros(ncvrounds)
+            R2Y_training = np.zeros(ncvrounds)
             # R2X and R2Y assessed in the test set
-            R2X_test = np.zeros((ncvrounds))
-            R2Y_test = np.zeros((ncvrounds))
+            R2X_test = np.zeros(ncvrounds)
+            R2Y_test = np.zeros(ncvrounds)
 
             for cvround, train_testidx in enumerate(cv_method.split(x, y)):
                 # split the data explicitly
                 train = train_testidx[0]
                 test = train_testidx[1]
-                ytest = y[test, :]
-                xtest = x[test, :]
-                xtrain = x[train, :]
-                ytrain = y[train, :]
+
+                # Check dimensions for the indexing
+                if y_nvars == 1:
+                    ytrain = y[train]
+                    ytest = y[test]
+                else:
+                    ytrain = y[train, :]
+                    ytest = y[test, :]
+                if x_nvars == 1:
+                    xtrain = x[train]
+                    xtest = x[test]
+                else:
+                    xtrain = x[train, :]
+                    xtest = x[test, :]
+
+                cv_pipeline.fit(xtrain, ytrain, **crossval_kwargs)
+                # Prepare the scaled X and Y test data
+                # If testset_scale is True, these are scaled individually...
+
                 # Comply with the sklearn scaler behaviour
                 if ytest.ndim == 1:
                     ytest = ytest.reshape(-1, 1)
@@ -714,34 +741,45 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                     xtest = xtest.reshape(-1, 1)
                     xtrain = xtrain.reshape(-1, 1)
                 # Fit the training data
-                cv_pipeline.fit(xtrain, ytrain, **crossval_kwargs)
-                # Prepare the scaled X and Y test data
-                # If testset_scale is True, these are scaled individually...
+
                 if testset_scale is True:
-                    xtest_scaled = cv_pipeline.x_scaler.fit_transform(xtrain)
-                    ytest_scaled = cv_pipeline.y_scaler.fit_transform(ytrain)
+                    xtest_scaled = cv_pipeline.x_scaler.fit_transform(xtest)
+                    ytest_scaled = cv_pipeline.y_scaler.fit_transform(ytest)
                 # Otherwise (default), training set mean and scaling vectors are used
                 else:
-                    xtest_scaled = cv_pipeline.x_scaler.transform(xtrain)
-                    ytest_scaled = cv_pipeline.y_scaler.transform(ytrain)
+                    xtest_scaled = cv_pipeline.x_scaler.transform(xtest)
+                    ytest_scaled = cv_pipeline.y_scaler.transform(ytest)
 
-                R2X_training[cvround] = cv_pipeline.score(ytrain, 'x')
-                R2Y_training[cvround] = cv_pipeline.score(xtrain, 'y')
-                ypred = cv_pipeline.predict(xtest, 'y')
-                xpred = cv_pipeline.predict(ytest, 'x')
+                R2X_training[cvround] = cv_pipeline.score(xtrain, ytrain, 'x')
+                R2Y_training[cvround] = cv_pipeline.score(xtrain, ytrain, 'y')
+                ypred = cv_pipeline.predict(x=xtest, y=None)
+                xpred = cv_pipeline.predict(x=None, y=ytest)
 
-                currtest_ssx = np.sum(xtest_scaled**2)
-                currtest_ssy = np.sum(ytest_scaled**2)
+                xpred = cv_pipeline.x_scaler.transform(xpred).squeeze()
+                #xtest_scaled = xtest_scaled.squeeze()
+                #if ypred.ndim == 1:
+                ypred = cv_pipeline.y_scaler.transform(ypred).squeeze()
+                ytest_scaled = ytest_scaled.squeeze()
+
                 curr_pressx = np.sum((xtest_scaled - xpred)**2)
-                curr_pressy = np.sum((xtest_scaled - xpred)**2)
+                curr_pressy = np.sum((ytest_scaled - ypred)**2)
 
-                R2X_test[cvround] = 1 - (curr_pressx/currtest_ssx)
-                R2Y_test[cvround] = 1 - (curr_pressy/currtest_ssy)
+                R2X_test[cvround] = cv_pipeline.score(xtest, ytest, 'x')
+                R2Y_test[cvround] = cv_pipeline.score(xtest, ytest, 'y')
 
                 pressx += curr_pressx
                 pressy += curr_pressy
 
-            #    Pipeline.predict(xtopred)
+                cv_loadings_p[cvround, :, :] = cv_pipeline.loadings_p
+                cv_loadings_q[cvround, :, :] = cv_pipeline.loadings_q
+                cv_weights_w[cvround, :, :] = cv_pipeline.weights_w
+                cv_weights_c[cvround, :, :] = cv_pipeline.weights_c
+                #cv_scores_t[cvround, :, :] = cv_pipeline.scores_t
+                #cv_scores_u[cvround, :, :] = cv_pipeline.scores_u
+                cv_rotations_ws[cvround, :, :] = cv_pipeline.rotations_ws
+                cv_rotations_cs[cvround, :, :] = cv_pipeline.rotations_cs
+                cv_betacoefs[cvround, :] = cv_pipeline.beta_coeffs.T
+                #cv_vipsw[cvround, :] = cv_pipeline.VIP()
 
             # Align model parameters to account for sign indeterminacy.
             # The criteria here used is to select the sign that gives a more similar profile (by L1 distance) to the loadings fitted
@@ -751,24 +789,67 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             for cvround in range(0, ncvrounds):
                 for currload in range(0, self.ncomps):
                     # evaluate based on loadings _p
-                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings_p - cv_loadings_p[currload][cvround, :])),
-                                                 np.sum(np.abs(self.loadings_p - cv_loadings_p[currload][cvround, :] * -1))]))
+                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings_p - cv_loadings_p[cvround, currload, :])),
+                                                 np.sum(np.abs(self.loadings_p - cv_loadings_p[cvround, currload, :] * -1))]))
                     if choice == 1:
-                        cv_loadings_p[currload][cvround, :] = -1 * cv_loadings_p[currload][cvround, :]
-                        cv_loadings_q[currload][cvround, :] = -1 * cv_loadings_p[currload][cvround, :]
-                        cv_weights_w[currload][cvround, :] = -1 * cv_weights_w[currload][cvround, :]
-                        cv_weights_c[currload][cvround, :] = -1 * cv_weights_c[currload][cvround, :]
-                        cv_rotations_ws[currload][cvround, :] = -1 * cv_rotations_ws[currload][cvround, :]
-                        cv_rotations_cs[currload][cvround, :] = -1 * cv_rotations_cs[currload][cvround, :]
-                        cv_scores_t[currload][cvround, :] = -1 * cv_scores_t[currload][cvround, :]
-                        cv_scores_u[currload][cvround, :] = -1 * cv_scores_u[currload][cvround, :]
+                        cv_loadings_p[cvround, currload, :] = -1 * cv_loadings_p[cvround, currload, :]
+                        cv_loadings_q[cvround, currload, :] = -1 * cv_loadings_p[cvround, currload, :]
+                        cv_weights_w[cvround, currload, :] = -1 * cv_weights_w[cvround, currload, :]
+                        cv_weights_c[cvround, currload, :] = -1 * cv_weights_c[cvround, currload, :]
+                        cv_rotations_ws[cvround, currload, :] = -1 * cv_rotations_ws[cvround, currload, :]
+                        cv_rotations_cs[cvround, currload, :] = -1 * cv_rotations_cs[cvround, currload, :]
+                        #cv_scores_t[cvround, currload, :] = -1 * cv_scores_t[cvround, currload, :]
+                        #cv_scores_u[cvround, currload, :] = -1 * cv_scores_u[cvround, currload, :]
 
             # Calculate total sum of squares
             q_squaredy = 1 - (pressy/ssy)
             q_squaredx = 1 - (pressx/ssx)
-            # Assemble the stuff in the end
 
-            self.cvParameters = {'Q2X': q_squaredx, 'Q2Y': q_squaredy}
+            # Store everything...
+            self.cvParameters = {'Q2X': q_squaredx, 'Q2Y': q_squaredy,
+                                 'MeanR2X_Training':np.mean(R2X_training),
+                                 'MeanR2Y_Training': np.mean(R2Y_training),
+                                 'StdevR2X_Training': np.std(R2X_training),
+                                 'StdevR2Y_Training': np.std(R2X_training),
+                                 'MeanR2X_Test': np.mean(R2X_test),
+                                 'MeanR2Y_Test': np.mean(R2Y_test),
+                                 'StdevR2X_Test': np.std(R2X_test),
+                                 'StdevR2Y_Test': np.std(R2Y_test)}
+
+            # Means and standard deviations...
+            self.cvParameters['Mean_Loadings_q'] = cv_loadings_q.mean(0)
+            self.cvParameters['Stdev_Loadings_q'] = cv_loadings_q.std(0)
+            self.cvParameters['Mean_Loadings_p'] = cv_loadings_p.mean(0)
+            self.cvParameters['Stdev_Loadings_p'] = cv_loadings_q.std(0)
+            self.cvParameters['Mean_Weights_c'] = cv_weights_c.mean(0)
+            self.cvParameters['Stdev_Weights_c'] = cv_weights_c.std(0)
+            self.cvParameters['Mean_Weights_w'] = cv_weights_w.mean(0)
+            self.cvParameters['Stdev_Loadings_w'] = cv_weights_w.std(0)
+            self.cvParameters['Mean_Rotations_ws'] = cv_rotations_ws.mean(0)
+            self.cvParameters['Stdev_Rotations_ws'] = cv_rotations_ws.std(0)
+            self.cvParameters['Mean_Rotations_cs'] = cv_rotations_cs.mean(0)
+            self.cvParameters['Stdev_Rotations_cs'] = cv_rotations_cs.std(0)
+            #self.cvParameters['Mean_Scores_t'] = cv_scores_t.mean(0)
+            #self.cvParameters['Stdev_Scores_t'] = cv_scores_t.std(0)
+            #self.cvParameters['Mean_Scores_u'] = cv_scores_u.mean(0)
+            #self.cvParameters['Stdev_Scores_u'] = cv_scores_u.std(0)
+            self.cvParameters['Mean_Beta'] = cv_betacoefs.mean(0)
+            self.cvParameters['Stdev_Beta'] = cv_betacoefs.std(0)
+            # Save everything found during CV
+            if outputdist is True:
+                self.cvParameters['CVR2X_Training'] = R2X_training
+                self.cvParameters['CVR2Y_Training'] = R2Y_training
+                self.cvParameters['CVR2X_Test'] = R2X_test
+                self.cvParameters['CVR2Y_Test'] = R2Y_test
+                self.cvParameters['CV_Loadings_q'] = cv_loadings_q
+                self.cvParameters['CV_Loadings_p'] = cv_loadings_p
+                self.cvParameters['CV_Weights_c'] = cv_weights_c
+                self.cvParameters['CV_Weights_w'] = cv_weights_w
+                self.cvParameters['CV_Rotations_ws'] = cv_rotations_ws
+                self.cvParameters['CV_Rotations_cs'] = cv_rotations_cs
+                #self.cvParameters['Mean_Scores_t'] = cv_scores_t
+                #self.cvParameters['Mean_Scores_u'] = cv_scores_u
+                self.cvParameters['CV_Beta'] = cv_betacoefs
 
             return None
 
