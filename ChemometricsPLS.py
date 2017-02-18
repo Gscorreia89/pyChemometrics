@@ -130,8 +130,16 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.rotations_cs = None
             self.b_u = None
             self.b_t = None
+            self.beta_coeffs = None
 
-            # Shall we have OPLS here?
+            # OPLS stuff - experimental -might be better to split the object in the future
+            self.weights_wo = None
+            self.scores_to = None
+            self.rotations_wso = None
+            self.loadings_po = None
+            self.scores_uo = None
+            self.weights_co = None
+            self.loadings_qo = None
 
             self._ncomps = None
             self.ncomps = ncomps
@@ -164,48 +172,49 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # do this by default, this is solely to make everything ultra clear and to expose the
             # interface for potential future modification
             # (which might involve having to modifying the sklearn automatic scaling in the core objects...)
+            # Comply with the sklearn-scaler behaviour convention
             if y.ndim == 1:
-                y = y[np.newaxis]
+                y = y.reshape(-1, 1)
             if x.ndim == 1:
-                x = x[np.newaxis]
-            if self.x_scaler is not None:
-                xscaled = self.x_scaler.fit_transform(x)
-            else:
-                xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
-            if self.y_scaler is not None:
-                yscaled = self.y_scaler.fit_transform(y)
-            else:
-                yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
+                x = x.reshape(-1, 1)
+
+            xscaled = self.x_scaler.fit_transform(x)
+            yscaled = self.y_scaler.fit_transform(y)
 
             self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
+
             # Expose the model parameters
             self.loadings_p = self.pls_algorithm.x_loadings_
-            self.loadings_q = self.pls_algorithm.y_loadings_
             self.loadings_q = self.pls_algorithm.y_loadings_
             self.weights_w = self.pls_algorithm.x_weights_
             self.weights_c = self.pls_algorithm.y_weights_
             self.rotations_ws = self.pls_algorithm.x_rotations_
-            self.rotations_cs = self.pls_algorithm.y_rotations_
+            # scikit learn sets the rotation, causing a discrepancy between the scores calculated during fitting and the transform method
+            # for now, we calculate the rotation and override it: C* = pinv(CQ')C
+            self.rotations_cs = np.dot(np.linalg.pinv(np.dot(self.weights_c, self.loadings_q.T)), self.weights_c)
             self.scores_t = self.pls_algorithm.x_scores_
             self.scores_u = self.pls_algorithm.y_scores_
             self.b_u = np.dot(np.dot(np.linalg.pinv(np.dot(self.scores_u.T, self.scores_u)), self.scores_u.T), self.scores_t)
             self.b_t = np.dot(np.dot(np.linalg.pinv(np.dot(self.scores_t.T, self.scores_t)), self.scores_t.T), self.scores_u)
+            self.beta_coeffs = self.pls_algorithm.coef_
+            # Needs to come here for the method shortcuts down the line to work...
+            self._isfitted = True
 
-            # Calculate total sum of squares of X and Y for R2X and R2Y calculation
-            tssy = np.sum(yscaled ** 2)
-            tssx = np.sum(xscaled ** 2)
+            # OPLS for free...
+            if self.ncomps > 1:
+                self.weights_wo = np.c_[self.weights_w[:, 1::], self.weights_w[:, 0]]
+                to, ro = np.linalg.qr(np.dot(xscaled, self.weights_wo))
+                self.scores_to = np.dot(to, ro)
+                self.rotations_wso = np.linalg.lstsq(self.weights_wo.T, ro.T)
+                self.loadings_po = np.dot(xscaled.T, self.scores_to)
+                self.scores_uo = np.c_[self.y_scores_[:, 1::], self.y_scores_[:, 0]]
+                self.weights_co = np.c_[self.y_weights_[:, 1::], self.y_weights_[:, 0]]
+                self.loadings_qo = np.c_[self.y_loadings_[:, 1::], self.y_loadings_[:, 0]]
 
             # Calculate RSSy/RSSx, R2Y/R2X
-            ypred = self.y_scaler.transform(self.predict(x=x, y=None))
-            xpred = self.x_scaler.transform(self.predict(x=None, y=y))
-
-            rssy = np.sum((yscaled - ypred)**2)
-            rssx = np.sum((xscaled - xpred)**2)
-            R2Y = self.score(x=x, y=None, block_to_score='y')
-            R2X = self.score(x=None, y=y, block_to_score='x')
-
+            R2Y = self.score(x=x, y=y, block_to_score='y')
+            R2X = self.score(x=x, y=y, block_to_score='x')
             self.modelParameters = {'R2Y': R2Y, 'R2X': R2X}
-            self._isfitted = True
 
         except Exception as exp:
             raise exp
@@ -219,18 +228,14 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
         try:
             self.fit(x, y, **fit_params)
+            # Comply with the sklearn scaler behaviour
             if y.ndim == 1:
-                y = y[np.newaxis]
+                y = y.reshape(-1, 1)
             if x.ndim == 1:
-                x = x[np.newaxis]
-            if self.x_scaler is not None:
-                xscaled = self.x_scaler.fit_transform(x)
-            else:
-                xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
-            if self.y_scaler is not None:
-                yscaled = self.y_scaler.fit_transform(y)
-            else:
-                yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
+                x = x.reshape(-1, 1)
+
+            xscaled = self.x_scaler.fit_transform(x)
+            yscaled = self.y_scaler.fit_transform(y)
 
             return self.transform(xscaled, y=None), self.transform(x=None, y=yscaled)
 
@@ -246,39 +251,37 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
         try:
 
-            if x.ndim == 1:
-                x = x[np.newaxis]
             # Check if model is fitted
             if self._isfitted is True:
                 # If X and Y are passed, complain and do nothing
-                if x is not None and y is not None:
+                if (x is not None) and (y is not None):
                     raise ValueError('xx')
                 # If nothing is passed at all, complain and do nothing
-                elif x is None and y is None:
+                elif (x is None and y is None):
                     raise ValueError('yy')
                 # If Y is given, return U
                 elif x is None:
                     if y.ndim == 1:
-                        y = y[np.newaxis]
-                    if self.y_scaler is not None:
-                        yscaled = self.y_scaler.fit_transform(y)
-                    else:
-                        yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
+                        y = y.reshape(-1, 1)
+
+                    yscaled = self.y_scaler.transform(y)
                     # Taking advantage of rotations_y
                     # Otherwise this would be the full calculation U = Y*pinv(CQ')*C
                     U = np.dot(yscaled, self.rotations_cs)
+                    #U = np.dot(yscaled, self.loadings_q.T)
                     return U
+
                 # If X is given, return T
                 elif y is None:
+                    # Comply with the sklearn scaler behaviour
                     if x.ndim == 1:
-                        x = x[np.newaxis]
-                    if self.x_scaler is not None:
-                        xscaled = self.x_scaler.fit_transform(x)
-                    else:
-                        xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
+                        x = x.reshape(-1, 1)
+
+                    xscaled = self.x_scaler.transform(x)
                     # Taking advantage of the rotation_x
                     # Otherwise this would be would the full calculation T = X*pinv(WP')*W
                     T = np.dot(xscaled, self.rotations_ws)
+                    #T = np.dot(xscaled, self.loadings_p.T)
                     return T
             else:
                 raise ValueError('Model not fitted')
@@ -342,19 +345,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         try:
             if block_to_score not in ['x', 'y']:
                 raise ValueError("message here")
+            # Comply with the sklearn scaler behaviour
             if y.ndim == 1:
-                y = y[np.newaxis]
+                y = y.reshape(-1, 1)
             if x.ndim == 1:
-                x = x[np.newaxis]
-            if self.x_scaler is not None:
-                xscaled = self.x_scaler.fit_transform(x)
-            else:
-                xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
+                x = x.reshape(-1, 1)
 
-            if self.y_scaler is not None:
-                yscaled = self.y_scaler.fit_transform(y)
-            else:
-                yscaled = ChemometricsScaler(0, with_std=False).fit_transform(y)
+            xscaled = self.x_scaler.transform(x)
+            yscaled = self.y_scaler.transform(y)
+
 
             # Calculate total sum of squares of X and Y for R2X and R2Y calculation
             tssy = np.sum(yscaled ** 2)
@@ -364,8 +363,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # The prediction here of both X and Y is done using the other block of data only
             # so these R2s can be interpreted as as a "classic" R2, and not as a proportion of variance modelled
             # Here we use X = Ub_uW', as opposed to (X = TP').
-            ypred = self.y_scaler.transform(self.predict(xscaled, y=None))
-            xpred = self.x_scaler.transform(self.predict(x=None, y=yscaled))
+            ypred = self.y_scaler.transform(self.predict(x, y=None))
+            xpred = self.x_scaler.transform(self.predict(x=None, y=y))
             rssy = np.sum((yscaled - ypred)**2)
             rssx = np.sum((xscaled - xpred)**2)
             R2Y = 1 - (rssy/tssy)
@@ -388,34 +387,38 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         try:
-            if self._fitted is True:
-                if x is not None and y is not None:
+            if self._isfitted is True:
+                if (x is not None) and (y is not None):
                     raise ValueError('xx')
                 # If nothing is passed at all, complain and do nothing
-                elif x is None and y is None:
+                elif (x is None) and (y is None):
                     raise ValueError('yy')
                 # Predict Y from X
                 elif x is not None:
                     if x.ndim == 1:
-                        x = x[np.newaxis]
-                    if self.x_scaler is not None:
-                        xscaled = self.x_scaler.fit_transform(x)
-                    else:
-                        xscaled = ChemometricsScaler(0, with_std=False).fit_transform(x)
+                        x = x.reshape(-1, 1)
+                    xscaled = self.x_scaler.transform(x)
+
                     # Using Betas to predict Y directly
-                    predicted = np.dot(xscaled, self.coefs_)
+                    predicted = np.dot(xscaled, self.beta_coeffs)
+                    if predicted.ndim == 1:
+                        predicted = predicted.reshape(-1, 1)
                     predicted = self.y_scaler.inverse_transform(predicted)
                     return predicted
                 # Predict X from Y
                 elif y is not None:
+                    # Comply with the sklearn scaler behaviour
                     if y.ndim == 1:
-                        y = y[np.newaxis]
+                        y = y.reshape(-1, 1)
                     # Going through calculation of U and then X = Ub_uW'
                     u_scores = self.transform(x=None, y=y)
                     predicted = np.dot(np.dot(u_scores, self.b_u), self.weights_w.T)
+                    if predicted.ndim == 1:
+                        predicted = predicted.reshape(-1, 1)
                     predicted = self.x_scaler.inverse_transform(predicted)
                     return predicted
-
+            else:
+                raise ValueError("Model is not fitted")
         except Exception as exp:
             raise exp
 
@@ -455,6 +458,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.modelParameters = None
             self.b_t = None
             self.b_u = None
+            self.beta_coeffs = None
+            # OPLS
+            self.weights_wo = None
+            self.scores_to = None
+            self.rotations_wso = None
+            self.loadings_po = None
+            self.scores_uo = None
+            self.weights_co = None
+            self.loadings_qo = None
 
             return None
         except AttributeError as atre:
@@ -499,6 +511,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.scores_u = None
             self.b_t = None
             self.b_u = None
+            self.beta_coeffs = None
+            # OPLS
+            self.weights_wo = None
+            self.scores_to = None
+            self.rotations_wso = None
+            self.loadings_po = None
+            self.scores_uo = None
+            self.weights_co = None
+            self.loadings_qo = None
 
             return None
         except AttributeError as atre:
@@ -544,6 +565,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.scores_u = None
             self.b_t = None
             self.b_u = None
+            self.beta_coeffs = None
+            # OPLS
+            self.weights_wo = None
+            self.scores_to = None
+            self.rotations_wso = None
+            self.loadings_po = None
+            self.scores_uo = None
+            self.weights_co = None
+            self.loadings_qo = None
 
             return None
 
@@ -669,24 +699,36 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             R2Y_test = np.zeros((ncvrounds))
 
             for cvround, train_testidx in enumerate(cv_method.split(x, y)):
+                # split the data explicitly
                 train = train_testidx[0]
                 test = train_testidx[1]
+                ytest = y[test, :]
+                xtest = x[test, :]
+                xtrain = x[train, :]
+                ytrain = y[train, :]
+                # Comply with the sklearn scaler behaviour
+                if ytest.ndim == 1:
+                    ytest = ytest.reshape(-1, 1)
+                    ytrain = ytrain.reshape(-1, 1)
+                if xtest.ndim == 1:
+                    xtest = xtest.reshape(-1, 1)
+                    xtrain = xtrain.reshape(-1, 1)
                 # Fit the training data
-                cv_pipeline.fit(x[train, :], y[train, :], **crossval_kwargs)
+                cv_pipeline.fit(xtrain, ytrain, **crossval_kwargs)
                 # Prepare the scaled X and Y test data
                 # If testset_scale is True, these are scaled individually...
                 if testset_scale is True:
-                    xtest_scaled = cv_pipeline.x_scaler.fit_transform(x[test, :])
-                    ytest_scaled = cv_pipeline.y_scaler.fit_transform(y[test, :])
+                    xtest_scaled = cv_pipeline.x_scaler.fit_transform(xtrain)
+                    ytest_scaled = cv_pipeline.y_scaler.fit_transform(ytrain)
                 # Otherwise (default), training set mean and scaling vectors are used
                 else:
-                    xtest_scaled = cv_pipeline.x_scaler.transform(x[test, :])
-                    ytest_scaled = cv_pipeline.y_scaler.transform(y[test, :])
+                    xtest_scaled = cv_pipeline.x_scaler.transform(xtrain)
+                    ytest_scaled = cv_pipeline.y_scaler.transform(ytrain)
 
-                R2X_training[cvround] = cv_pipeline.score(y[train, :], 'x')
-                R2Y_training[cvround] = cv_pipeline.score(x[train, :], 'y')
-                ypred = cv_pipeline.predict(y[test, :], 'x')
-                xpred = cv_pipeline.predict(y[test, :], 'x')
+                R2X_training[cvround] = cv_pipeline.score(ytrain, 'x')
+                R2Y_training[cvround] = cv_pipeline.score(xtrain, 'y')
+                ypred = cv_pipeline.predict(xtest, 'y')
+                xpred = cv_pipeline.predict(ytest, 'x')
 
                 currtest_ssx = np.sum(xtest_scaled**2)
                 currtest_ssy = np.sum(ytest_scaled**2)

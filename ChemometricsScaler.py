@@ -121,6 +121,7 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
             used for later scaling along the features axis.
         y : Passthrough for ``Pipeline`` compatibility.
         """
+
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
                         warn_on_dtype=True, estimator=self, dtype=FLOAT_DTYPES)
 
@@ -179,6 +180,7 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
         check_is_fitted(self, 'scale_')
 
         copy = copy if copy is not None else self.copy
+
         X = check_array(X, accept_sparse='csr', copy=copy, warn_on_dtype=True,
                         estimator=self, dtype=FLOAT_DTYPES)
 
@@ -236,7 +238,6 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
         for k, v in self.__dict__.items():
             setattr(result, k, deepcopy(v, memo))
         return result
-
 
 
 def _handle_zeros_in_scale(scale, copy=True):
