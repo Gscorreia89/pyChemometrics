@@ -856,17 +856,65 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as terp:
             raise terp
 
-    def permute_test(self, nperms=1000, crossVal=KFold(7, True)):
+    def permute_test(self, x, y, nperms=1000, cv_method=KFold(7, True)):
         """
 
         :param nperms:
         :param crossVal:
         :return:
         """
-        #permuted
-        for perm in range(0, nperms):
-            p = 1
-        return None
+        try:
+            # Check if global model is fitted... and if not, fit it using all of X
+            if self._isfitted is False or self.loadings is None:
+                self.fit(x, y)
+            # Make a copy of the object, to ensure the internal state doesn't come out differently from the
+            # cross validation method call...
+            permute_class = copy.deepcopy(self)
+            # Initalise list for loading distribution
+
+            permuted_weights = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
+            permuted_ = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
+            permuted_loads = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
+            permuted_loads = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
+            permuted_loads = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
+
+            permuted_R2Y = []
+            permuted_R2X = []
+            permuted_Q2Y = []
+            permuted_Q2X = []
+
+            for permutation in range(0, nperms):
+                for var in range(0, x.shape[1]):
+                    # Copy original column order, shuffle array in place...
+                    orig = np.copy(y)
+                    np.random.shuffle(y)
+                    # ... Fit model and replace original data
+                    permute_class.fit(x, y)
+                    permute_class.cross_validation(x, y, cv_method=cv_method)
+                    x[:, var] = orig
+                    # Store the loadings for each permutation component-wise
+                    for loading in range(0, permute_class.ncomps):
+                        permuted_loads[loading][permutation, var] = permute_class.loadings[loading][var]
+
+            # Align loadings due to sign indeterminacy.
+            # Solution provided is to select the sign that gives a more similar profile to the
+            # Loadings calculated with the whole data.
+            for cvround in range(0, nperms):
+                for currload in range(0, self.ncomps):
+                    # evaluate based on loadings _p
+                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings_p - cv_loadings_p[cvround, currload, :])),
+                                                 np.sum(np.abs(self.loadings_p - cv_loadings_p[cvround, currload, :] * -1))]))
+                    if choice == 1:
+                        perm_loadings_p[cvround, currload, :] = -1 * cv_loadings_p[cvround, currload, :]
+                        perm_loadings_q[cvround, currload, :] = -1 * cv_loadings_p[cvround, currload, :]
+                        perm_weights_w[cvround, currload, :] = -1 * cv_weights_w[cvround, currload, :]
+                        perm_weights_c[cvround, currload, :] = -1 * cv_weights_c[cvround, currload, :]
+                        perm_rotations_ws[cvround, currload, :] = -1 * cv_rotations_ws[cvround, currload, :]
+
+            return permuted_loads
+
+        except Exception as exp:
+            raise exp
 
     def score_plot(self, lvs=[1,2], scores="T"):
         """
