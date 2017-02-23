@@ -200,22 +200,26 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # Needs to come here for the method shortcuts down the line to work...
             self._isfitted = True
 
-            # OPLS for free...
+            # OPLS for free... - add a specific method to generate this
             if self.ncomps > 1:
                 self.weights_wo = np.c_[self.weights_w[:, 1::], self.weights_w[:, 0]]
                 to, ro = np.linalg.qr(np.dot(xscaled, self.weights_wo))
                 self.scores_to = np.dot(to, ro)
                 self.rotations_wso = np.linalg.lstsq(self.weights_wo.T, ro.T)
                 self.loadings_po = np.dot(xscaled.T, self.scores_to)
-                self.scores_uo = np.c_[self.y_scores_[:, 1::], self.y_scores_[:, 0]]
-                self.weights_co = np.c_[self.y_weights_[:, 1::], self.y_weights_[:, 0]]
-                self.loadings_qo = np.c_[self.y_loadings_[:, 1::], self.y_loadings_[:, 0]]
+                self.scores_uo = np.c_[self.scores_u[:, 1::], self.scores_u[:, 0]]
+                self.weights_co = np.c_[self.weights_c[:, 1::], self.weights_c[:, 0]]
+                self.loadings_qo = np.c_[self.loadings_q[:, 1::], self.loadings_q[:, 0]]
 
             # Calculate RSSy/RSSx, R2Y/R2X
             R2Y = self.score(x=x, y=y, block_to_score='y')
             R2X = self.score(x=x, y=y, block_to_score='x')
-            self.modelParameters = {'R2Y': R2Y, 'R2X': R2X}
 
+            # Obtain residual sum of squares for whole data set and per component
+            cm_fit = self._cummulativefit(self.ncomps, x, y)
+
+            self.modelParameters = {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
+                                    'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']}
         except Exception as exp:
             raise exp
 
@@ -245,6 +249,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def transform(self, x=None, y=None, **transform_kwargs):
         """
         Calculate the projection of the data into the lower dimensional space
+        # Scores are calculated directly from their respective loadings (T = XW*)
+        # (Y =
+        # not through prediction
         TO DO as PLS does not contain this...
         :param x:
         :return:
@@ -602,20 +609,16 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                        'c': self.weights_c, 'q': self.loadings_q}
 
             if direction == 'y':
-                tvarpred = 1
+                ss_dir = 'SSYcomp'
             else:
-                tvarpred = 1
-            n = 1
+                ss_dir = 'SSXcomp'
 
-            vip_numerator = 0
+            nvars = self.loadings_p.shape[0]
+            vipnum = np.zeros(nvars)
+            for comp in range(0, self.ncomps):
+                vipnum += (choices[mode][:, comp] ** 2) * (self.modelParameters[ss_dir][comp])
 
-            for currcomp in range(0, self.ncomps):
-                if direction == 'y':
-                    var_pred = 1
-                else:
-                    var_pred = 1
-                vip_numerator += (choices[mode]**2) * var_pred
-            vip = np.sqrt(vip_numerator/(tvarpred)*n)
+            vip = np.sqrt(vipnum * nvars / self.modelParameters[ss_dir].sum())
 
             return vip
 
@@ -645,7 +648,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as typerr:
             raise typerr
 
-    def cross_validation(self, x, y,  cv_method=KFold(7, False), outputdist=False, testset_scale=False,
+    def cross_validation(self, x, y,  cv_method=KFold(7, True), outputdist=False, testset_scale=False,
                          **crossval_kwargs):
         """
 
@@ -701,8 +704,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # Calculate Sum of Squares SS in whole dataset for future calculations
             ssx = np.sum((cv_pipeline.x_scaler.fit_transform(x)) ** 2)
             ssy = np.sum((cv_pipeline.y_scaler.fit_transform(y)) ** 2)
-            print(ssy)
-            print(ssx)
+
             # As assessed in the test set..., opposed to PRESS
             R2X_training = np.zeros(ncvrounds)
             R2Y_training = np.zeros(ncvrounds)
@@ -789,15 +791,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             for cvround in range(0, ncvrounds):
                 for currload in range(0, self.ncomps):
                     # evaluate based on loadings _p
-                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings_p - cv_loadings_p[cvround, currload, :])),
-                                                 np.sum(np.abs(self.loadings_p - cv_loadings_p[cvround, currload, :] * -1))]))
+                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings_p[:, currload] - cv_loadings_p[cvround, :, currload])),
+                                                 np.sum(np.abs(self.loadings_p[:, currload] - cv_loadings_p[cvround, :, currload] * -1))]))
                     if choice == 1:
-                        cv_loadings_p[cvround, currload, :] = -1 * cv_loadings_p[cvround, currload, :]
-                        cv_loadings_q[cvround, currload, :] = -1 * cv_loadings_p[cvround, currload, :]
-                        cv_weights_w[cvround, currload, :] = -1 * cv_weights_w[cvround, currload, :]
-                        cv_weights_c[cvround, currload, :] = -1 * cv_weights_c[cvround, currload, :]
-                        cv_rotations_ws[cvround, currload, :] = -1 * cv_rotations_ws[cvround, currload, :]
-                        cv_rotations_cs[cvround, currload, :] = -1 * cv_rotations_cs[cvround, currload, :]
+                        cv_loadings_p[cvround, :, currload] = -1 * cv_loadings_p[cvround, :, currload]
+                        cv_loadings_q[cvround, :, currload] = -1 * cv_loadings_p[cvround, :, currload]
+                        cv_weights_w[cvround, :, currload] = -1 * cv_weights_w[cvround, :, currload]
+                        cv_weights_c[cvround, :, currload] = -1 * cv_weights_c[cvround, :, currload]
+                        cv_rotations_ws[cvround, :, currload] = -1 * cv_rotations_ws[cvround, :, currload]
+                        cv_rotations_cs[cvround, :, currload] = -1 * cv_rotations_cs[cvround, :, currload]
                         #cv_scores_t[cvround, currload, :] = -1 * cv_scores_t[cvround, currload, :]
                         #cv_scores_u[cvround, currload, :] = -1 * cv_scores_u[cvround, currload, :]
 
@@ -856,9 +858,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as terp:
             raise terp
 
-    def permute_test(self, x, y, nperms=1000, cv_method=KFold(7, True)):
+    def permutation_test(self, x, y, nperms=1000, cv_method=KFold(7, True)):
         """
-
+        Permutation test for the classifier
         :param nperms:
         :param crossVal:
         :return:
@@ -870,48 +872,62 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
             permute_class = copy.deepcopy(self)
-            # Initalise list for loading distribution
 
-            permuted_weights = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
-            permuted_ = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
-            permuted_loads = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
-            permuted_loads = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
-            permuted_loads = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
+            # Initialize data structures for permuted distributions
+            perm_loadings_q = np.zeros(nperms, y.shape[1], self.ncomps)
+            perm_loadings_p = np.zeros(nperms, x.shape[1], self.ncomps)
+            perm_weights_c = np.zeros(nperms, y.shape[1], self.ncomps)
+            perm_weights_w = np.zeros(nperms, x.shape[1], self.ncomps)
+            perm_rotations_cs = np.zeros(nperms, y.shape[1], self.ncomps)
+            perm_rotations_ws = np.zeros(nperms, x.shape[1], self.ncomps)
+            perm_beta = np.zeros(nperms, x.shape[1], y.shape[1])
 
-            permuted_R2Y = []
-            permuted_R2X = []
-            permuted_Q2Y = []
-            permuted_Q2X = []
+            permuted_R2Y = np.zeros(nperms)
+            permuted_R2X = np.zeros(nperms)
+            permuted_Q2Y = np.zeros(nperms)
+            permuted_Q2X = np.zeros(nperms)
 
             for permutation in range(0, nperms):
-                for var in range(0, x.shape[1]):
-                    # Copy original column order, shuffle array in place...
-                    orig = np.copy(y)
-                    np.random.shuffle(y)
-                    # ... Fit model and replace original data
-                    permute_class.fit(x, y)
-                    permute_class.cross_validation(x, y, cv_method=cv_method)
-                    x[:, var] = orig
-                    # Store the loadings for each permutation component-wise
-                    for loading in range(0, permute_class.ncomps):
-                        permuted_loads[loading][permutation, var] = permute_class.loadings[loading][var]
+                # Copy original column order, shuffle array in place...
+                original_Y = np.copy(y)
+                np.random.shuffle(y)
+                # ... Fit model and replace original data
+                permute_class.fit(x, y)
+                permute_class.cross_validation(x, y, cv_method=cv_method)
+                y = original_Y
+                permuted_R2Y[permutation] = permute_class.modelParameters['R2Y']
+                permuted_R2X[permutation] = permute_class.modelParameters['R2X']
+                permuted_Q2Y[permutation] = permute_class.cvParameters['Q2Y']
+                permuted_Q2X[permutation] = permute_class.cvParameters['Q2X']
 
-            # Align loadings due to sign indeterminacy.
+                # Store the loadings for each permutation component-wise
+                perm_loadings_q[permutation, :, :] = permute_class.loadings_q
+                perm_loadings_p[permutation, :, :] = permute_class.loadings_P
+                perm_weights_c[permutation, :, :] = permute_class.weights_c
+                perm_weights_w[permutation, :, :] = permute_class.weights_w
+                perm_rotations_cs[permutation, :, :] = permute_class.rotations_cs
+                perm_rotations_ws[permutation, :, :] = permute_class.rotations_ws
+                perm_beta[permutation, :, :] = permute_class.betacoeffs
+
+            # Align model parameters due to sign indeterminacy.
             # Solution provided is to select the sign that gives a more similar profile to the
             # Loadings calculated with the whole data.
             for cvround in range(0, nperms):
                 for currload in range(0, self.ncomps):
                     # evaluate based on loadings _p
-                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings_p - cv_loadings_p[cvround, currload, :])),
-                                                 np.sum(np.abs(self.loadings_p - cv_loadings_p[cvround, currload, :] * -1))]))
+                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings_p - perm_loadings_p[cvround, currload, :])),
+                                                 np.sum(np.abs(self.loadings_p - perm_loadings_p[cvround, currload, :] * -1))]))
                     if choice == 1:
-                        perm_loadings_p[cvround, currload, :] = -1 * cv_loadings_p[cvround, currload, :]
-                        perm_loadings_q[cvround, currload, :] = -1 * cv_loadings_p[cvround, currload, :]
-                        perm_weights_w[cvround, currload, :] = -1 * cv_weights_w[cvround, currload, :]
-                        perm_weights_c[cvround, currload, :] = -1 * cv_weights_c[cvround, currload, :]
-                        perm_rotations_ws[cvround, currload, :] = -1 * cv_rotations_ws[cvround, currload, :]
+                        perm_loadings_p[cvround, currload, :] = -1 * perm_loadings_p[cvround, currload, :]
+                        perm_loadings_q[cvround, currload, :] = -1 * perm_loadings_p[cvround, currload, :]
+                        perm_weights_w[cvround, currload, :] = -1 * perm_weights_w[cvround, currload, :]
+                        perm_weights_c[cvround, currload, :] = -1 * perm_weights_c[cvround, currload, :]
+                        perm_rotations_ws[cvround, :, currload] = -1 * perm_rotations_ws[cvround, currload, :]
+                        perm_rotations_cs[cvround, :, currload] = -1 * perm_rotations_cs[cvround, currload, :]
 
-            return permuted_loads
+            # Pack everything into a nice data structure and return
+            # Calculate p-value for Q2Y as well
+            return 1
 
         except Exception as exp:
             raise exp
@@ -935,6 +951,84 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
         return None
 
+    def _cummulativefit(self, ncomps, x, y):
+
+        if y.ndim == 1:
+            y = y.reshape(-1, 1)
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+
+        xscaled = self.x_scaler.fit_transform(x)
+        yscaled = self.y_scaler.fit_transform(y)
+
+        ssx_comp = list()
+        ssy_comp = list()
+
+        # Obtain residual sum of squares for whole data set and per component
+        SSX = np.sum(xscaled ** 2)
+        SSY = np.sum(yscaled ** 2)
+        ssx_comp = list()
+        ssy_comp = list()
+
+        for curr_comp in range(1, self.ncomps + 1):
+            model = self._reduce_ncomps(curr_comp)
+
+            ypred = self.y_scaler.transform(model.predict(x, y=None))
+            xpred = self.x_scaler.transform(model.predict(x=None, y=y))
+            rssy = np.sum((yscaled - ypred) ** 2)
+            rssx = np.sum((xscaled - xpred) ** 2)
+            ssx_comp.append(rssx)
+            ssy_comp.append(rssy)
+
+        cumulative_fit = {'SSX': SSX, 'SSY': SSY, 'SSXcomp': np.array(ssx_comp), 'SSYcomp': np.array(ssy_comp)}
+
+        return cumulative_fit
+
+    def _reduce_ncomps(self, ncomps):
+        """
+
+        :param ncomps:
+        :return:
+        """
+        try:
+            if ncomps > self.ncomps:
+                raise ValueError('Fit a new model with more components instead')
+
+            newmodel = copy.deepcopy(self)
+            newmodel._ncomps = ncomps
+
+            newmodel.modelParameters = None
+            newmodel.cvParameters = None
+            newmodel.loadings_p = self.loadings_p[:, 0:ncomps]
+            newmodel.weights_w = self.weights_w[:, 0:ncomps]
+            newmodel.weights_c = self.weights_c[:, 0:ncomps]
+            newmodel.loadings_q = self.loadings_q[:, 0:ncomps]
+            newmodel.rotations_ws = self.rotations_ws[:, 0:ncomps]
+            newmodel.rotations_cs = self.rotations_cs[:, 0:ncomps]
+            newmodel.scores_t = None
+            newmodel.scores_u = None
+            newmodel.b_t = self.b_t[0:ncomps, 0:ncomps]
+            newmodel.b_u = self.b_u[0:ncomps, 0:ncomps]
+
+            # These have to be recalculated from the rotations
+            newmodel.beta_coeffs = np.dot(newmodel.rotations_ws, newmodel.loadings_q.T)
+            newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
+                                    newmodel.beta_coeffs * newmodel.y_scaler.scale_)
+
+            #  OPLS - wait for creation of internal method - OPLS
+            newmodel.weights_wo = None
+            newmodel.scores_to = None
+            newmodel.rotations_wso = None
+            newmodel.loadings_po = None
+            newmodel.scores_uo = None
+            newmodel.weights_co = None
+            newmodel.loadings_qo = None
+
+            return newmodel
+
+        except Exception as exp:
+            raise exp
+
     def __deepcopy__(self, memo):
         cls = self.__class__
         result = cls.__new__(cls)
@@ -942,5 +1036,3 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         for k, v in self.__dict__.items():
             setattr(result, k, deepcopy(v, memo))
         return result
-
-

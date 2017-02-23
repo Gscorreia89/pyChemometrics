@@ -251,6 +251,7 @@ class ChemometricsPCA(_BasePCA):
             self.loadings = None
             self.scores = None
             self.cvParameters = None
+
             return None
         except AttributeError as atre:
             raise atre
@@ -448,7 +449,6 @@ class ChemometricsPCA(_BasePCA):
                                                  np.sum(np.abs(self.loadings - permuted_loads[currload][perm_n, :] * -1))]))
                     if choice == 1:
                         permuted_loads[currload][perm_n, :] = -1 * permuted_loads[currload][perm_n, :]
-                        
             return permuted_loads
         except Exception as exp:
             raise exp
