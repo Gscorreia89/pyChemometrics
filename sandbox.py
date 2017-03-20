@@ -26,13 +26,4 @@ x = xmat.values
 
 ples.fit(x, y)
 
-pz = ples.loadings_p/np.linalg.norm(ples.loadings_p, axis=0)
-pz = ples.weights_w
-
-vipnum = np.zeros(x.shape[1])
-for comp in range(0, ples.ncomps):
-    vipnum += (pz[:, comp]**2) * (ples.modelParameters['SSYcomp'][comp])
-
-vip = np.sqrt(vipnum * x.shape[1] / ples.modelParameters['SSYcomp'].sum())
-
-ples.cross_validation(x, y, testset_scale=True)
+ples.cross_validation(x, y, testset_scale=False)

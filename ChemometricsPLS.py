@@ -16,6 +16,19 @@ __author__ = 'gd2212'
 
 class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     """
+
+    PLS object
+
+    :param int ncomps:
+    :param sklearn._PLS pls_algorithm:
+    :param TransformerMixin xscaler:
+    :param TransformerMixin yscaler:
+    :param pandas.Dataframe metadata:
+    :param pls_type_kwargs:
+
+    """
+
+    """
     This object is designed to fit flexibly both PLSRegression with one or multiple Y and PLSCanonical, both
     with either NIPALS or SVD. PLS-SVD provides a slightly different type of factorization, and should
     not be used with this object.
@@ -82,8 +95,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     all the way up to B(OLS), when Number of Components = number of variables/columns.
     See Frank and Friedman, Jong and Kramer/Rosipal
 
-    A component of OPLS is also provided:
+    A component of OPLS is also provided, following from:
+        PLS-RT - the ergon and indahl papers
 
+    The predictive capability is the same
     """
 
     def __init__(self, ncomps=2, pls_algorithm=PLSRegression, xscaler=ChemometricsScaler(), yscaler=None,
@@ -96,6 +111,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :param yscaler:
         :param metadata:
         :param pls_type_kwargs:
+
         """
         try:
 
@@ -158,9 +174,13 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def fit(self, x, y, **fit_params):
         """
-        Fit function. Acts exactly as in scikit-learn, but
+
+        Perform model fitting on the provided x and y data and calculate basic goodness-of-fit metrics.
+        Equivalent to sklearn's default BaseEstimator method.
+
         :param x:
-        :param scale:
+        :param y:
+        :param **fit_params:
         :return:
 
         """
@@ -220,16 +240,20 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             self.modelParameters = {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
                                     'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']}
+
         except Exception as exp:
             raise exp
 
     def fit_transform(self, x, y, **fit_params):
         """
-        Obtain scores in X
+
+        Fit a model and return the scores. Equivalent to sklearn's default TransformerMixin method.
+
         :param x: Data to fit
         :param fit_params:
         :return:
         """
+
         try:
             self.fit(x, y, **fit_params)
             # Comply with the sklearn scaler behaviour
@@ -248,12 +272,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def transform(self, x=None, y=None, **transform_kwargs):
         """
-        Calculate the projection of the data into the lower dimensional space
-        # Scores are calculated directly from their respective loadings (T = XW*)
-        # (Y =
-        # not through prediction
-        TO DO as PLS does not contain this...
-        :param x:
+
+        Calculate the scores for a data block from the original data. Scores are calculated from the
+        respective rotations (T = XW* and U = YC*). Equivalent to sklearn's default TransformerMixin method.
+
+        :param numpy.ndarray x:
+        :param numpy.ndarray y:
         :return:
         """
         try:
@@ -301,6 +325,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def inverse_transform(self, t=None, u=None):
         """
 
+        Transform scores to the original data space using their corresponding loadings.
+        Equivalent to sklearn's default TransformerMixin method.
+
         :param t:
         :param u:
         :return:
@@ -342,6 +369,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def score(self, x, y, block_to_score='y', sample_weight=None):
         """
 
+        Predict and calculate the R2 for the a data, using information from the other.
+        Equivalent to sklearn RegressorMixin score method.
+
         :param x:
         :param y:
         :param block_to_score:
@@ -360,7 +390,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             xscaled = self.x_scaler.transform(x)
             yscaled = self.y_scaler.transform(y)
-
 
             # Calculate total sum of squares of X and Y for R2X and R2Y calculation
             tssy = np.sum(yscaled ** 2)
@@ -388,8 +417,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def predict(self, x=None, y=None):
         """
 
-        :param x:
-        :param y:
+        Predict the value of one data block using the other block. Equivalent to sklearn RegressorMixin predict method.
+
+        :param 2-dimensional array x:
+        :param 1 or 2-dimensional array y:
         :return:
         """
 
@@ -432,10 +463,13 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     @property
     def ncomps(self):
         """
-        Getter for number of components
+
+        Getter for number of components.
+
         :param ncomps:
         :return:
         """
+
         try:
             return self._ncomps
         except AttributeError as atre:
@@ -444,8 +478,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     @ncomps.setter
     def ncomps(self, ncomps=1):
         """
-        Setter for number of components
-        :param ncomps:
+
+        Setter for number of components.
+
+        :param int ncomps:
         :return:
         """
         # To ensure changing number of components effectively resets the model
@@ -482,7 +518,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     @property
     def x_scaler(self):
         """
-        Getter for the model scaler
+
+        Getter for the model x_scaler.
+
         :return:
         """
         try:
@@ -493,8 +531,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     @x_scaler.setter
     def x_scaler(self, scaler):
         """
-        Setter for the model scaler
-        :param scaler:
+
+        Setter for the model x_scaler.
+
+        :param TransformerMixin scaler: Sklearn scaler object
         :return:
         """
         try:
@@ -537,7 +577,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     @property
     def y_scaler(self):
         """
-        Getter for the model scaler
+
+        Getter for the model y_scaler
+
         :return:
         """
         try:
@@ -548,8 +590,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     @y_scaler.setter
     def y_scaler(self, scaler):
         """
-        Setter for the model scaler
-        :param scaler:
+
+        Setter for the model y_scaler.
+
+        :param TransformerMixin scaler: Sklearn scaler object
         :return:
         """
         try:
@@ -592,7 +636,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def VIP(self, mode='w', direction='y'):
         """
 
-        :param mode:
+        Output the Variable importance for projection metric (VIP). With the default values it is calculated
+        using the x variable weights and the variance explained of y.
+
+        :param mode: The type of model parameter to use in calculating the VIP. Default value i
         :param direction:
         :return:
         """
@@ -630,6 +677,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def hotelling_T2(self, comps):
         """
 
+        Obtain the parameters for the Hotelling T2 ellipse at the desired significance level.
+
         :param comps:
         :return:
         """
@@ -648,9 +697,25 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as typerr:
             raise typerr
 
+    def dModX(self):
+        """
+
+        :return:
+        """
+        return NotImplementedError
+
+    def leverages(self):
+        """
+
+        :return:
+        """
+        return NotImplementedError
+
     def cross_validation(self, x, y,  cv_method=KFold(7, True), outputdist=False, testset_scale=False,
                          **crossval_kwargs):
         """
+
+        Cross-validation method for the model. Calculates Q2 and cross-validated estimates of model parameters.
 
         :param x:
         :param y:
@@ -860,7 +925,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def permutation_test(self, x, y, nperms=1000, cv_method=KFold(7, True)):
         """
-        Permutation test for the classifier
+
+        Permutation test for the classifier. Also outputs permuted null distributions for
+        most model parameters.
+
         :param nperms:
         :param crossVal:
         :return:
@@ -932,27 +1000,16 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except Exception as exp:
             raise exp
 
-    def score_plot(self, lvs=[1,2], scores="T"):
-        """
-
-        :param lvs:
-        :param scores:
-        :return:
-        """
-
-        return None
-
-    def coeffs_plot(self, lv=1, coeffs='weights'):
-        """
-
-        :param lv:
-        :param coeffs:
-        :return:
-        """
-        return None
-
     def _cummulativefit(self, ncomps, x, y):
+        """
 
+        Measure goodness of fit for each individual component.
+
+        :param ncomps:
+        :param x:
+        :param y:
+        :return:
+        """
         if y.ndim == 1:
             y = y.reshape(-1, 1)
         if x.ndim == 1:
@@ -987,7 +1044,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def _reduce_ncomps(self, ncomps):
         """
 
-        :param ncomps:
+        Return a new ChemometricsPLS object with a subset of the components fitted.
+
+        :param ncomps: Must be smaller than the ncomps value of the original model.
         :return:
         """
         try:

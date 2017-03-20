@@ -13,16 +13,18 @@ __author__ = 'gd2212'
 
 class ChemometricsPCA(_BasePCA):
     """
-    General PCA class inherits from _BasePCA to act as a legitimate scikit-learn PCA model
-    Different scikit learn PCA algorithms can be passed
+    :param sncomps: Number of components for the model
+    :param pca_algorithm: Any scikit-learn PCA models (inheriting from _BasePCA)
+    :param scaler: ChemometricsScaler object or any of the scaling/preprocessing objects from default scikit-learn
+    :param metadata: Pandas dataframe containing metadata of interest
+    :param pca_type_kwargs: Optional arguments for initialising the underlying pca_algorithm
     """
 
     # Constant usage of kwargs might look excessive but ensures that most things from scikit-learn can be used directly
     # no matter what PCA algorithm is used
     def __init__(self, ncomps=2, pca_algorithm=skPCA, scaler=ChemometricsScaler(), metadata=None, **pca_type_kwargs):
         """
-
-        :param ncomps: Number of components for the model
+        :param sncomps: Number of components for the model
         :param pca_algorithm: Any scikit-learn PCA models (inheriting from _BasePCA)
         :param scaler: ChemometricsScaler object or any of the scaling/preprocessing objects from default scikit-learn
         :param metadata: Pandas dataframe containing metadata of interest
@@ -78,11 +80,13 @@ class ChemometricsPCA(_BasePCA):
 
     def fit(self, x, **fit_params):
         """
-        Fit function. Acts exactly as in scikit-learn, but
+
+        Perform model fitting on the provided x data and calculate basic goodness-of-fit metrics.
+        Equivalent to sklearn's default BaseEstimator method.
+
         :param x:
         :param scale:
         :return:
-
         """
         try:
             # This scaling check is always performed to ensure running model with scaling or with scaling == None
@@ -115,7 +119,9 @@ class ChemometricsPCA(_BasePCA):
 
     def fit_transform(self, x, **fit_params):
         """
-        Use the data provided to fit the classifier and transform the data in one go
+
+        Fit a model and return the scores. Equivalent to sklearn's default TransformerMixin method.
+
         :param x: Data to fit
         :param fit_params: Optional keyword arguments to be passed to the fit method
         :return: PCA scores of the x samples
@@ -129,7 +135,10 @@ class ChemometricsPCA(_BasePCA):
 
     def transform(self, x, **transform_kwargs):
         """
-        Calculate the projection of the data into the lower dimensional space
+
+        Calculate the scores from the original data, using the loadings. Equivalent to
+        sklearn's default TransformerMixin method.
+
         :param x:
         :param transform_kwargs:
         :return:
@@ -143,13 +152,18 @@ class ChemometricsPCA(_BasePCA):
 
     def score(self, x, **score_kwargs):
         """
-        Keeping the original likelihood method of probabilistic PCA.
-        The R2 is already obtained by the SVD so...
+
+        Return the average log-likelihood of all samples. Same as the underlying score method from the sklearn objects.
+
         :param x:
         :param sample_weight:
         :return:
         """
         try:
+            # Not all sklearn pca objects have a "score" method...
+            score_method = getattr(self.pca_algorithm, "score", None)
+            if not callable(score_method):
+                raise NotImplementedError
             # Scaling check for consistency
             if self.scaler is not None:
                 xscaled = self.scaler.transform(x)
@@ -161,7 +175,10 @@ class ChemometricsPCA(_BasePCA):
 
     def inverse_transform(self, scores):
         """
-        Reconstruct the full data matrix from vector of scores
+
+        Transform scores to the original data space using their corresponding loadings.
+        Equivalent to sklearn's default TransformerMixin method.
+
         :param scores:
         :return:
         """
@@ -175,6 +192,7 @@ class ChemometricsPCA(_BasePCA):
 
     def _press_impute_pinv(self, x, var_to_pred):
         """
+
         Single value imputation method, essential to use in the cross-validation
         In theory can also be used to do missing data imputation.
         Based on the Eigenvector_PRESS calculation as described in:
@@ -201,10 +219,12 @@ class ChemometricsPCA(_BasePCA):
 
     def _press_impute_transpose(self, x, var_to_pred):
         """
+
         Single value imputation method, essential to use in the cross-validation
         In theory can also be used to do missing data imputation.
         Based on the approximation described in amoeba's answer
         on CrossValidated: http://stats.stackexchange.com/a/115477
+
         :param x:
         :param var_to_pred: which variable is to be imputed from the others
         :return:
@@ -226,7 +246,9 @@ class ChemometricsPCA(_BasePCA):
     @property
     def ncomps(self):
         """
-        Getter for number of components
+
+        Getter for number of components.
+
         :param ncomps:
         :return:
         """
@@ -238,7 +260,9 @@ class ChemometricsPCA(_BasePCA):
     @ncomps.setter
     def ncomps(self, ncomps=1):
         """
-        Setter for number of components
+
+        Setter for number of components.
+
         :param ncomps:
         :return:
         """
@@ -259,7 +283,9 @@ class ChemometricsPCA(_BasePCA):
     @property
     def scaler(self):
         """
-        Getter for the model scaler
+
+        Getter for the model scaler.
+
         :return:
         """
         try:
@@ -270,7 +296,9 @@ class ChemometricsPCA(_BasePCA):
     @scaler.setter
     def scaler(self, scaler):
         """
-        Setter for the model scaler
+
+        Setter for the model scaler.
+
         :param scaler:
         :return:
         """
@@ -294,6 +322,13 @@ class ChemometricsPCA(_BasePCA):
             raise typerr
 
     def hotelling_T2(self, comps):
+        """
+
+        Obtain the parameters for the Hotelling T2 ellipse at the desired significance level.
+
+        :param comps:
+        :return:
+        """
         try:
             self.scores[:, comps]
             return None
@@ -304,12 +339,30 @@ class ChemometricsPCA(_BasePCA):
         except TypeError as typerr:
             raise typerr
 
-    def cross_validation(self, x,  cv_method=KFold(7, True), outputdist=False, bro_press=True, testset_scale=False, **crossval_kwargs):
+    def dModX(self):
         """
-        General cross Validation method
-        :param data:
-        :param method: An instance of any of the BaseCrossValidator objects from scikit learn
+
+        :return:
+        """
+        return NotImplementedError
+
+    def leverages(self):
+        """
+
+        :return:
+        """
+        return NotImplementedError
+
+    def cross_validation(self, x,  cv_method=KFold(7, True), outputdist=False, press_impute=True, testset_scale=False, **crossval_kwargs):
+        """
+
+        Cross-validation method for the model. Calculates Q2 and cross-validated estimates of model parameters.
+
+        :param x:
+        :param cv_method: An instance of any of the BaseCrossValidator objects from scikit learn
         :param outputdist: Output the whole distribution for (useful when Bootstrapping is used)
+        :param press_impute:
+        :param testset_scale:
         :param crossval_kwargs:
         :return:
         """
@@ -354,7 +407,7 @@ class ChemometricsPCA(_BasePCA):
                 if hasattr(self.pca_algorithm, 'components_'):
                     loadings.append(cv_pipeline.loadings)
 
-                if bro_press is True:
+                if press_impute is True:
                     press_testset = 0
                     for column in range(0, x[xtest, :].shape[1]):
                         xpred = cv_pipeline.scaler.transform(cv_pipeline._press_impute_pinv(x[xtest, :], column))
@@ -414,7 +467,9 @@ class ChemometricsPCA(_BasePCA):
 
     def permutationtest_loadings(self, x, nperms=1000):
         """
-        Permutation test to assess significance of variable belonging to a loading.
+
+        Permutation test to assess significance of loading value being "important" in a component.
+
         :param x:
         :param nperms:
         :return:
@@ -455,7 +510,8 @@ class ChemometricsPCA(_BasePCA):
 
     def permutationtest_components(self, x, nperms=1000):
         """
-        Permutation test for whole component
+
+        Permutation test for a whole component. Also outputs permuted null distributions for the loadings.
 
         :param x:
         :param nperms:
@@ -482,30 +538,6 @@ class ChemometricsPCA(_BasePCA):
 
         except Exception as exp:
             raise exp
-
-    def score_plot(self, pcs=[1,2], hotelingt=0.95):
-        if len(pcs) == 1:
-            # do something decent for the 1D  score plot
-            pass
-
-        return None
-
-    def trellisplot(self, pcs):
-        """
-        Trellis plot, maybe quickly wrapping up the stuff from seaborn
-        :param pcs:
-        :return:
-        """
-        return None
-
-    def loadings_plot(self, lv=1, coeffs='weightscv'):
-        """
-
-        :param lv:
-        :param coeffs:
-        :return:
-        """
-        return None
 
     def __deepcopy__(self, memo):
         cls = self.__class__

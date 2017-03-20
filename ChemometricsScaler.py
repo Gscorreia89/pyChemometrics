@@ -11,7 +11,8 @@ from copy import deepcopy
 
 class ChemometricsScaler(BaseEstimator, TransformerMixin):
     """
-    A code injection onto the default scikit learn StandardScaler, to tolerate UV, MC and Paretto,
+
+    A code injection onto the default scikit learn StandardScaler, to tolerate UV, MC and Pareto,
     as well as other powers of sigma
 
     """
