@@ -2,6 +2,7 @@ from sklearn.base import RegressorMixin
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import BaseCrossValidator, KFold
+from sklearn.model_selection._split import BaseShuffleSplit
 import pandas as pds
 from sklearn.base import BaseEstimator, TransformerMixin
 import numpy as np
@@ -718,7 +719,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         try:
-            if not isinstance(cv_method, BaseCrossValidator):
+            if not (isinstance(cv_method, BaseCrossValidator) or isinstance(cv_method, BaseShuffleSplit)):
                 raise TypeError("Scikit-learn cross-validation object please")
 
             # Check if global model is fitted... and if not, fit it using all of X

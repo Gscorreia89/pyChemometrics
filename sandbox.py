@@ -27,3 +27,10 @@ x = xmat.values
 ples.fit(x, y)
 
 ples.cross_validation(x, y, testset_scale=False)
+
+from sklearn.model_selection import ShuffleSplit
+
+cvm = ShuffleSplit(n_splits=1000, test_size=0.2)
+
+ples.cross_validation(x, y, cv_method=cvm, outputdist=True)
+
