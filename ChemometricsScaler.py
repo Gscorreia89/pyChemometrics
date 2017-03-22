@@ -14,7 +14,10 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
 
     A code injection onto the default scikit learn StandardScaler, to tolerate UV, MC and Pareto,
     as well as other powers of sigma
-
+    :param scale_power:
+    :param copy:
+    :param with_mean:
+    :param with_std:
     """
 
     """Standardize features by removing the mean and scaling to unit variance

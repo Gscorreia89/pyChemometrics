@@ -30,7 +30,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     """
     This object is designed to fit flexibly both PLSRegression with one or multiple Y and PLSCanonical, both
-    with either NIPALS or SVD. PLS-SVD provides a slightly different type of factorization, and should
+    with either NIPALS or SVD. PLS-SVD doesn't calculate the same type of model parameters, and should
     not be used with this object.
     For PLSRegression/PLS1/PLS2 and PLSCanonical/PLS-C2A/PLS-W2A, the actual components
     found may differ (depending on type of deflation, etc), and this has to be taken into consideration,
@@ -47,24 +47,22 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     X - Rotations W*/Ws/R - The rotation of X variables to LV space pinv(WP')W
     Y - Rotations C*/Cs - The rotation of Y variables to LV space pinv(CQ')C
     T = X W(P'W)^-1 = XW* (W* : p x k matrix)
-    U = Y C(Q'C)^-1 = YC* (W* : q x k matrix)
+    U = Y C(Q'C)^-1 = YC* (C* : q x k matrix)
     Loadings and weights after the first component do not represent
     the original variables. The SIMPLS W*/Ws/R and C*/Cs act weight vectors
-    which relate to the original X and Y variables, and not to their deflated versions
-    (order of the component becomes non-essential).
+    which relate to the original X and Y variables, and not to their deflated versions.
     See Sijmen de Jong, "SIMPLS: an alternative approach to partial least squares regression", Chemometrics
     and Intelligent Laboratory Systems 1992
     "Inner" relation regression coefficients of T b_t: U = Tb_t
     "Inner" relation regression coefficients of U b_U: T = Ub_u
-    These are obtained by regressing the U's and T's, applying standard linear regression to them
-    (inverse or pseudo-inverse can be used, but pseudo-inverse is more general)
+    These are obtained by regressing the U's and T's, applying standard linear regression to them.
     B = pinv(X'X)X'Y
     b_t = pinv(T'T)T'U
     b_u = pinv(U'U)U'T
     or in a more familiar form: b_t are the betas from regressing T on U - t'u/u'u
     and b_u are the betas from regressing U on T - u't/t't
 
-    In summary, there are various ways to approach the model (following a general nomenclature applicable
+    In summary, there are various ways to approach the model. Following a general nomenclature applicable
     for both single and block Y:
     The predictive model, assuming the Latent variable formulation, uses an "inner relation"
     between the latent variable projections, where U = Tb_t and T = Ub_u.
@@ -84,12 +82,13 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     Finally, assuming PLSRegression (single or multi Y, but asymmetric deflation):
     The PLS model can be approached from a multivariate regression/regularized regression point of view,
-    where Y is related to the original X variables, bypassing the latent variable definition and concepts.
+    where Y is related to the original X variables, through regression coefficients Beta,
+    bypassing the latent variable definition and concepts.
     Y = XBQ', Y = XB, where B are the regression coefficients and B = W*Q' (the W*/ws is the SIMPLS_R,
-    X rotation in sklearn default PLS, and C*/cs plays a similar role for Y).
+    X rotation in sklearn default PLS).
     These Betas (regression coefficients) are obtained in this manner directly relate the original X variables
     to the prediction of Y.
-    Question: Is there an equivalent formulation for the X, applicable in multi-Y settings as well?!?
+
     This MLR approach to PLS has the advantage of exposing the PLS betas and PLS mechanism
     as a biased regression applying a degree of shrinkage, which decreases with the number of components
     all the way up to B(OLS), when Number of Components = number of variables/columns.
@@ -98,11 +97,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     A component of OPLS is also provided, following from:
         PLS-RT - the ergon and indahl papers
 
-    The predictive capability is the same
     """
 
     def __init__(self, ncomps=2, pls_algorithm=PLSRegression, xscaler=ChemometricsScaler(), yscaler=None,
-                 metadata=None, **pls_type_kwargs):
+                 **pls_type_kwargs):
         """
 
         :param ncomps:
@@ -114,10 +112,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         """
         try:
-
-            # Metadata assumed to be pandas dataframe only
-            if (metadata is not None) and (metadata is not isinstance(metadata, pds.DataFrame)):
-                raise TypeError("Metadata must be provided as pandas dataframe")
 
             # Perform the check with is instance but avoid abstract base class runs.
             pls_algorithm = pls_algorithm(ncomps, scale=False, **pls_type_kwargs)
@@ -191,7 +185,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # For no scaling, mean centering is performed nevertheless - sklearn objects
             # do this by default, this is solely to make everything ultra clear and to expose the
             # interface for potential future modification
-            # (which might involve having to modifying the sklearn automatic scaling in the core objects...)
             # Comply with the sklearn-scaler behaviour convention
             if y.ndim == 1:
                 y = y.reshape(-1, 1)
@@ -299,7 +292,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                     # Taking advantage of rotations_y
                     # Otherwise this would be the full calculation U = Y*pinv(CQ')*C
                     U = np.dot(yscaled, self.rotations_cs)
-                    #U = np.dot(yscaled, self.loadings_q.T)
                     return U
 
                 # If X is given, return T
@@ -312,7 +304,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                     # Taking advantage of the rotation_x
                     # Otherwise this would be would the full calculation T = X*pinv(WP')*W
                     T = np.dot(xscaled, self.rotations_ws)
-                    #T = np.dot(xscaled, self.loadings_p.T)
                     return T
             else:
                 raise ValueError('Model not fitted')
@@ -823,8 +814,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 xpred = cv_pipeline.predict(x=None, y=ytest)
 
                 xpred = cv_pipeline.x_scaler.transform(xpred).squeeze()
-                #xtest_scaled = xtest_scaled.squeeze()
-                #if ypred.ndim == 1:
+
                 ypred = cv_pipeline.y_scaler.transform(ypred).squeeze()
                 ytest_scaled = ytest_scaled.squeeze()
 
@@ -846,7 +836,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 cv_rotations_ws[cvround, :, :] = cv_pipeline.rotations_ws
                 cv_rotations_cs[cvround, :, :] = cv_pipeline.rotations_cs
                 cv_betacoefs[cvround, :] = cv_pipeline.beta_coeffs.T
-                #cv_vipsw[cvround, :] = cv_pipeline.VIP()
+                cv_vipsw[cvround, :] = cv_pipeline.VIP()
 
             # Align model parameters to account for sign indeterminacy.
             # The criteria here used is to select the sign that gives a more similar profile (by L1 distance) to the loadings fitted
@@ -860,7 +850,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                                                  np.sum(np.abs(self.loadings_p[:, currload] - cv_loadings_p[cvround, :, currload] * -1))]))
                     if choice == 1:
                         cv_loadings_p[cvround, :, currload] = -1 * cv_loadings_p[cvround, :, currload]
-                        cv_loadings_q[cvround, :, currload] = -1 * cv_loadings_p[cvround, :, currload]
+                        cv_loadings_q[cvround, :, currload] = -1 * cv_loadings_q[cvround, :, currload]
                         cv_weights_w[cvround, :, currload] = -1 * cv_weights_w[cvround, :, currload]
                         cv_weights_c[cvround, :, currload] = -1 * cv_weights_c[cvround, :, currload]
                         cv_rotations_ws[cvround, :, currload] = -1 * cv_rotations_ws[cvround, :, currload]
@@ -902,6 +892,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             #self.cvParameters['Stdev_Scores_u'] = cv_scores_u.std(0)
             self.cvParameters['Mean_Beta'] = cv_betacoefs.mean(0)
             self.cvParameters['Stdev_Beta'] = cv_betacoefs.std(0)
+            self.cvParameters['Mean_VIP'] = cv_vipsw.mean(0)
+            self.cvParameters['Stdev_VIP'] = cv_vipsw.std(0)
             # Save everything found during CV
             if outputdist is True:
                 self.cvParameters['CVR2X_Training'] = R2X_training
@@ -914,9 +906,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 self.cvParameters['CV_Weights_w'] = cv_weights_w
                 self.cvParameters['CV_Rotations_ws'] = cv_rotations_ws
                 self.cvParameters['CV_Rotations_cs'] = cv_rotations_cs
-                #self.cvParameters['Mean_Scores_t'] = cv_scores_t
-                #self.cvParameters['Mean_Scores_u'] = cv_scores_u
+                #self.cvParameters['CV_Scores_t'] = cv_scores_t
+                #self.cvParameters['CV_Scores_u'] = cv_scores_u
                 self.cvParameters['CV_Beta'] = cv_betacoefs
+                self.cvParameters['CV_VIPw'] = cv_vipsw
 
             return None
 
@@ -926,12 +919,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def permutation_test(self, x, y, nperms=1000, cv_method=KFold(7, True)):
         """
 
-        Permutation test for the classifier. Also outputs permuted null distributions for
+        Permutation test for the classifier. Outputs permuted null distributions for
         most model parameters.
 
-        :param nperms:
+        :param x:
+        :param y:
+        :param nperms: Number of permutations
         :param crossVal:
-        :return:
+        :return: Permuted null distributions for most model parameters
+
         """
         try:
             # Check if global model is fitted... and if not, fit it using all of X

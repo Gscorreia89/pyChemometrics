@@ -22,19 +22,9 @@ class ChemometricsPCA(_BasePCA):
 
     # Constant usage of kwargs might look excessive but ensures that most things from scikit-learn can be used directly
     # no matter what PCA algorithm is used
-    def __init__(self, ncomps=2, pca_algorithm=skPCA, scaler=ChemometricsScaler(), metadata=None, **pca_type_kwargs):
-        """
-        :param sncomps: Number of components for the model
-        :param pca_algorithm: Any scikit-learn PCA models (inheriting from _BasePCA)
-        :param scaler: ChemometricsScaler object or any of the scaling/preprocessing objects from default scikit-learn
-        :param metadata: Pandas dataframe containing metadata of interest
-        :param pca_type_kwargs: Optional arguments for initialising the underlying pca_algorithm
-        """
-        try:
-            # Metadata assumed to be pandas dataframe only
-            if (metadata is not None) and (metadata is not isinstance(metadata, pds.DataFrame)):
-                    raise TypeError("Metadata must be provided as pandas dataframe")
+    def __init__(self, ncomps=2, pca_algorithm=skPCA, scaler=ChemometricsScaler(), **pca_type_kwargs):
 
+        try:
             # Perform the check with is instance but avoid abstract base class runs. PCA needs number of comps anyway!
             pca_algorithm = pca_algorithm(n_components=ncomps)
             if not isinstance(pca_algorithm, (_BasePCA, BaseEstimator, TransformerMixin)):
@@ -57,7 +47,6 @@ class ChemometricsPCA(_BasePCA):
             # Most initialized as None, before object is fitted.
             self.scores = None
             self.loadings = None
-            self.leverages = None
             self._ncomps = None
             self._scaler = None
             self.ncomps = ncomps
