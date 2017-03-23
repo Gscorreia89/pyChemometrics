@@ -102,16 +102,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def __init__(self, ncomps=2, pls_algorithm=PLSRegression, xscaler=ChemometricsScaler(), yscaler=None,
                  **pls_type_kwargs):
-        """
 
-        :param ncomps:
-        :param pls_algorithm:
-        :param xscaler:
-        :param yscaler:
-        :param metadata:
-        :param pls_type_kwargs:
-
-        """
         try:
 
             # Perform the check with is instance but avoid abstract base class runs.
@@ -244,7 +235,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         Fit a model and return the scores. Equivalent to sklearn's default TransformerMixin method.
 
         :param x: Data to fit
-        :param fit_params:
+        :param y: Data to fit
+        :param kwarg **fit_params:
         :return:
         """
 
@@ -272,6 +264,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         :param numpy.ndarray x:
         :param numpy.ndarray y:
+        :param kwarg **transform_kwargs
         :return:
         """
         try:
@@ -325,14 +318,13 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :return:
         """
         try:
-
             if self._isfitted is True:
                 if t is not None and u is not None:
                     raise ValueError('xx')
                 # If nothing is passed at all, complain and do nothing
                 elif t is None and u is None:
                     raise ValueError('yy')
-                # If  is given, return U
+                # If T is given, return U
                 elif t is not None:
                     # Calculate X from T using X = TP'
                     xpred = np.dot(t, self.loadings_p.T)
@@ -342,7 +334,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                         xscaled = xpred
 
                     return xscaled
-
+                # If U is given, return T
                 elif u is not None:
                     # Calculate Y from U - using Y = UQ'
                     ypred = np.dot(u, self.loadings_q.T)
@@ -632,7 +624,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         using the x variable weights and the variance explained of y.
 
         :param mode: The type of model parameter to use in calculating the VIP. Default value i
-        :param direction:
+        :param direction: The data block to be used
         :return:
         """
         try:
@@ -926,31 +918,44 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :param x:
         :param y:
         :param nperms: Number of permutations
-        :param crossVal:
+        :param cv_method: Q2 calculated using ShuffleSplit or non KFold cross-validators is invalid.
         :return: Permuted null distributions for most model parameters
 
         """
         try:
             # Check if global model is fitted... and if not, fit it using all of X
-            if self._isfitted is False or self.loadings is None:
+            if self._isfitted is False or self.loadings_p is None:
                 self.fit(x, y)
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
             permute_class = copy.deepcopy(self)
 
+            if x.ndim > 1:
+                x_nvars = x.shape[1]
+            else:
+                x_nvars = 1
+
+            if y.ndim > 1:
+                y_nvars = y.shape[1]
+            else:
+                y_nvars = 1
+
             # Initialize data structures for permuted distributions
-            perm_loadings_q = np.zeros(nperms, y.shape[1], self.ncomps)
-            perm_loadings_p = np.zeros(nperms, x.shape[1], self.ncomps)
-            perm_weights_c = np.zeros(nperms, y.shape[1], self.ncomps)
-            perm_weights_w = np.zeros(nperms, x.shape[1], self.ncomps)
-            perm_rotations_cs = np.zeros(nperms, y.shape[1], self.ncomps)
-            perm_rotations_ws = np.zeros(nperms, x.shape[1], self.ncomps)
-            perm_beta = np.zeros(nperms, x.shape[1], y.shape[1])
+            perm_loadings_q = np.zeros((nperms, y_nvars, self.ncomps))
+            perm_loadings_p = np.zeros((nperms, x_nvars, self.ncomps))
+            perm_weights_c = np.zeros((nperms, y_nvars, self.ncomps))
+            perm_weights_w = np.zeros((nperms, x_nvars, self.ncomps))
+            perm_rotations_cs = np.zeros((nperms, y_nvars, self.ncomps))
+            perm_rotations_ws = np.zeros((nperms, x_nvars, self.ncomps))
+            perm_beta = np.zeros((nperms, x_nvars, y_nvars))
+            perm_vipsw = np.zeros((nperms, x_nvars))
 
             permuted_R2Y = np.zeros(nperms)
             permuted_R2X = np.zeros(nperms)
             permuted_Q2Y = np.zeros(nperms)
             permuted_Q2X = np.zeros(nperms)
+            permuted_R2Y_test = np.zeros(nperms)
+            permuted_R2X_test = np.zeros(nperms)
 
             for permutation in range(0, nperms):
                 # Copy original column order, shuffle array in place...
@@ -967,32 +972,50 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
                 # Store the loadings for each permutation component-wise
                 perm_loadings_q[permutation, :, :] = permute_class.loadings_q
-                perm_loadings_p[permutation, :, :] = permute_class.loadings_P
+                perm_loadings_p[permutation, :, :] = permute_class.loadings_p
                 perm_weights_c[permutation, :, :] = permute_class.weights_c
                 perm_weights_w[permutation, :, :] = permute_class.weights_w
                 perm_rotations_cs[permutation, :, :] = permute_class.rotations_cs
                 perm_rotations_ws[permutation, :, :] = permute_class.rotations_ws
-                perm_beta[permutation, :, :] = permute_class.betacoeffs
-
+                perm_beta[permutation, :, :] = permute_class.beta_coeffs
+                perm_vipsw[permutation, :] = permute_class.VIP()
             # Align model parameters due to sign indeterminacy.
             # Solution provided is to select the sign that gives a more similar profile to the
             # Loadings calculated with the whole data.
-            for cvround in range(0, nperms):
+            for perm_round in range(0, nperms):
                 for currload in range(0, self.ncomps):
                     # evaluate based on loadings _p
-                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings_p - perm_loadings_p[cvround, currload, :])),
-                                                 np.sum(np.abs(self.loadings_p - perm_loadings_p[cvround, currload, :] * -1))]))
+                    choice = np.argmin(np.array([np.sum(np.abs(self.loadings_p[:, currload] - perm_loadings_p[perm_round, :, currload])),
+                                                 np.sum(np.abs(self.loadings_p[:, currload] - perm_loadings_p[perm_round, :, currload] * -1))]))
                     if choice == 1:
-                        perm_loadings_p[cvround, currload, :] = -1 * perm_loadings_p[cvround, currload, :]
-                        perm_loadings_q[cvround, currload, :] = -1 * perm_loadings_p[cvround, currload, :]
-                        perm_weights_w[cvround, currload, :] = -1 * perm_weights_w[cvround, currload, :]
-                        perm_weights_c[cvround, currload, :] = -1 * perm_weights_c[cvround, currload, :]
-                        perm_rotations_ws[cvround, :, currload] = -1 * perm_rotations_ws[cvround, currload, :]
-                        perm_rotations_cs[cvround, :, currload] = -1 * perm_rotations_cs[cvround, currload, :]
+                        perm_loadings_p[perm_round, :, currload] = -1 * perm_loadings_p[perm_round, :, currload]
+                        perm_loadings_q[perm_round, :, currload] = -1 * perm_loadings_q[perm_round, :, currload]
+                        perm_weights_w[perm_round, :, currload] = -1 * perm_weights_w[perm_round, :, currload]
+                        perm_weights_c[perm_round, :, currload] = -1 * perm_weights_c[perm_round, :, currload]
+                        perm_rotations_ws[perm_round, :, currload] = -1 * perm_rotations_ws[perm_round, :, currload]
+                        perm_rotations_cs[perm_round, :, currload] = -1 * perm_rotations_cs[perm_round, :, currload]
 
             # Pack everything into a nice data structure and return
             # Calculate p-value for Q2Y as well
-            return 1
+            permutationTest = dict()
+            permutationTest['R2Y'] = permuted_R2Y
+            permutationTest['R2X'] = permuted_R2X
+            permutationTest['Q2Y'] = permuted_Q2Y
+            permutationTest['Q2X'] = permuted_Q2X
+            permutationTest['R2Y_Test'] = permuted_R2Y_test
+            permutationTest['R2X_Test'] = permuted_R2X_test
+            permutationTest['Loadings_p'] = perm_loadings_p
+            permutationTest['Loadings_q'] = perm_loadings_q
+            permutationTest['Weights_c'] = perm_weights_c
+            permutationTest['Weights_w'] = perm_weights_w
+            permutationTest['Rotations_ws'] = perm_rotations_ws
+            permutationTest['Rotations_cs'] = perm_rotations_cs
+            permutationTest['Beta'] = perm_beta
+            permutationTest['VIPw'] = perm_vipsw
+
+            pvals = dict()
+
+            return permutationTest, pvals
 
         except Exception as exp:
             raise exp

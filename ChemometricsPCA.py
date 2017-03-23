@@ -13,10 +13,12 @@ __author__ = 'gd2212'
 
 class ChemometricsPCA(_BasePCA):
     """
-    :param sncomps: Number of components for the model
+
+    Chemometrics PCA object
+
+    :param ncomps: Number of components for the model
     :param pca_algorithm: Any scikit-learn PCA models (inheriting from _BasePCA)
     :param scaler: ChemometricsScaler object or any of the scaling/preprocessing objects from default scikit-learn
-    :param metadata: Pandas dataframe containing metadata of interest
     :param pca_type_kwargs: Optional arguments for initialising the underlying pca_algorithm
     """
 
