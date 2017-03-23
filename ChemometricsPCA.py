@@ -1,8 +1,8 @@
-import pandas as pds
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition.base import _BasePCA
 from sklearn.model_selection import BaseCrossValidator, KFold
+from sklearn.model_selection._split import BaseShuffleSplit
 import numpy as np
 from sklearn.base import clone
 from ChemometricsScaler import ChemometricsScaler
@@ -14,12 +14,13 @@ __author__ = 'gd2212'
 class ChemometricsPCA(_BasePCA):
     """
 
-    Chemometrics PCA object
+    ChemometricsPCA object - Wrapper for sklearn.decomposition PCA algorithms, with tailored methods
+    for Chemometric Data analysis.
 
-    :param ncomps: Number of components for the model
-    :param pca_algorithm: Any scikit-learn PCA models (inheriting from _BasePCA)
+    :param ncomps: Number of PCA components desired.
+    :param sklearn.decomposition._BasePCA pca_algorithm: Any scikit-learn PCA models (inheriting from _BasePCA).
     :param scaler: ChemometricsScaler object or any of the scaling/preprocessing objects from default scikit-learn
-    :param pca_type_kwargs: Optional arguments for initialising the underlying pca_algorithm
+    :param pca_type_kwargs: Keyword arguments to be passed during initialization of pca_algorithm.
     """
 
     # Constant usage of kwargs might look excessive but ensures that most things from scikit-learn can be used directly
@@ -107,6 +108,14 @@ class ChemometricsPCA(_BasePCA):
             self._isfitted = True
         except Exception as exp:
             raise exp
+
+    def _partial_fit(self, x):
+        """
+        under construction...
+        :param x:
+        :return:
+        """
+        return NotImplementedError
 
     def fit_transform(self, x, **fit_params):
         """
@@ -349,7 +358,7 @@ class ChemometricsPCA(_BasePCA):
 
         Cross-validation method for the model. Calculates Q2 and cross-validated estimates of model parameters.
 
-        :param x:
+        :param x: X data matrix.
         :param cv_method: An instance of any of the BaseCrossValidator objects from scikit learn
         :param outputdist: Output the whole distribution for (useful when Bootstrapping is used)
         :param press_impute:
@@ -359,7 +368,8 @@ class ChemometricsPCA(_BasePCA):
         """
 
         try:
-            if not isinstance(cv_method, BaseCrossValidator):
+
+            if not (isinstance(cv_method, BaseCrossValidator) or isinstance(cv_method, BaseShuffleSplit)):
                 raise TypeError("Scikit-learn cross-validation object please")
 
             # Check if global model is fitted... and if not, fit it using all of X
