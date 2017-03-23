@@ -1013,7 +1013,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             permutationTest['Beta'] = perm_beta
             permutationTest['VIPw'] = perm_vipsw
 
+            obs_q2y = self.cvParameters['Q2Y']
             pvals = dict()
+            pvals['Q2Y'] = (len(np.where(permuted_Q2Y >= obs_q2y)) + 1)/(nperms+1)
 
             return permutationTest, pvals
 
