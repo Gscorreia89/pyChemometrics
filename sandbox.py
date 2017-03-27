@@ -34,3 +34,5 @@ cvm = ShuffleSplit(n_splits=1000, test_size=0.2)
 
 ples.cross_validation(x, y, cv_method=cvm, outputdist=True)
 
+ples.permutation_test(x, y, 1000)
+

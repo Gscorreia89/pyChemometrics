@@ -93,9 +93,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     all the way up to B(OLS), when Number of Components = number of variables/columns.
     See Frank and Friedman, Jong and Kramer/Rosipal
 
-    A component of OPLS is also provided, following from:
-        PLS-RT - the ergon and indahl papers
-
     """
 
     def __init__(self, ncomps=2, pls_algorithm=PLSRegression, xscaler=ChemometricsScaler(), yscaler=None,
@@ -131,15 +128,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.b_u = None
             self.b_t = None
             self.beta_coeffs = None
-
-            # OPLS stuff - experimental -might be better to split the object in the future
-            self.weights_wo = None
-            self.scores_to = None
-            self.rotations_wso = None
-            self.loadings_po = None
-            self.scores_uo = None
-            self.weights_co = None
-            self.loadings_qo = None
 
             self._ncomps = None
             self.ncomps = ncomps
@@ -201,16 +189,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # Needs to come here for the method shortcuts down the line to work...
             self._isfitted = True
 
-            # OPLS for free... - add a specific method to generate this
-            if self.ncomps > 1:
-                self.weights_wo = np.c_[self.weights_w[:, 1::], self.weights_w[:, 0]]
-                to, ro = np.linalg.qr(np.dot(xscaled, self.weights_wo))
-                self.scores_to = np.dot(to, ro)
-                self.rotations_wso = np.linalg.lstsq(self.weights_wo.T, ro.T)
-                self.loadings_po = np.dot(xscaled.T, self.scores_to)
-                self.scores_uo = np.c_[self.scores_u[:, 1::], self.scores_u[:, 0]]
-                self.weights_co = np.c_[self.weights_c[:, 1::], self.weights_c[:, 0]]
-                self.loadings_qo = np.c_[self.loadings_q[:, 1::], self.loadings_q[:, 0]]
 
             # Calculate RSSy/RSSx, R2Y/R2X
             R2Y = self.score(x=x, y=y, block_to_score='y')
@@ -479,14 +457,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.b_t = None
             self.b_u = None
             self.beta_coeffs = None
-            # OPLS
-            self.weights_wo = None
-            self.scores_to = None
-            self.rotations_wso = None
-            self.loadings_po = None
-            self.scores_uo = None
-            self.weights_co = None
-            self.loadings_qo = None
 
             return None
         except AttributeError as atre:
@@ -536,14 +506,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.b_t = None
             self.b_u = None
             self.beta_coeffs = None
-            # OPLS
-            self.weights_wo = None
-            self.scores_to = None
-            self.rotations_wso = None
-            self.loadings_po = None
-            self.scores_uo = None
-            self.weights_co = None
-            self.loadings_qo = None
 
             return None
         except AttributeError as atre:
@@ -594,14 +556,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.b_t = None
             self.b_u = None
             self.beta_coeffs = None
-            # OPLS
-            self.weights_wo = None
-            self.scores_to = None
-            self.rotations_wso = None
-            self.loadings_po = None
-            self.scores_uo = None
-            self.weights_co = None
-            self.loadings_qo = None
+
 
             return None
 
@@ -1019,7 +974,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def _cummulativefit(self, ncomps, x, y):
         """
 
-        Measure the cummulative Regression sum of Squares for each individual component.
+        Measure the cumulative Regression sum of Squares for each individual component.
 
         :param int ncomps: First Number of components to
         :param numpy.ndarray x: X data block to score the model
@@ -1087,17 +1042,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             # These have to be recalculated from the rotations
             newmodel.beta_coeffs = np.dot(newmodel.rotations_ws, newmodel.loadings_q.T)
-            newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
-                                    newmodel.beta_coeffs * newmodel.y_scaler.scale_)
-
-            #  OPLS - wait for creation of internal method - OPLS
-            newmodel.weights_wo = None
-            newmodel.scores_to = None
-            newmodel.rotations_wso = None
-            newmodel.loadings_po = None
-            newmodel.scores_uo = None
-            newmodel.weights_co = None
-            newmodel.loadings_qo = None
+            # Line also in the original sklearn method, but unnecessary when scaling = False - kept here for testing...
+            #newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
+            #                        newmodel.beta_coeffs * newmodel.y_scaler.scale_)
 
             return newmodel
 
@@ -1105,6 +1052,11 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             raise exp
 
     def __deepcopy__(self, memo):
+        """
+        Deep copy implementation
+        :param memo:
+        :return:
+        """
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
