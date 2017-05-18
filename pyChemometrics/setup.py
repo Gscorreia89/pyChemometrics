@@ -9,4 +9,3 @@ setup(name='pyChemometrics',
       license='tba',
       packages=['pyChemometrics'],
       zip_safe=False)
-

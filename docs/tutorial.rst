@@ -40,16 +40,16 @@ Mapping metadata into an object is an accumulative operation, so multiple calls 
 .. code-block:: python
 	:linenos:
 
-	# Load analytical data to sample ID mappings
-	datasetObject.addSampleInfo(descriptionFormat='NPCLIMS', filePath='~/path to LIMS file')
-	
-	# Use the mappings to map in sample metadata
-	datasetObject.addSampleInfo(descriptionFormat='NPC Subject Info', filePath='~/path to Subject Info file')
-	
-	# Get samples info from filenames
-	datasetObject.addSampleInfo(descriptionFormat='filenames')
+    	# Load analytical data to sample ID mappings
+    	datasetObject.addSampleInfo(descriptionFormat='NPCLIMS', filePath='~/path to LIMS file')
 
-See the documentation for :py:meth:`~nPYc.objects.Dataset.addSampleInfo` for possible options.
+    	# Use the mappings to map in sample metadata
+    	datasetObject.addSampleInfo(descriptionFormat='NPC Subject Info', filePath='~/path to Subject Info file')
+
+    	# Get samples info from filenames
+    	datasetObject.addSampleInfo(descriptionFormat='filenames')
+
+    See the documentation for :py:meth:`~nPYc.objects.Dataset.addSampleInfo` for possible options.
 
 Partial Least Squares
 =====================

@@ -1,13 +1,16 @@
+import copy
+from copy import deepcopy
+
+import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import clone
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition.base import _BasePCA
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
-import numpy as np
-from sklearn.base import clone
+
 from .ChemometricsScaler import ChemometricsScaler
-import copy
-from copy import deepcopy
+
 __author__ = 'gd2212'
 
 
@@ -41,8 +44,8 @@ class ChemometricsPCA(_BasePCA):
                 scaler = ChemometricsScaler(0, with_std=False)
             # Add a check for partial fit methods? As in deploy partial fit child class if PCA is incremental??
             # By default it will work, but having the partial_fit function acessible might be usefull
-            #types.MethodType(self, partial_fit)
-            #def partial_fit():
+            # types.MethodType(self, partial_fit)
+            # def partial_fit():
             #    returnx
 
             # The kwargs provided for the model are exactly the same as those
@@ -87,7 +90,8 @@ class ChemometricsPCA(_BasePCA):
                 predicted = self.pca_algorithm.inverse_transform(self.scores)
                 rss = np.sum((xscaled - predicted) ** 2)
                 # variance explained from scikit-learn stored as well
-                self.modelParameters = {'R2X': 1 - (rss/ss), 'VarExpRatio': self.pca_algorithm.explained_variance_ratio_,
+                self.modelParameters = {'R2X': 1 - (rss / ss),
+                                        'VarExpRatio': self.pca_algorithm.explained_variance_ratio_,
                                         'VarExp': self.pca_algorithm.explained_variance_}
             else:
                 self.pca_algorithm.fit(x, **fit_params)
@@ -95,7 +99,7 @@ class ChemometricsPCA(_BasePCA):
                 ss = np.sum((x - np.mean(x, 0)) ** 2)
                 predicted = self.pca_algorithm.inverse_transform(self.scores)
                 rss = np.sum((x - predicted) ** 2)
-                self.modelParameters = {'R2X': 1 - (rss/ss), 'VarExp': self.pca_algorithm.explained_variance_,
+                self.modelParameters = {'R2X': 1 - (rss / ss), 'VarExp': self.pca_algorithm.explained_variance_,
                                         'VarExpRatio': self.pca_algorithm.explained_variance_ratio_}
             # Kernel PCA and other non-linear methods might not have explicit loadings - safeguard against this
             if hasattr(self.pca_algorithm, 'components_'):
@@ -367,7 +371,7 @@ class ChemometricsPCA(_BasePCA):
         """
         return NotImplementedError
 
-    def cross_validation(self, x,  cv_method=KFold(7, True), outputdist=False, press_impute=True, testset_scale=False):
+    def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_impute=True, testset_scale=False):
         """
 
         Cross-validation method for the model. Calculates Q2 and cross-validated estimates for all model parameters.
@@ -420,7 +424,7 @@ class ChemometricsPCA(_BasePCA):
                     xtest_scaled = cv_pipeline.scaler.fit_transform(x[xtest, :])
                 else:
                     xtest_scaled = cv_pipeline.scaler.transform(x[xtest, :])
-                tss = np.sum((xtest_scaled)**2)
+                tss = np.sum((xtest_scaled) ** 2)
                 # Append the var explained in training set for this round and loadings for this round
                 cv_varexplained_training.append(cv_pipeline.pca_algorithm.explained_variance_ratio_)
                 if hasattr(self.pca_algorithm, 'components_'):
@@ -439,7 +443,7 @@ class ChemometricsPCA(_BasePCA):
                     pred_x = cv_pipeline.scaler.transform(cv_pipeline.inverse_transform(pred_scores))
                     rss = np.sum((xtest_scaled - pred_x) ** 2)
                     total_press += rss
-                    cv_varexplained_test.append(1 - (rss/tss))
+                    cv_varexplained_test.append(1 - (rss / tss))
 
             # Create matrices for each component loading containing the cv values in each round
             # nrows = nrounds, ncolumns = n_variables
@@ -454,18 +458,20 @@ class ChemometricsPCA(_BasePCA):
                 # Loadings calculated with the whole data.
                 for cvround in range(0, cv_method.n_splits):
                     for currload in range(0, self.ncomps):
-                        choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_loads[currload][cvround, :])), np.sum(np.abs(self.loadings - cv_loads[currload][cvround,: ] * -1))]))
+                        choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_loads[currload][cvround, :])),
+                                                     np.sum(
+                                                         np.abs(self.loadings - cv_loads[currload][cvround, :] * -1))]))
                         if choice == 1:
-                            cv_loads[currload][cvround, :] = -1*cv_loads[currload][cvround, :]
+                            cv_loads[currload][cvround, :] = -1 * cv_loads[currload][cvround, :]
 
             # Calculate total sum of squares
             # Q^2X
-            q_squared = 1 - (total_press/ss)
+            q_squared = 1 - (total_press / ss)
             # Assemble the dictionary and data matrices
 
             self.cvParameters = {'Mean_VarExpRatio_Training': np.array(cv_varexplained_training).mean(axis=0),
                                  'Stdev_VarExpRatio_Training': np.array(cv_varexplained_training).mean(axis=0),
-                                'Mean_VarExp_Test': np.mean(cv_varexplained_test),
+                                 'Mean_VarExp_Test': np.mean(cv_varexplained_test),
                                  'Stdev_VarExp_Test': np.std(cv_varexplained_test),
                                  'Q2': q_squared}
 
@@ -526,7 +532,8 @@ class ChemometricsPCA(_BasePCA):
             for perm_n in range(0, nperms):
                 for currload in range(0, permute_class.ncomps):
                     choice = np.argmin(np.array([np.sum(np.abs(self.loadings - permuted_loads[currload][perm_n, :])),
-                                                 np.sum(np.abs(self.loadings - permuted_loads[currload][perm_n, :] * -1))]))
+                                                 np.sum(np.abs(
+                                                     self.loadings - permuted_loads[currload][perm_n, :] * -1))]))
                     if choice == 1:
                         permuted_loads[currload][perm_n, :] = -1 * permuted_loads[currload][perm_n, :]
             return permuted_loads
@@ -557,7 +564,7 @@ class ChemometricsPCA(_BasePCA):
             for permutation in range(0, nperms):
                 # Copy original column order, shuffle array in place...
                 orig = np.copy(x)
-                #np.random.shuffle(x.T)
+                # np.random.shuffle(x.T)
                 # ... Fit model and replace original data
                 permute_class.fit(x)
                 x = orig
@@ -574,4 +581,3 @@ class ChemometricsPCA(_BasePCA):
         for k, v in self.__dict__.items():
             setattr(result, k, deepcopy(v, memo))
         return result
-

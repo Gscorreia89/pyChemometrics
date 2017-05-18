@@ -4,8 +4,8 @@ functions common in the Chemometrics literature.
 """
 __version__ = '0.1'
 
-from pyChemometrics.ChemometricsScaler import ChemometricsScaler
 from pyChemometrics.ChemometricsPCA import ChemometricsPCA
 from pyChemometrics.ChemometricsPLS import ChemometricsPLS
+from pyChemometrics.ChemometricsScaler import ChemometricsScaler
 
 __all__ = ['ChemometricsScaler', 'ChemometricsPCA', 'ChemometricsPLS']

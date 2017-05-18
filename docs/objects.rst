@@ -8,18 +8,18 @@ Scaler
 The scaler
 
 .. autoclass:: pyChemometrics.ChemometricsScaler
-  :members:
+:members:
 
-PCA
-===
-The pca
+    PCA
+    ===
+    The pca
 
 .. autoclass:: pyChemometrics.ChemometricsPCA
-  :members:
+:members:
 
-PLS
-===
-Ples pls
+    PLS
+    ===
+    Ples pls
 
 .. autoclass:: pyChemometrics.ChemometricsPLS
-  :members:
+:members:

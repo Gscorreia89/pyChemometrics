@@ -1,12 +1,13 @@
+from copy import deepcopy
+
+import numpy
+from scipy import sparse
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.utils import check_array
 from sklearn.utils.extmath import _incremental_mean_and_var
 from sklearn.utils.sparsefuncs import (inplace_column_scale,
-                                 mean_variance_axis, incr_mean_variance_axis)
+                                       mean_variance_axis, incr_mean_variance_axis)
 from sklearn.utils.validation import check_is_fitted, FLOAT_DTYPES
-from scipy import sparse
-import numpy
-from copy import deepcopy
 
 
 class ChemometricsScaler(BaseEstimator, TransformerMixin):
@@ -121,7 +122,7 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
                                           self.n_samples_seen_)
 
         if self.with_std:
-            self.scale_ = _handle_zeros_in_scale(numpy.sqrt(self.var_))**self.scale_power
+            self.scale_ = _handle_zeros_in_scale(numpy.sqrt(self.var_)) ** self.scale_power
         else:
             self.scale_ = None
 
