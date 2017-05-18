@@ -1,6 +1,4 @@
 .. sphinx-quickstart on Mon Jan 16 09:06:56 2017.
-You can adapt this file completely to your liking, but it should at least
-contain the root `toctree` directive.
 
 pyChemometrics
 --------------
@@ -8,10 +6,10 @@ pyChemometrics
 Contents:
 
 .. toctree::
-:maxdepth: 3
+  :maxdepth: 2
 
-       tutorial
-       objects
+  tutorial
+  objects
 
 Using the pyChemometrics Models
 ===============================
@@ -29,6 +27,6 @@ See :doc:`objects` for details.
 Indices and tables
 ==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+  * :ref:`genindex`
+  * :ref:`modindex`
+  * :ref:`search`

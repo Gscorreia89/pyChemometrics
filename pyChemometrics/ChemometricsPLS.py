@@ -22,10 +22,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     :param int ncomps: Number of PLS components desired.
     :param sklearn._PLS pls_algorithm: Scikit-learn PLS algorithm to use - PLSRegression or PLSCanonical are supported.
-    :param TransformerMixin xscaler: Scaler object (ChemometricsScaler or scaling/preprocessing objects from scikit-learn) to scale the x data block.
-    :param TransformerMixin yscaler: Scaler object (ChemometricsScaler or scaling/preprocessing objects from scikit-learn) to scale the y data block.
-    :param **kwargs pls_type_kwargs: Keyword arguments to be passed during initialization of pls_algorithm.
-    :return self: instance of ChemometricsPLS object
+    :param xscaler: Scaler object for X data matrix.
+    :type xscaler: ChemometricsScaler object, scaling/preprocessing objects from scikit-learn or None.
+    :param yscaler: Scaler object for the Y data vector/matrix.
+    :type yscaler: ChemometricsScaler object, scaling/preprocessing objects from scikit-learn or None.
+    :param kwargs pls_type_kwargs: Keyword arguments to be passed during initialization of pls_algorithm.
+    :raise TypeError: If the pca_algorithm or scaler objects are not of the right class.
     """
 
     """
@@ -130,30 +132,28 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.b_t = None
             self.beta_coeffs = None
 
-            self._ncomps = None
-            self.ncomps = ncomps
-            self._x_scaler = None
-            self._y_scaler = None
-            self.x_scaler = xscaler
-            self.y_scaler = yscaler
+            self._ncomps = ncomps
+            self._x_scaler = xscaler
+            self._y_scaler = yscaler
             self.cvParameters = None
             self.modelParameters = None
             self._isfitted = False
 
         except TypeError as terp:
             print(terp.args[0])
-        except ValueError as verr:
-            print(verr.args[0])
 
     def fit(self, x, y, **fit_params):
         """
 
         Perform model fitting on the provided x and y data and calculate basic goodness-of-fit metrics.
-        Equivalent to scikit-learn's BaseEstimator method.
+        Similar to scikit-learn's BaseEstimator method.
 
-        :param numpy.ndarray x: X data matrix.
-        :param numpy.ndarray y: Y data vector/matrix.
-        :param **kwargs fit_params: Optional keyword arguments to be passed to the pls_algorithm .fit method.
+        :param x: Data matrix to fit the PLS model.
+        :type x: numpy.ndarray, shape [n_samples, n_features].
+        :param y: Data matrix to fit the PLS model.
+        :type y: numpy.ndarray, shape [n_samples, n_features].
+        :param kwargs fit_params: Keyword arguments to be passed to the .fit() method of the core sklearn model.
+        :raise ValueError: If any problem occurs during fitting.
         """
         try:
             # This scaling check is always performed to ensure running model with scaling or with scaling == None
@@ -202,18 +202,22 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.modelParameters = {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
                                     'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']}
 
-        except Exception as exp:
-            raise exp
+        except ValueError as verr:
+            raise verr
 
     def fit_transform(self, x, y, **fit_params):
         """
 
         Fit a model to supplied data and return the scores. Equivalent to scikit-learn's TransformerMixin method.
 
-        :param numpy.ndarray x: X data matrix
-        :param numpy.nadarray y: Y data matrix
-        :param **kwargs fit_params: Optional keyword arguments to be passed to the pls_algorithm .fit method.
-        :return tuple: Latent Variable scores (T) for the X matrix and for the Y vector/matrix (U).
+        :param x: Data matrix to fit the PLS model.
+        :type x: numpy.ndarray, shape [n_samples, n_features].
+        :param y: Data matrix to fit the PLS model.
+        :type y: numpy.ndarray, shape [n_samples, n_features].
+        :param **kwargs fit_params: Optional keyword arguments to be passed to the pls_algorithm .fit() method.
+        :return Latent Variable scores (T) for the X matrix and for the Y vector/matrix (U).
+        :rtype: tuple
+        :raise ValueError: If any problem occurs during fitting.
         """
 
         try:
@@ -229,8 +233,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             return self.transform(xscaled, y=None), self.transform(x=None, y=yscaled)
 
-        except Exception as exp:
-            raise exp
+        except ValueError as verr:
+            raise verr
 
     def transform(self, x=None, y=None):
         """
