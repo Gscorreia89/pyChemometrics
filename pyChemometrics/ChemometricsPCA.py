@@ -18,10 +18,12 @@ class ChemometricsPCA(_BasePCA):
     for Chemometric Data analysis.
 
     :param ncomps: Number of PCA components desired.
-    :param sklearn.decomposition._BasePCA pca_algorithm: Any scikit-learn PCA models (inheriting from _BasePCA).
-    :param scaler: Any of the scaling/preprocessing objects from default scikit-learn
-    :type scaler: ChemometricsScaler object or 
-    :param pca_type_kwargs: Keyword arguments to be passed during initialization of pca_algorithm.
+    :type ncomps: int
+    :param sklearn.decomposition._BasePCA pca_algorithm: scikit-learn PCA models (inheriting from _BasePCA).
+    :param scaler: The object which will handle data scaling.
+    :type scaler: ChemometricsScaler object, scaling/preprocessing objects from scikit-learn or None
+    :param kwargs pca_type_kwargs: Keyword arguments to be passed during initialization of pca_algorithm.
+    :raise TypeError: If the pca_algorithm or scaler objects are not of the right class.
     """
 
     # Constant usage of kwargs might look excessive but ensures that most things from scikit-learn can be used directly
@@ -30,7 +32,7 @@ class ChemometricsPCA(_BasePCA):
 
         try:
             # Perform the check with is instance but avoid abstract base class runs. PCA needs number of comps anyway!
-            pca_algorithm = pca_algorithm(n_components=ncomps)
+            pca_algorithm = pca_algorithm(n_components=ncomps, **pca_type_kwargs)
             if not isinstance(pca_algorithm, (_BasePCA, BaseEstimator, TransformerMixin)):
                 raise TypeError("Scikit-learn model please")
             if not (isinstance(scaler, TransformerMixin) or scaler is None):
@@ -51,10 +53,8 @@ class ChemometricsPCA(_BasePCA):
             # Most initialized as None, before object is fitted.
             self.scores = None
             self.loadings = None
-            self._ncomps = None
-            self._scaler = None
-            self.ncomps = ncomps
-            self.scaler = scaler
+            self._ncomps = ncomps
+            self._scaler = scaler
             self.cvParameters = None
             self.modelParameters = None
             self._isfitted = False
@@ -63,24 +63,18 @@ class ChemometricsPCA(_BasePCA):
             print(terp.args[0])
             raise terp
 
-        except ValueError as verr:
-            print(verr.args[0])
-            raise verr
-
-        except Exception as exp:
-            print(exp.args[0])
-            raise exp
-
     def fit(self, x, **fit_params):
         """
 
-        Perform model fitting on the provided x data and calculate basic goodness-of-fit metrics.
-        Equivalent to sklearn's default BaseEstimator method.
+        Perform model fitting on the provided x data matrix and calculate basic goodness-of-fit metrics.
+        Equivalent to scikit-learn's default BaseEstimator method.
 
-        :param x: ples
-        :param scale: ples
-        :return:
+        :param x: Data matrix to fit the PCA model.
+        :type x: numpy.ndarray, shape [n_samples, n_features].
+        :param kwargs fit_params: Keyword arguments to be passed to the .fit() method of the core sklearn model.
+        :raise ValueError: If any problem occurs during fitting.
         """
+
         try:
             # This scaling check is always performed to ensure running model with scaling or with scaling == None
             # always give consistent results (same type of data scale expected for fitting,
@@ -92,7 +86,7 @@ class ChemometricsPCA(_BasePCA):
                 ss = np.sum((xscaled - np.mean(xscaled, 0)) ** 2)
                 predicted = self.pca_algorithm.inverse_transform(self.scores)
                 rss = np.sum((xscaled - predicted) ** 2)
-                # variance explained from scikit learn stored as well
+                # variance explained from scikit-learn stored as well
                 self.modelParameters = {'R2X': 1 - (rss/ss), 'VarExpRatio': self.pca_algorithm.explained_variance_ratio_,
                                         'VarExp': self.pca_algorithm.explained_variance_}
             else:
@@ -107,8 +101,9 @@ class ChemometricsPCA(_BasePCA):
             if hasattr(self.pca_algorithm, 'components_'):
                 self.loadings = self.pca_algorithm.components_
             self._isfitted = True
-        except Exception as exp:
-            raise exp
+
+        except ValueError as verr:
+            raise verr
 
     def _partial_fit(self, x):
         """
@@ -121,44 +116,55 @@ class ChemometricsPCA(_BasePCA):
     def fit_transform(self, x, **fit_params):
         """
 
-        Fit a model and return the scores. Equivalent to sklearn's default TransformerMixin method.
+        Fit a model and return the scores, as per the scikit-learn's TransformerMixin method.
 
-        :param x: Data to fit
-        :param fit_params: Optional keyword arguments to be passed to the fit method
-        :return: PCA scores of the x samples
+        :param x: Data matrix to fit and project.
+        :type x: numpy.ndarray, shape [n_samples, n_features]
+        :param kwargs fit_params: Optional keyword arguments to be passed to the fit method.
+        :return: PCA projections (scores) corresponding to the samples in X.
+        :rtype: numpy.ndarray, shape [n_samples, n_comps]
+        :raise ValueError: If there are problems with the input or during model fitting.
         """
 
         try:
             self.fit(x, **fit_params)
             return self.transform(x)
-        except Exception as exp:
+        except ValueError as exp:
             raise exp
 
-    def transform(self, x, **transform_kwargs):
+    def transform(self, x):
         """
 
-        Calculate the scores from the original data, using the loadings. Equivalent to
-        sklearn's default TransformerMixin method.
+        Calculate the projections (scores) of the x data matrix. Similar to scikit-learn's TransformerMixin method.
 
-        :param x:
-        :param transform_kwargs:
-        :return:
+        :param x: Data matrix to fit and project.
+        :type x: numpy.ndarray, shape [n_samples, n_features]
+        :param kwargs transform_params: Optional keyword arguments to be passed to the transform method.
+        :return: PCA projections (scores) corresponding to the samples in X.
+        :rtype: numpy.ndarray, shape [n_samples, n_comps]
+        :raise ValueError: If there are problems with the input or during model fitting.
+        """
+        try:
+            if self.scaler is not None:
+                xscaled = self.scaler.transform(x)
+                return self.pca_algorithm.transform(xscaled)
+            else:
+                return self.pca_algorithm.transform(x)
+        except ValueError as verr:
+            raise verr
+
+    def score(self, x, sample_weight=None):
         """
 
-        if self.scaler is not None:
-            xscaled = self.scaler.transform(x)
-            return self.pca_algorithm.transform(xscaled, **transform_kwargs)
-        else:
-            return self.pca_algorithm.transform(x, **transform_kwargs)
+        Return the average log-likelihood of all samples. Same as the underlying score method from the scikit-learn
+        PCA objects.
 
-    def score(self, x, **score_kwargs):
-        """
-
-        Return the average log-likelihood of all samples. Same as the underlying score method from the sklearn objects.
-
-        :param x:
-        :param sample_weight:
-        :return:
+        :param x: Data matrix to score model on.
+        :type x: numpy.ndarray, shape [n_samples, n_features]
+        :param numpy.ndarray sample_weight: Optional sample weights during scoring.
+        :return: Average log-likelihood over all samples.
+        :rtype: float
+        :raises ValueError: if the data matrix x provided is invalid.
         """
         try:
             # Not all sklearn pca objects have a "score" method...
@@ -168,20 +174,23 @@ class ChemometricsPCA(_BasePCA):
             # Scaling check for consistency
             if self.scaler is not None:
                 xscaled = self.scaler.transform(x)
-                return self.pca_algorithm.score(xscaled, **score_kwargs)
+                return self.pca_algorithm.score(xscaled, sample_weight)
             else:
-                return self.pca_algorithm.score(x, **score_kwargs)
-        except Exception as exp:
-            return None
+                return self.pca_algorithm.score(x, sample_weight)
+        except ValueError as verr:
+            raise verr
 
     def inverse_transform(self, scores):
         """
 
-        Transform scores to the original data space using their corresponding loadings.
-        Equivalent to sklearn's default TransformerMixin method.
+        Transform scores to the original data space using the principal component loadings.
+        Similar to scikit-learn's default TransformerMixin method.
 
-        :param scores:
-        :return:
+        :param scores: The projections (scores) to be converted back to the original data space.
+        :type scores: numpy.ndarray, shape [n_samples, n_comps]
+        :return: Data matrix in the original data space.
+        :rtype: numpy.ndarray, shape [n_samples, n_features]
+        :raises ValueError: If the dimensions of score mismatch the number of components in the model.
         """
         # Scaling check for consistency
         if self.scaler is not None:
@@ -194,65 +203,72 @@ class ChemometricsPCA(_BasePCA):
     def _press_impute_pinv(self, x, var_to_pred):
         """
 
-        Single value imputation method, essential to use in the cross-validation
+        Single value imputation method, essential to use in the cross-validation.
         In theory can also be used to do missing data imputation.
         Based on the Eigenvector_PRESS calculation as described in:
         1) Bro et al, Cross-validation of component models: A critical look at current methods,
         Analytical and Bioanalytical Chemistry 2008 - doi: 10.1007/s00216-007-1790-1
         2) amoeba's answer on CrossValidated: http://stats.stackexchange.com/a/115477
-        :param x:
-        :param var_to_pred: which variable is to be imputed from the others
-        :return:
-        """
-        # Scaling check for consistency
-        if self.scaler is not None:
-            xscaled = self.scaler.transform(x)
-        else:
-            xscaled = x
-        # Following from
-        to_pred = np.delete(xscaled, var_to_pred, axis=1)
-        topred_loads = np.delete(self.loadings.T, var_to_pred, axis=0)
-        imputed_x = np.dot(np.dot(to_pred, np.linalg.pinv(topred_loads).T), self.loadings)
-        if self.scaler is not None:
-            imputed_x = self.scaler.inverse_transform(imputed_x)
 
-        return imputed_x
+        :param x: Data matrix in the original data space.
+        :type x: numpy.ndarray, shape [n_samples, n_comps]
+        :param int var_to_pred: which variable is to be imputed from the others.
+        :return: Imputed X matrix.
+        :rtype: numpy.ndarray, shape [n_samples, n_features]
+        :raise ValueError: If there is any error during the imputation process.
+        """
+
+        try:
+            # Scaling check for consistency
+            if self.scaler is not None:
+                xscaled = self.scaler.transform(x)
+            else:
+                xscaled = x
+            # Following from
+            to_pred = np.delete(xscaled, var_to_pred, axis=1)
+            topred_loads = np.delete(self.loadings.T, var_to_pred, axis=0)
+            imputed_x = np.dot(np.dot(to_pred, np.linalg.pinv(topred_loads).T), self.loadings)
+            if self.scaler is not None:
+                imputed_x = self.scaler.inverse_transform(imputed_x)
+            return imputed_x
+        except ValueError as verr:
+            raise verr
 
     def _press_impute_transpose(self, x, var_to_pred):
         """
+        NOT READY needs finishing.
 
         Single value imputation method, essential to use in the cross-validation
         In theory can also be used to do missing data imputation.
         Based on the approximation described in amoeba's answer
         on CrossValidated: http://stats.stackexchange.com/a/115477
 
-        :param x:
-        :param var_to_pred: which variable is to be imputed from the others
-        :return:
+        :param x: Data matrix in the original data space.
+        :type x: numpy.ndarray, shape [n_samples, n_comps]
+        :param int var_to_pred: which variable is to be imputed from the others.
+        :return: Imputed X matrix.
+        :rtype: numpy.ndarray, shape [n_samples, n_features]
+        :raise ValueError: If there is any error during the imputation process.
         """
-        # Scaling check for consistency
-        if self.scaler is not None:
-            xscaled = self.scaler.transform(x)
-        else:
-            xscaled = x
-        # Following from
-        to_pred = np.delete(xscaled, var_to_pred, axis=1)
-        topred_loads = np.delete(self.loadings.T, var_to_pred, axis=0)
-        imputed_x = np.dot(np.dot(to_pred, np.linalg.pinv(topred_loads).T), self.loadings)
-        if self.scaler is not None:
-            imputed_x = self.scaler.inverse_transform(imputed_x)
+        try:
+            # Scaling check for consistency
+            if self.scaler is not None:
+                xscaled = self.scaler.transform(x)
+            else:
+                xscaled = x
+            # Following from
+            to_pred = np.delete(xscaled, var_to_pred, axis=1)
+            topred_loads = np.delete(self.loadings.T, var_to_pred, axis=0)
+            imputed_x = np.dot(np.dot(to_pred, np.linalg.pinv(topred_loads).T), self.loadings)
+            if self.scaler is not None:
+                imputed_x = self.scaler.inverse_transform(imputed_x)
 
-        return imputed_x
+            return imputed_x
+        except ValueError as verr:
+            raise verr
 
     @property
     def ncomps(self):
-        """
-
-        Getter for number of components.
-
-        :param ncomps:
-        :return:
-        """
         try:
             return self._ncomps
         except AttributeError as atre:
@@ -264,8 +280,8 @@ class ChemometricsPCA(_BasePCA):
 
         Setter for number of components.
 
-        :param ncomps:
-        :return:
+        :param int ncomps: Number of components to use in the model.
+        :raise AttributeError: If there is a problem changing the number of components and resetting the model.
         """
         # To ensure changing number of components effectively resets the model
         try:
@@ -276,19 +292,12 @@ class ChemometricsPCA(_BasePCA):
             self.loadings = None
             self.scores = None
             self.cvParameters = None
-
             return None
         except AttributeError as atre:
             raise atre
 
     @property
     def scaler(self):
-        """
-
-        Getter for the model scaler.
-
-        :return:
-        """
         try:
             return self._scaler
         except AttributeError as atre:
@@ -300,8 +309,10 @@ class ChemometricsPCA(_BasePCA):
 
         Setter for the model scaler.
 
-        :param scaler:
-        :return:
+        :param scaler: The object which will handle data scaling.
+        :type scaler: ChemometricsScaler object, scaling/preprocessing objects from scikit-learn or None
+        :raise AttributeError: If there is a problem changing the scaler and resetting the model.
+        :raise TypeError: If the new scaler provided is not a valid object.
         """
         try:
             if not (isinstance(scaler, TransformerMixin) or scaler is None):
@@ -327,8 +338,10 @@ class ChemometricsPCA(_BasePCA):
 
         Obtain the parameters for the Hotelling T2 ellipse at the desired significance level.
 
-        :param comps:
+        :param list comps:
         :return:
+        :rtype:
+        :raise ValueError: If the dimensions request
         """
         try:
             self.scores[:, comps]
@@ -340,32 +353,36 @@ class ChemometricsPCA(_BasePCA):
         except TypeError as typerr:
             raise typerr
 
-    def dModX(self):
+    def dModX(self, x=None):
         """
-
         :return:
         """
         return NotImplementedError
 
     def leverages(self):
         """
-
+        Calculate the leverages for each observation
         :return:
+        :rtype:
         """
         return NotImplementedError
 
-    def cross_validation(self, x,  cv_method=KFold(7, True), outputdist=False, press_impute=True, testset_scale=False, **crossval_kwargs):
+    def cross_validation(self, x,  cv_method=KFold(7, True), outputdist=False, press_impute=True, testset_scale=False):
         """
 
-        Cross-validation method for the model. Calculates Q2 and cross-validated estimates of model parameters.
+        Cross-validation method for the model. Calculates Q2 and cross-validated estimates for all model parameters.
 
-        :param x: X data matrix.
-        :param cv_method: An instance of any of the BaseCrossValidator objects from scikit learn
-        :param outputdist: Output the whole distribution for (useful when Bootstrapping is used)
-        :param press_impute:
-        :param testset_scale:
-        :param crossval_kwargs:
+        :param x: Data matrix.
+        :type x: numpy.ndarray, shape [n_samples, n_feeatures]
+        :param cv_method: An instance of a scikit-learn CrossValidator object.
+        :type cv_method: BaseCrossValidator
+        :param bool outputdist: Output the whole distribution for. Useful when ShuffleSplit or CrossValidators other than KFold.
+        :param bool press_impute: Use imputation of test set observations instead of row wise cross-validation. Slower but more reliable.
+        :param bool testset_scale: Scale the test using its own mean and standard deviation instead of the scaler fitted on training set.
         :return:
+        :rtype: dict
+        :raise TypeError: If the cv_method passed is not a scikit-learn CrossValidator object.
+        :raise ValueError: If the x data matrix is invalid.
         """
 
         try:
@@ -398,7 +415,7 @@ class ChemometricsPCA(_BasePCA):
             for xtrain, xtest in cv_method.split(x):
                 cv_pipeline.fit(x[xtrain, :])
                 # Calculate R2/Variance Explained in test set
-                # To calculat an R2X in the test set
+                # To calculate an R2X in the test set
                 if testset_scale:
                     xtest_scaled = cv_pipeline.scaler.fit_transform(x[xtest, :])
                 else:
@@ -466,15 +483,21 @@ class ChemometricsPCA(_BasePCA):
 
         except TypeError as terp:
             raise terp
+        except ValueError as verr:
+            raise verr
 
     def permutationtest_loadings(self, x, nperms=1000):
         """
 
-        Permutation test to assess significance of loading value being "important" in a component.
+        Permutation test to assess significance of magnitude of value for variable in component loading vector.
+        Can be used to test importance of variable to the loading vector.
 
-        :param x:
-        :param nperms:
-        :return:
+        :param x: Data matrix.
+        :type x: numpy.ndarray, shape [n_samples, n_features]
+        :param int nperms: Number of permutations.
+        :return: Permuted null distribution for vector values.
+        :rtype: numpy.ndarray, shape [ncomps, n_perms, n_features]
+        :raise ValueError: If there is a problem with the input x data or during the procedure.
         """
         try:
             # Check if global model is fitted... and if not, fit it using all of X
@@ -507,17 +530,20 @@ class ChemometricsPCA(_BasePCA):
                     if choice == 1:
                         permuted_loads[currload][perm_n, :] = -1 * permuted_loads[currload][perm_n, :]
             return permuted_loads
-        except Exception as exp:
-            raise exp
+        except ValueError as verr:
+            raise verr
 
     def permutationtest_components(self, x, nperms=1000):
         """
-
+        Under Construction...
         Permutation test for a whole component. Also outputs permuted null distributions for the loadings.
 
-        :param x:
-        :param nperms:
-        :return:
+        :param x: Data matrix.
+        :type x: numpy.ndarray, shape [n_samples, n_features]
+        :param int nperms: Number of permutations.
+        :return: Permuted null distribution for the component metrics (VarianceExplained and R2).
+        :rtype: numpy.ndarray, shape [ncomps, n_perms, n_features]
+        :raise ValueError: If there is a problem with the input data.
         """
         try:
             # Check if global model is fitted... and if not, fit it using all of X
@@ -538,8 +564,8 @@ class ChemometricsPCA(_BasePCA):
                 permuted_varExp.append(permute_class.ModelParameters['VarExpRatio'])
             return permuted_varExp
 
-        except Exception as exp:
-            raise exp
+        except ValueError as verr:
+            raise verr
 
     def __deepcopy__(self, memo):
         cls = self.__class__

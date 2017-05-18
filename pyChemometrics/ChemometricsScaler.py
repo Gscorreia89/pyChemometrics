@@ -11,70 +11,14 @@ from copy import deepcopy
 
 class ChemometricsScaler(BaseEstimator, TransformerMixin):
     """
+    Extension of Scikit-learn's StandardScaler which allows scaling by different powers of the standard deviation.
 
-    A code injection onto the default scikit learn StandardScaler, to tolerate UV, MC and Pareto,
-    as well as other powers of sigma
-    :param scale_power:
-    :param copy:
-    :param with_mean:
-    :param with_std:
+    :param scale_power: To which power should the standard deviation of each variable be raised for scaling. 0: Mean centering; 0.5: Pareto; 1:Unit Variance.
+    :type scale_power: Float
+    :param bool copy: Copy the array containing the data.
+    :param bool with_mean: Perform mean centering.
+    :param bool with_std: Scale the data.
     """
-
-    """Standardize features by removing the mean and scaling to unit variance
-    Centering and scaling happen independently on each feature by computing
-    the relevant statistics on the samples in the training set. Mean and
-    standard deviation are then stored to be used on later data using the
-    `transform` method.
-    Standardization of a dataset is a common requirement for many
-    machine learning estimators: they might behave badly if the
-    individual feature do not more or less look like standard normally
-    distributed data (e.g. Gaussian with 0 mean and unit variance).
-    For instance many elements used in the objective function of
-    a learning algorithm (such as the RBF kernel of Support Vector
-    Machines or the L1 and L2 regularizers of linear models) assume that
-    all features are centered around 0 and have variance in the same
-    order. If a feature has a variance that is orders of magnitude larger
-    that others, it might dominate the objective function and make the
-    estimator unable to learn from other features correctly as expected.
-    This scaler can also be applied to sparse CSR or CSC matrices by passing
-    `with_mean=False` to avoid breaking the sparsity structure of the data.
-    Read more in the :ref:`User Guide <preprocessing_scaler>`.
-    Parameters
-    ----------
-    with_mean : boolean, True by default
-        If True, center the data before scaling.
-        This does not work (and will raise an exception) when attempted on
-        sparse matrices, because centering them entails building a dense
-        matrix which in common use cases is likely to be too large to fit in
-        memory.
-    with_std : boolean, True by default
-        If True, scale the data to unit variance (or equivalently,
-        unit standard deviation).
-    copy : boolean, optional, default True
-        If False, try to avoid a copy and do inplace scaling instead.
-        This is not guaranteed to always work inplace; e.g. if the data is
-        not a NumPy array or scipy.sparse CSR matrix, a copy may still be
-        returned.
-    Attributes
-    ----------
-    scale_ : ndarray, shape (n_features,)
-        Per feature relative scaling of the data.
-        .. versionadded:: 0.17
-           *scale_*
-    mean_ : array of floats with shape [n_features]
-        The mean value for each feature in the training set.
-    var_ : array of floats with shape [n_features]
-        The variance for each feature in the training set. Used to compute
-        `scale_`
-    n_samples_seen_ : int
-        The number of samples processed by the estimator. Will be reset on
-        new calls to fit, but increments across ``partial_fit`` calls.
-    See also
-    --------
-    scale: Equivalent function without the object oriented API.
-    :class:`sklearn.decomposition.PCA`
-        Further removes the linear correlation across features with 'whiten=True'.
-    """  # noqa
 
     def __init__(self, scale_power=1, copy=True, with_mean=True, with_std=True):
         self.scale_power = scale_power
@@ -83,8 +27,10 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
         self.copy = copy
 
     def _reset(self):
-        """Reset internal data-dependent state of the scaler, if necessary.
+        """
+        Reset internal data-dependent state of the scaler, if necessary.
         __init__ parameters are not touched.
+
         """
 
         # Checking one attribute is enough, because they are all set together
@@ -96,13 +42,15 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
             del self.var_
 
     def fit(self, X, y=None):
-        """Compute the mean and std to be used for later scaling.
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape [n_samples, n_features]
-            The data used to compute the mean and standard deviation
-            used for later scaling along the features axis.
-        y : Passthrough for ``Pipeline`` compatibility.
+        """
+        Compute the mean and standard deviation from a dataset to use in future scaling operations.
+
+        :param X: Data matrix to scale.
+        :type X: numpy.ndarray, shape [n_samples, n_features]
+        :param y: Passthrough for Scikit-learn ``Pipeline`` compatibility.
+        :type y: None
+        :return: Fitted object.
+        :rtype: pyChemometrics.ChemometricsScaler
         """
 
         # Reset internal state before fitting
@@ -110,20 +58,25 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
         return self.partial_fit(X, y)
 
     def partial_fit(self, X, y=None):
-        """Online computation of mean and std on X for later scaling.
-        All of X is processed as a single batch. This is intended for cases
-        when `fit` is not feasible due to very large number of `n_samples`
+        """
+        Performs online computation of mean and standard deviation on X for later scaling.
+        All of X is processed as a single batch.
+        This is intended for cases when `fit` is
+        not feasible due to very large number of `n_samples`
         or because X is read from a continuous stream.
-        The algorithm for incremental mean and std is given in Equation 1.5a,b
-        in Chan, Tony F., Gene H. Golub, and Randall J. LeVeque. "Algorithms
+
+        The algorithm for incremental mean
+        and std is given in Equation 1.5a,b in Chan, Tony F., Gene H. Golub, and Randall J. LeVeque. "Algorithms
         for computing the sample variance: Analysis and recommendations."
-        The American Statistician 37.3 (1983): 242-247:
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape [n_samples, n_features]
-            The data used to compute the mean and standard deviation
-            used for later scaling along the features axis.
-        y : Passthrough for ``Pipeline`` compatibility.
+        The American Statistician 37.3 (1983): 242-247
+
+        :param X: Data matrix to scale.
+        :type X: numpy.ndarray, shape [n_samples, n_features]
+        :param y: Passthrough for Scikit-learn ``Pipeline`` compatibility.
+        :type y: None
+        :return: Fitted object.
+        :rtype: pyChemometrics.ChemometricsScaler
+
         """
 
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
@@ -175,11 +128,16 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X, y=None, copy=None):
-        """Perform standardization by centering and scaling
-        Parameters
-        ----------
-        X : array-like, shape [n_samples, n_features]
-            The data used to scale along the features axis.
+        """
+        Perform standardization by centering and scaling using the parameters.
+
+        :param X: Data matrix to scale.
+        :type X: numpy.ndarray, shape [n_samples, n_features]
+        :param y: Passthrough for scikit-learn ``Pipeline`` compatibility.
+        :type y: None
+        :param bool copy: Copy the X matrix.
+        :return: Scaled version of the X data matrix.
+        :rtype: numpy.ndarray, shape [n_samples, n_features]
         """
         check_is_fitted(self, 'scale_')
 
@@ -203,11 +161,14 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
         return X
 
     def inverse_transform(self, X, copy=None):
-        """Scale back the data to the original representation
-        Parameters
-        ----------
-        X : array-like, shape [n_samples, n_features]
-            The data used to scale along the features axis.
+        """
+        Scale back the data to the original representation.
+
+        :param X: Scaled data matrix.
+        :type X: numpy.ndarray, shape [n_samples, n_features]
+        :param bool copy: Copy the X data matrix.
+        :return: X data matrix with the scaling operation reverted.
+        :rtype: numpy.ndarray, shape [n_samples, n_features]
         """
         check_is_fitted(self, 'scale_')
 
@@ -245,8 +206,10 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
 
 
 def _handle_zeros_in_scale(scale, copy=True):
-    ''' Makes sure that whenever scale is zero, we handle it correctly.
-    This happens in most scalers when we have constant features.'''
+    """
+    Makes sure that whenever scale is zero, we handle it correctly.
+    This happens in most scalers when we have constant features.
+    """
 
     # if we are fitting on 1D arrays, scale might be a scalar
     if numpy.isscalar(scale):
