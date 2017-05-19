@@ -501,7 +501,7 @@ class ChemometricsPCA(_BasePCA):
         :param x: Data matrix.
         :type x: numpy.ndarray, shape [n_samples, n_features]
         :param int nperms: Number of permutations.
-        :return: Permuted null distribution for vector values.
+        :return: Permuted null distribution for loading vector values.
         :rtype: numpy.ndarray, shape [ncomps, n_perms, n_features]
         :raise ValueError: If there is a problem with the input x data or during the procedure.
         """
