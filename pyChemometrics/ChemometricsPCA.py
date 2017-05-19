@@ -382,7 +382,7 @@ class ChemometricsPCA(_BasePCA):
         :type cv_method: BaseCrossValidator
         :param bool outputdist: Output the whole distribution for. Useful when ShuffleSplit or CrossValidators other than KFold.
         :param bool press_impute: Use imputation of test set observations instead of row wise cross-validation. Slower but more reliable.
-        :param bool testset_scale: Scale the test using its own mean and standard deviation instead of the scaler fitted on training set.
+        :param bool testset_scale: Scale the test set using its own mean and standard deviation instead of the scaler fitted on training set.
         :return:
         :rtype: dict
         :raise TypeError: If the cv_method passed is not a scikit-learn CrossValidator object.

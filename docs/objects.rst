@@ -3,22 +3,22 @@ pyChemometrics objects
 
 .. automodule:: pyChemometrics
 
-Scaler
-======
+ChemometricsScaler
+==================
 The scaler
 
 .. autoclass:: pyChemometrics.ChemometricsScaler
   :members:
 
-PCA
-===
+ChemometricsPCA
+===============
 The pca
 
 .. autoclass:: pyChemometrics.ChemometricsPCA
   :members:
 
-PLS
-===
+ChemometricsPLS
+===============
 Ples pls
 
 .. autoclass:: pyChemometrics.ChemometricsPLS

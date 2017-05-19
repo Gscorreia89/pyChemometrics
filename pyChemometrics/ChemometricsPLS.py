@@ -214,9 +214,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :type x: numpy.ndarray, shape [n_samples, n_features].
         :param y: Data matrix to fit the PLS model.
         :type y: numpy.ndarray, shape [n_samples, n_features].
-        :param **kwargs fit_params: Optional keyword arguments to be passed to the pls_algorithm .fit() method.
-        :return Latent Variable scores (T) for the X matrix and for the Y vector/matrix (U).
-        :rtype: tuple
+        :param kwargs fit_params: Optional keyword arguments to be passed to the pls_algorithm .fit() method.
+        :return: Latent Variable scores (T) for the X matrix and for the Y vector/matrix (U).
+        :rtype: tuple of numpy.ndarray, shape [[n_tscores], [n_uscores]]
         :raise ValueError: If any problem occurs during fitting.
         """
 
@@ -241,9 +241,14 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         Calculate the scores for a data block from the original data. Equivalent to sklearn's TransformerMixin method.
 
-        :param (numpy.ndarray or None) x: x data matrix
-        :param (numpy.ndarray or None) y: y data vector/matrix
-        :return tuple: Latent Variable scores (T) for the X matrix and for the Y vector/matrix (U).
+        :param x: Data matrix to fit the PLS model.
+        :type x: numpy.ndarray, shape [n_samples, n_features] or None
+        :param y: Data matrix to fit the PLS model.
+        :type y: numpy.ndarray, shape [n_samples, n_features] or None
+        :return: Latent Variable scores (T) for the X matrix and for the Y vector/matrix (U).
+        :rtype: tuple with 2 numpy.ndarray, shape [n_samples, n_comps]
+        :raise ValueError: If dimensions of input data are mismatched.
+        :raise AttributeError: When calling the method before the model is fitted.
         """
 
         try:
@@ -279,22 +284,28 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                     T = np.dot(xscaled, self.rotations_ws)
                     return T
             else:
-                raise ValueError('Model not fitted')
+                raise AttributeError('Model not fitted')
 
         except ValueError as verr:
             raise verr
-        except Exception as exp:
-            raise exp
+        except AttributeError as atter:
+            raise atter
 
     def inverse_transform(self, t=None, u=None):
         """
 
         Transform scores to the original data space using their corresponding loadings.
-        Equivalent to sklearn's TransformerMixin method.
+        Same logic as in scikit-learn's TransformerMixin method.
 
-        :param (numpy.ndarray or None) t: T scores corresponding to the X data matrix
-        :param (numpy.ndarry or None) u: Y scores corresponding to the Y data vector/matrix
-        :return:
+        :param t: T scores corresponding to the X data matrix.
+        :type t: numpy.ndarray, shape [n_samples, n_comps] or None
+        :param u: Y scores corresponding to the Y data vector/matrix.
+        :type u: numpy.ndarray, shape [n_samples, n_comps] or None
+        :return x: X Data matrix in the original data space.
+        :rtype: numpy.ndarray, shape [n_samples, n_features] or None
+        :return y: Y Data matrix in the original data space.
+        :rtype: numpy.ndarray, shape [n_samples, n_features] or None
+        :raise ValueError: If dimensions of input data are mismatched.
         """
         try:
             if self._isfitted is True:
@@ -326,20 +337,25 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         except ValueError as verr:
             raise verr
-        except Exception as exp:
-            raise exp
 
     def score(self, x, y, block_to_score='y', sample_weight=None):
         """
 
         Predict and calculate the R2 for the model using one of the data blocks (X or Y) provided.
-        Equivalent to scikit-learn RegressorMixin score method.
+        Equivalent to the scikit-learn RegressorMixin score method.
 
-        :param numpy.ndarray x:
-        :param numpy.nadarry y:
-        :param str block_to_score:
-        :param None sample_weight: Not yet implemented
-        :return:
+        :param x: Data matrix to fit the PLS model.
+        :type x: numpy.ndarray, shape [n_samples, n_features] or None
+        :param y: Data matrix to fit the PLS model.
+        :type y: numpy.ndarray, shape [n_samples, n_features] or None
+        :param str block_to_score: Which of the data blocks (X or Y) to calculate the R2 goodness of fit.
+        :param sample_weight: Optional sample weights to use in scoring.
+        :type sample_weight: numpy.ndarray, shape [n_samples] or None
+        :return R2Y: The model's R2Y, calculated by predicting Y from X and scoring.
+        :rtype: float
+        :return R2X: The model's R2X, calculated by predicting X from Y and scoring.
+        :rtype: float
+        :raise ValueError: If block to score argument is not acceptable or date mismatch issues with the provided data.
         """
         # TO DO: actually use sample_weight
         try:
@@ -380,11 +396,16 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def predict(self, x=None, y=None):
         """
 
-        Predict the value of one data block using the other block. Equivalent to scikit-learn RegressorMixin method.
+        Predict the values in one data block using the other. Same as its scikit-learn's RegressorMixin namesake method.
 
-        :param (numpy.ndarray or None) x:
-        :param (numpy.ndarray or None) y:
-        :return numpy.ndarray prediction: The prediction of one of the data matrices using the one provided
+        :param x: Data matrix to fit the PLS model.
+        :type x: numpy.ndarray, shape [n_samples, n_features] or None
+        :param y: Data matrix to fit the PLS model.
+        :type y: numpy.ndarray, shape [n_samples, n_features] or None
+        :return: Predicted data block (X or Y) obtained from the other data block.
+        :rtype: numpy.ndarray, shape [n_samples, n_features]
+        :raise ValueError: If no data matrix is passed, or dimensions mismatch issues with the provided data.
+        :raise AttributeError: Calling the method without fitting the model before.
         """
 
         try:
@@ -419,19 +440,14 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                     predicted = self.x_scaler.inverse_transform(predicted)
                     return predicted
             else:
-                raise ValueError("Model is not fitted")
-        except Exception as exp:
-            raise exp
+                raise AttributeError("Model is not fitted")
+        except ValueError as verr:
+            raise verr
+        except AttributeError as atter:
+            raise atter
 
     @property
     def ncomps(self):
-        """
-
-        Getter for number of components.
-
-        :return int ncomps: The model's number of PLS components.
-        """
-
         try:
             return self._ncomps
         except AttributeError as atre:
@@ -441,9 +457,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def ncomps(self, ncomps=1):
         """
 
-        Setter for number of components. Resets internal state of the model (model will have to be refitted).
+        Setter for number of components. Re-sets the model.
 
-        :param int ncomps: The desired new number of PLS components to set.
+        :param int ncomps: Number of PLS components to use in the model.
+        :raise AttributeError: If there is a problem changing the number of components and resetting the model.
         """
         # To ensure changing number of components effectively resets the model
         try:
@@ -470,12 +487,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     @property
     def x_scaler(self):
-        """
-
-        Getter for the model x_scaler.
-
-        :return:
-        """
         try:
             return self._x_scaler
         except AttributeError as atre:
@@ -485,11 +496,14 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def x_scaler(self, scaler):
         """
 
-        Setter for the model x_scaler. Resets internal state of the model (model will have to be refitted).
+        Setter for the X data block scaler.
 
-        :param TransformerMixin scaler: Sklearn scaler object
-        :return:
+        :param scaler: The object which will handle data scaling.
+        :type scaler: ChemometricsScaler object, scaling/preprocessing objects from scikit-learn or None
+        :raise AttributeError: If there is a problem changing the scaler and resetting the model.
+        :raise TypeError: If the new scaler provided is not a valid object.
         """
+
         try:
 
             if not (isinstance(scaler, TransformerMixin) or scaler is None):
@@ -521,12 +535,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     @property
     def y_scaler(self):
-        """
-
-        Getter for the model y_scaler
-
-        :return:
-        """
         try:
             return self._y_scaler
         except AttributeError as atre:
@@ -536,10 +544,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     def y_scaler(self, scaler):
         """
 
-        Setter for the model y_scaler. Resets internal state of the model (model will have to be refitted).
+        Setter for the Y data block scaler.
 
-        :param TransformerMixin scaler: Sklearn scaler object
-        :return:
+        :param scaler: The object which will handle data scaling.
+        :type scaler: ChemometricsScaler object, scaling/preprocessing objects from scikit-learn or None
+        :raise AttributeError: If there is a problem changing the scaler and resetting the model.
+        :raise TypeError: If the new scaler provided is not a valid object.
         """
         try:
             if not (isinstance(scaler, TransformerMixin) or scaler is None):
@@ -576,9 +586,13 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         Output the Variable importance for projection metric (VIP). With the default values it is calculated
         using the x variable weights and the variance explained of y.
 
-        :param str mode: The type of model parameter to use in calculating the VIP. Default value is weights (w).
-        :param str direction: The data block to be used to calculated the model fit and regression sum of squares
+        :param mode: The type of model parameter to use in calculating the VIP. Default value is weights (w), and other acceptable arguments are p, ws, cs, c and q.
+        :type mode: str
+        :param str direction: The data block to be used to calculated the model fit and regression sum of squares.
         :return numpy.ndarray VIP: The vector with the calculated VIP values.
+        :rtype: numpy.ndarray, shape [n_features]
+        :raise ValueError: If mode or direction is not a valid option.
+        :raise AttributeError: Calling method without a fitted model.
         """
 
         try:
@@ -607,8 +621,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             return vip
 
-        except AttributeError as atre:
-            raise AttributeError("Model not fitted")
+        except AttributeError as atter:
+            raise atter
         except ValueError as verr:
             raise verr
 
@@ -617,8 +631,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         Obtain the parameters for the Hotelling T2 ellipse at the desired significance level.
 
-        :param comps:
+        :param list comps:
         :return:
+        :rtype:
+        :raise ValueError: If the dimensions request
         """
         try:
             if self._isfitted is False:
@@ -637,15 +653,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def dModX(self):
         """
-
         :return:
         """
         return NotImplementedError
 
     def leverages(self):
         """
-
+        Calculate the leverages for each observation
         :return:
+        :rtype:
         """
         return NotImplementedError
 
@@ -653,14 +669,21 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                          **crossval_kwargs):
         """
 
-        Cross-validation method for the model. Calculates Q2 and cross-validated estimates of model parameters.
+        Cross-validation method for the model. Calculates Q2 and cross-validated estimates for all model parameters.
 
-        :param numpy.ndarray x: X data matrix
-        :param numpy.ndarray y: Y data vector/matrix
-        :param (BaseCrossValidator or BaseShuffleSplit) cv_method: scikit-learn cross-validation object.
-        :param Boolean outputdist: Return the whole distribution of model parameters or just summary statistics.
-        :param Boolean testset_scale: Use the scaling derived from the training set or re-scale the test set separately.
-        :param **kwargs crossval_kwargs: Keyword arguments to be passed to the .fit method during cross-validation
+        :param x: Data matrix to fit the PLS model.
+        :type x: numpy.ndarray, shape [n_samples, n_features]
+        :param y: Data matrix to fit the PLS model.
+        :type y: numpy.ndarray, shape [n_samples, n_features]
+        :param cv_method: An instance of a scikit-learn CrossValidator object.
+        :type cv_method: BaseCrossValidator or BaseShuffleSplit
+        :param bool outputdist: Output the whole distribution for. Useful when ShuffleSplit or CrossValidators other than KFold.
+        :param bool testset_scale: Scale the test sets using its own mean and standard deviation instead of the scaler fitted on training set.
+        :param kwargs crossval_kwargs: Keyword arguments to be passed to the sklearn.Pipeline during cross-validation
+        :return:
+        :rtype: dict
+        :raise TypeError: If the cv_method passed is not a scikit-learn CrossValidator object.
+        :raise ValueError: If the x and y data matrices are invalid.
         """
 
         try:
@@ -868,15 +891,18 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         Permutation test for the classifier. Outputs permuted null distributions for model performance metrics (Q2X/Q2Y)
-        most model parameters.
+        and most model parameters.
 
-        :param numpy.ndarray x: x data matrix.
-        :param numpy.ndarray y: Y data vector/matrix.
+        :param x: Data matrix to fit the PLS model.
+        :type x: numpy.ndarray, shape [n_samples, n_features]
+        :param y: Data matrix to fit the PLS model.
+        :type y: numpy.ndarray, shape [n_samples, n_features]
         :param int nperms: Number of permutations to perform.
-        :param (BaseCrossValidator or BaseShuffleSplit) cv_method: scikit-learn cross-validation object.
-        :param **kwargs permtest_kwargs: Keyword arguments to be passed to the .fit method during cross-validation
-        and model fitting.
-        :return tuple: Permuted null distributions for model parameters and the permutation p-value for the Q2Y value.
+        :param cv_method: An instance of a scikit-learn CrossValidator object.
+        :type cv_method: BaseCrossValidator or BaseShuffleSplit
+        :param kwargs permtest_kwargs: Keyword arguments to be passed to the .fit() method during cross-validation and model fitting.
+        :return: Permuted null distributions for model parameters and the permutation p-value for the Q2Y value.
+        :rtype: dict
         """
         try:
             # Check if global model is fitted... and if not, fit it using all of X
@@ -976,18 +1002,20 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             return permutationTest, pvals
 
-        except Exception as exp:
+        except ValueError as exp:
             raise exp
 
-    def _cummulativefit(self, ncomps, x, y):
+    def _cummulativefit(self, x, y):
         """
-
         Measure the cumulative Regression sum of Squares for each individual component.
 
-        :param int ncomps: First Number of components to
-        :param numpy.ndarray x: X data block to score the model
-        :param numpy.ndarray y: Y data block to score the model
-        :return cumulative_fit: dictionary object containing the total Regression Sum of Squares and the Sum of Squares per components, for both the X and Y data blocks.
+        :param x: Data matrix to fit the PLS model.
+        :type x: numpy.ndarray, shape [n_samples, n_features]
+        :param y: Data matrix to fit the PLS model.
+        :type y: numpy.ndarray, shape [n_samples, n_features]
+        :return: dictionary object containing the total Regression Sum of Squares and the Sum of Squares
+        per components, for both the X and Y data blocks.
+        :rtype: dict
         """
         if y.ndim == 1:
             y = y.reshape(-1, 1)
@@ -1025,12 +1053,18 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         Generate a new model with a smaller set of components.
 
-        :param int ncomps: Number of ordered first N components from the original model to be kept. Must be smaller than the ncomps value of the original model.
-        :return newmodel: ChemometricsPLS object with reduced number of components.
+        :param int ncomps: Number of ordered first N components from the original model to be kept.
+        Must be smaller than the ncomps value of the original model.
+        :return ChemometricsPLS object with reduced number of components.
+        :rtype: ChemometricsPLS
+        :raise ValueError: If number of components desired is larger than original number of components
+        :raise AttributeError: If model is not fitted.
         """
         try:
             if ncomps > self.ncomps:
                 raise ValueError('Fit a new model with more components instead')
+            if self._isfitted is False:
+                raise AttributeError('Model not Fitted')
 
             newmodel = copy.deepcopy(self)
             newmodel._ncomps = ncomps
@@ -1055,16 +1089,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             #                        newmodel.beta_coeffs * newmodel.y_scaler.scale_)
 
             return newmodel
-
-        except Exception as exp:
-            raise exp
+        except ValueError as verr:
+            raise verr
+        except AttributeError as atter:
+            raise atter
 
     def __deepcopy__(self, memo):
-        """
-        Deep copy implementation
-        :param memo:
-        :return:
-        """
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
