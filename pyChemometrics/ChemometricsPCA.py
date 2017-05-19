@@ -16,7 +16,7 @@ __author__ = 'gd2212'
 
 class ChemometricsPCA(_BasePCA):
     """
-
+    
     ChemometricsPCA object - Wrapper for sklearn.decomposition PCA algorithms, with tailored methods
     for Chemometric Data analysis.
 
