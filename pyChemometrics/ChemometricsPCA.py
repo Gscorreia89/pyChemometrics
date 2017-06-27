@@ -1,14 +1,10 @@
-import copy
 from copy import deepcopy
-
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.base import clone
+from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition.base import _BasePCA
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
-
 from .ChemometricsScaler import ChemometricsScaler
 
 __author__ = 'gd2212'
@@ -399,7 +395,7 @@ class ChemometricsPCA(_BasePCA):
                 self.fit(x)
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
-            cv_pipeline = copy.deepcopy(self)
+            cv_pipeline = deepcopy(self)
 
             # Initialise predictive residual sum of squares variable (for whole CV routine)
             total_press = 0
@@ -511,7 +507,7 @@ class ChemometricsPCA(_BasePCA):
                 self.fit(x)
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
-            permute_class = copy.deepcopy(self)
+            permute_class = deepcopy(self)
             # Initalise list for loading distribution
             permuted_loads = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
             for permutation in range(0, nperms):
@@ -558,7 +554,7 @@ class ChemometricsPCA(_BasePCA):
                 self.fit(x)
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
-            permute_class = copy.deepcopy(self)
+            permute_class = deepcopy(self)
             # Initalise list for loading distribution
             permuted_varExp = []
             for permutation in range(0, nperms):

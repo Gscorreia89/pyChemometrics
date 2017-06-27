@@ -1,20 +1,18 @@
-import copy
 from copy import deepcopy
-
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.base import RegressorMixin
-from sklearn.base import clone
+from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
-
+from sklearn.linear_model import LogisticRegression
+from sklearn import metrics
+from .ChemometricsPLS import ChemometricsPLS
 from .ChemometricsScaler import ChemometricsScaler
 
 __author__ = 'gd2212'
 
 
-class ChemometricsPLS_Logistic(BaseEstimator, RegressorMixin, TransformerMixin):
+class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
     """
 
     ChemometricsPLS object - Wrapper for sklearn.cross_decomposition PLS algorithms, with tailored methods
@@ -31,94 +29,40 @@ class ChemometricsPLS_Logistic(BaseEstimator, RegressorMixin, TransformerMixin):
     """
 
     """
-    This object is designed to fit flexibly both PLSRegression with one or multiple Y and PLSCanonical, both
-    with either NIPALS or SVD. PLS-SVD doesn't calculate the same type of model parameters, and should
-    not be used with this object.
-    For PLSRegression/PLS1/PLS2 and PLSCanonical/PLS-C2A/PLS-W2A, the actual components
-    found may differ (depending on type of deflation, etc), and this has to be taken into consideration,
-    but the actual nomenclature/definitions should be the "same".
-    Nomenclature is as follows:
-    X - T Scores - Projections of X, called T
-    Y - U Scores - Projections of Y, called U
-    X - Loadings P - Vector/multivariate directions associated with T on X are called P (equivalent to PCA)
-    Y - Loadings Q - Vector/multivariate directions associated with U on Y are called q
-    X - Weights W - Weights/directions of maximum covariance with Y of the X block are called W
-    Y - Weights C - Weights/directions of maximum covariance with X of the Y block block are called C
-    These "y-weights" tend to be almost negligible (not in the calculation though... ) of PLS1/PLS Regression
-    but are necessary in multi-Y/SVD-PLS/PLS2
-    X - Rotations W*/Ws/R - The rotation of X variables to LV space pinv(WP')W
-    Y - Rotations C*/Cs - The rotation of Y variables to LV space pinv(CQ')C
-    T = X W(P'W)^-1 = XW* (W* : p x k matrix)
-    U = Y C(Q'C)^-1 = YC* (C* : q x k matrix)
-    Loadings and weights after the first component do not represent
-    the original variables. The SIMPLS W*/Ws/R and C*/Cs act weight vectors
-    which relate to the original X and Y variables, and not to their deflated versions.
-    See Sijmen de Jong, "SIMPLS: an alternative approach to partial least squares regression", Chemometrics
-    and Intelligent Laboratory Systems 1992
-    "Inner" relation regression coefficients of T b_t: U = Tb_t
-    "Inner" relation regression coefficients of U b_U: T = Ub_u
-    These are obtained by regressing the U's and T's, applying standard linear regression to them.
-    B = pinv(X'X)X'Y
-    b_t = pinv(T'T)T'U
-    b_u = pinv(U'U)U'T
-    or in a more familiar form: b_t are the betas from regressing T on U - t'u/u'u
-    and b_u are the betas from regressing U on T - u't/t't
-
-    In summary, there are various ways to approach the model. Following a general nomenclature applicable
-    for both single and block Y:
-    The predictive model, assuming the Latent variable formulation, uses an "inner relation"
-    between the latent variable projections, where U = Tb_t and T = Ub_u.
-    Prediction using the so-called "mixed relations" (relate T with U and subsequently Y/relate
-    U with T and subsequently X), works through the following formulas
-    Y = T*b_t*C' + G
-    X = U*b_u*W' + H
-    The b_u and b_s are effectively "regression coefficients" between the latent variable scores
-
-    In parallel, we can think in terms of "outer relations", data decompositions or linear approximations to
-    the original data blocks, similar to PCA components
-    Y = UQ' + F
-    X = TP' + E
-    For PLS regression with single y, Y = UC' + F = Y = UQ' + F, due to Q = C, but not necessarily true for
-    multi Y, so Q' is used here. Notice that this formula cannot be used directly to
-    predict Y from X and vice-versa, the inner relation regression using latent variable scores is necessary.
-
-    Finally, assuming PLSRegression (single or multi Y, but asymmetric deflation):
-    The PLS model can be approached from a multivariate regression/regularized regression point of view,
-    where Y is related to the original X variables, through regression coefficients Beta,
-    bypassing the latent variable definition and concepts.
-    Y = XBQ', Y = XB, where B are the regression coefficients and B = W*Q' (the W*/ws is the SIMPLS_R,
-    X rotation in sklearn default PLS).
-    These Betas (regression coefficients) are obtained in this manner directly relate the original X variables
-    to the prediction of Y.
-
-    This MLR approach to PLS has the advantage of exposing the PLS betas and PLS mechanism
-    as a biased regression applying a degree of shrinkage, which decreases with the number of components
-    all the way up to B(OLS), when Number of Components = number of variables/columns.
-    See Frank and Friedman, Jong and Kramer/Rosipal
-
+    PLS - DA (y with dummy matrix) followed by Logistic Regression
+    The underlying PLS-DA model is exactly the same as standard PLS, and this objects inherits from ChemometricsPLS.
+    The PLS scores are then provided for a multivariate logistic regression model. Since PLS components have orthogonal 
+    scores, and this is a dimensionality reduction method, there is no need for regularization in the logistic model.
+    Interpretation of the model is performed as follows:
+    1) Idenfitying the regression coefficients from the Logistic regression models which are relevant 
+    2) Anal, without forgetting that the first "predictive" component is related  
     """
 
-    def __init__(self, ncomps=2, pls_algorithm=PLSRegression, xscaler=ChemometricsScaler(), yscaler=None,
-                 **pls_type_kwargs):
+    def __init__(self, ncomps=2, pls_algorithm=PLSRegression, logreg_algorithm=LogisticRegression,
+                 xscaler=ChemometricsScaler(), yscaler=None, **pls_type_kwargs):
 
         try:
-
             # Perform the check with is instance but avoid abstract base class runs.
             pls_algorithm = pls_algorithm(ncomps, scale=False, **pls_type_kwargs)
             if not isinstance(pls_algorithm, (BaseEstimator, _PLS)):
                 raise TypeError("Scikit-learn model please")
+
             if not (isinstance(xscaler, TransformerMixin) or xscaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
-            if not (isinstance(yscaler, TransformerMixin) or yscaler is None):
-                raise TypeError("Scikit-learn Transformer-like object or None")
+
+            logreg_algorithm = logreg_algorithm()
+            if not isinstance(logreg_algorithm, (BaseEstimator, LogisticRegression)):
+                raise TypeError("Scikit-learn LogisticRegression please")
             # 2 blocks of data = two scaling options
             if xscaler is None:
                 xscaler = ChemometricsScaler(0, with_std=False)
                 # Force scaling to false, as this will be handled by the provided scaler or not
+            # in these PLS + Logistic/LDA the y scaling will not be used anyway, but in the future might be
             if yscaler is None:
                 yscaler = ChemometricsScaler(0, with_std=False)
 
             self.pls_algorithm = pls_algorithm
+            self.logreg_algorithm = logreg_algorithm
             # Most initialized as None, before object is fitted...
             self.scores_t = None
             self.scores_u = None
@@ -165,11 +109,14 @@ class ChemometricsPLS_Logistic(BaseEstimator, RegressorMixin, TransformerMixin):
             # Comply with the sklearn-scaler behaviour convention
             if y.ndim == 1:
                 y = y.reshape(-1, 1)
-            if x.ndim == 1:
-                x = x.reshape(-1, 1)
+            #if x.ndim == 1:
+            #    x = x.reshape(-1, 1)
 
             xscaled = self.x_scaler.fit_transform(x)
             yscaled = self.y_scaler.fit_transform(y)
+
+            ## TO DO:
+            # Add type checking for dummy matrix and check the scaling is not damaging it. For now should be ok.
 
             self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
 
@@ -193,14 +140,38 @@ class ChemometricsPLS_Logistic(BaseEstimator, RegressorMixin, TransformerMixin):
             self._isfitted = True
 
             # Calculate RSSy/RSSx, R2Y/R2X
-            R2Y = self.score(x=x, y=y, block_to_score='y')
-            R2X = self.score(x=x, y=y, block_to_score='x')
+            R2Y = super(ChemometricsPLS, self).score(x=x, y=y, block_to_score='y')
+            R2X = super(ChemometricsPLS, self).score(x=x, y=y, block_to_score='x')
 
+            self.logreg_algorithm.fit(self.scores_t, yscaled)
+            y_pred = self.logreg_algorithm.predict(self.scores_t)
+            accuracy = metrics.accuracy_score(y, y_pred)
+            precision = metrics.precision_score(y, y_pred)
+            recall = metrics.recall_score(y, y_pred)
+            misclassified_samples = np.where(y != y_pred)
+            auc_area = metrics.roc_auc_score(y, y_pred)
+            f1_score = metrics.f1_score(y, y_pred)
+            conf_matrix = metrics.confusion_matrix(y, y_pred)
+            class_score = self.logreg_algorithm.decision_function(self.scores_t)
+            roc_curve = metrics.roc_curve(y, class_score)
+            zero_oneloss = metrics.zero_one_loss(y, y_pred)
+            probability = self.logreg_algorithm.predict_proba(self.scores_t)
+            log_loss = metrics.log_loss(y, y_pred)
+            matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
             # Obtain residual sum of squares for whole data set and per component
             cm_fit = self._cummulativefit(self.ncomps, x, y)
 
-            self.modelParameters = {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
-                                    'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']}
+            self.modelParameters = {'PLS': {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
+                                    'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']},
+                                    'Logistic': {'Accuracy': accuracy, 'AUC': auc_area,
+                                                 'ConfusionMatrix': conf_matrix, 'ROC': roc_curve,
+                                                 'MisclassifiedSamples': misclassified_samples,
+                                                 'Precision': precision, 'Recall': recall,
+                                                 'F1': f1_score, '0-1Loss': zero_oneloss, 'MatthewsMCC': matthews_mcc,
+                                                 'Probability': probability, 'LogLoss': log_loss,
+                                                 'ClassPredictions': y_pred}}
+
+            self._isfitted = True
 
         except ValueError as verr:
             raise verr
@@ -696,7 +667,7 @@ class ChemometricsPLS_Logistic(BaseEstimator, RegressorMixin, TransformerMixin):
 
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
-            cv_pipeline = copy.deepcopy(self)
+            cv_pipeline = deepcopy(self)
             ncvrounds = cv_method.get_n_splits()
 
             if x.ndim > 1:
@@ -910,7 +881,7 @@ class ChemometricsPLS_Logistic(BaseEstimator, RegressorMixin, TransformerMixin):
                 self.fit(x, y, **permtest_kwargs)
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
-            permute_class = copy.deepcopy(self)
+            permute_class = deepcopy(self)
 
             if x.ndim > 1:
                 x_nvars = x.shape[1]
@@ -1066,7 +1037,7 @@ class ChemometricsPLS_Logistic(BaseEstimator, RegressorMixin, TransformerMixin):
             if self._isfitted is False:
                 raise AttributeError('Model not Fitted')
 
-            newmodel = copy.deepcopy(self)
+            newmodel = deepcopy(self)
             newmodel._ncomps = ncomps
 
             newmodel.modelParameters = None
@@ -1088,6 +1059,9 @@ class ChemometricsPLS_Logistic(BaseEstimator, RegressorMixin, TransformerMixin):
             # newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
             #                        newmodel.beta_coeffs * newmodel.y_scaler.scale_)
 
+            # What to do with the reffiting of the classification model?? - Easy way out - Mention
+            # That the predictor will be broken, since this is only to use during the crossvalidation anyway...
+            #newmodel.logreg_algorithm = log - What about this?
             return newmodel
         except ValueError as verr:
             raise verr

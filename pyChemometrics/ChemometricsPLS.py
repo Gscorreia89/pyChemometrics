@@ -1,10 +1,7 @@
-import copy
 from copy import deepcopy
 
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.base import RegressorMixin
-from sklearn.base import clone
+from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin, clone
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
@@ -197,7 +194,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             R2X = self.score(x=x, y=y, block_to_score='x')
 
             # Obtain residual sum of squares for whole data set and per component
-            cm_fit = self._cummulativefit(self.ncomps, x, y)
+            cm_fit = self._cummulativefit(x, y)
 
             self.modelParameters = {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
                                     'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']}
@@ -484,7 +481,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             return None
         except AttributeError as atre:
             raise atre
-
+        
     @property
     def x_scaler(self):
         try:
@@ -696,7 +693,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
-            cv_pipeline = copy.deepcopy(self)
+            cv_pipeline = deepcopy(self)
             ncvrounds = cv_method.get_n_splits()
 
             if x.ndim > 1:
@@ -910,7 +907,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 self.fit(x, y, **permtest_kwargs)
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
-            permute_class = copy.deepcopy(self)
+            permute_class = deepcopy(self)
 
             if x.ndim > 1:
                 x_nvars = x.shape[1]
@@ -1066,7 +1063,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             if self._isfitted is False:
                 raise AttributeError('Model not Fitted')
 
-            newmodel = copy.deepcopy(self)
+            newmodel = deepcopy(self)
             newmodel._ncomps = ncomps
 
             newmodel.modelParameters = None

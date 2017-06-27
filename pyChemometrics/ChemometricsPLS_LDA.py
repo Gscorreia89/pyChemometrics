@@ -1,19 +1,18 @@
-import copy
 from copy import deepcopy
-
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin, ClassifierMixin, clone
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
-
+from sklearn import metrics
+from .ChemometricsPLS import ChemometricsPLS
 from .ChemometricsScaler import ChemometricsScaler
 
 __author__ = 'gd2212'
 
 
-class ChemometricsPLS_LDA(BaseEstimator, RegressorMixin, TransformerMixin, ClassifierMixin):
+class ChemometricsPLS_LDA(ChemometricsPLS, ClassifierMixin):
     """
 
     ChemometricsPLS_LDA object - Wrapper for sklearn.cross_decomposition PLS algorithms followed by Linear Discriminant
@@ -127,17 +126,36 @@ class ChemometricsPLS_LDA(BaseEstimator, RegressorMixin, TransformerMixin, Class
             self._isfitted = True
 
             # Calculate RSSy/RSSx, R2Y/R2X
-            R2Y = self.score(x=x, y=y, block_to_score='y')
-            R2X = self.score(x=x, y=y, block_to_score='x')
+            R2Y = super(ChemometricsPLS, self).score(x=x, y=y, block_to_score='y')
+            R2X = super(ChemometricsPLS, self).score(x=x, y=y, block_to_score='x')
 
             self.da_algorithm.fit(self.scores_t, yscaled)
+            y_pred = self.da_algorithm.predict(self.scores_t)
 
+            accuracy = metrics.accuracy_score(y, y_pred)
+            precision = metrics.precision_score(y, y_pred)
+            recall = metrics.recall_score(y, y_pred)
+            misclassified_samples = np.where(y != y_pred)
+            auc_area = metrics.roc_auc_score(y, y_pred)
+            f1_score = metrics.f1_score(y, y_pred)
+            conf_matrix = metrics.confusion_matrix(y, y_pred)
+            class_score = self.da_algorithm.decision_function(self.scores_t)
+            roc_curve = metrics.roc_curve(y, class_score)
+            zero_oneloss = metrics.zero_one_loss(y, y_pred)
+            probability = self.da_algorithm.predict_proba(self.scores_t)
+
+            matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
             # Obtain residual sum of squares for whole data set and per component
             cm_fit = self._cummulativefit(self.ncomps, x, y)
 
-            self.modelParameters = {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
-                                    'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']}
-
+            self.modelParameters = {'PLS': {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
+                                            'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']},
+                                    'Logistic': {'Accuracy': accuracy, 'AUC': auc_area,
+                                                 'ConfusionMatrix': conf_matrix, 'ROC': roc_curve,
+                                                 'MisclassifiedSamples': misclassified_samples,
+                                                 'Precision': precision, 'Recall': recall,
+                                                 'F1': f1_score, '0-1Loss': zero_oneloss, 'MatthewsMCC': matthews_mcc,
+                                                 'Probability': probability, 'ClassPredictions': y_pred}}
         except ValueError as verr:
             raise verr
 
@@ -632,7 +650,7 @@ class ChemometricsPLS_LDA(BaseEstimator, RegressorMixin, TransformerMixin, Class
 
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
-            cv_pipeline = copy.deepcopy(self)
+            cv_pipeline = deepcopy(self)
             ncvrounds = cv_method.get_n_splits()
 
             if x.ndim > 1:
@@ -846,7 +864,7 @@ class ChemometricsPLS_LDA(BaseEstimator, RegressorMixin, TransformerMixin, Class
                 self.fit(x, y, **permtest_kwargs)
             # Make a copy of the object, to ensure the internal state doesn't come out differently from the
             # cross validation method call...
-            permute_class = copy.deepcopy(self)
+            permute_class = deepcopy(self)
 
             if x.ndim > 1:
                 x_nvars = x.shape[1]
@@ -1002,7 +1020,7 @@ class ChemometricsPLS_LDA(BaseEstimator, RegressorMixin, TransformerMixin, Class
             if self._isfitted is False:
                 raise AttributeError('Model not Fitted')
 
-            newmodel = copy.deepcopy(self)
+            newmodel = deepcopy(self)
             newmodel._ncomps = ncomps
 
             newmodel.modelParameters = None
