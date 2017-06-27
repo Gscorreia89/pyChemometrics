@@ -137,19 +137,20 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                               self.scores_u)
             self.beta_coeffs = self.pls_algorithm.coef_
             # Needs to come here for the method shortcuts down the line to work...
+            self._isfitted = True
 
             # Calculate RSSy/RSSx, R2Y/R2X
-            R2Y = super(ChemometricsPLS_Logistic, self).score(x=x, y=y, block_to_score='y')
-            R2X = super(ChemometricsPLS_Logistic, self).score(x=x, y=y, block_to_score='x')
+            # Method inheritance
+            R2Y = ChemometricsPLS.score(self, x=x, y=y, block_to_score='y')
+            R2X = ChemometricsPLS.score(self, x=x, y=y, block_to_score='x')
 
-            self.logreg_algorithm.fit(self.scores_t, yscaled)
-            self._isfitted = True
+            self.logreg_algorithm.fit(self.scores_t, y)
 
             y_pred = self.logreg_algorithm.predict(self.scores_t)
             accuracy = metrics.accuracy_score(y, y_pred)
             precision = metrics.precision_score(y, y_pred)
             recall = metrics.recall_score(y, y_pred)
-            misclassified_samples = np.where(y != y_pred)
+            misclassified_samples = np.where(y.ravel() != y_pred.ravel())[0]
             auc_area = metrics.roc_auc_score(y, y_pred)
             f1_score = metrics.f1_score(y, y_pred)
             conf_matrix = metrics.confusion_matrix(y, y_pred)
@@ -160,7 +161,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             log_loss = metrics.log_loss(y, y_pred)
             matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
             # Obtain residual sum of squares for whole data set and per component
-            cm_fit = self._cummulativefit(self.ncomps, x, y)
+            cm_fit = self._cummulativefit(x, y)
 
             self.modelParameters = {'PLS': {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
                                     'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']},
