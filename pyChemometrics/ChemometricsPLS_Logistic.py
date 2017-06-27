@@ -137,13 +137,14 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                               self.scores_u)
             self.beta_coeffs = self.pls_algorithm.coef_
             # Needs to come here for the method shortcuts down the line to work...
-            self._isfitted = True
 
             # Calculate RSSy/RSSx, R2Y/R2X
-            R2Y = super(ChemometricsPLS, self).score(x=x, y=y, block_to_score='y')
-            R2X = super(ChemometricsPLS, self).score(x=x, y=y, block_to_score='x')
+            R2Y = super(ChemometricsPLS_Logistic, self).score(x=x, y=y, block_to_score='y')
+            R2X = super(ChemometricsPLS_Logistic, self).score(x=x, y=y, block_to_score='x')
 
             self.logreg_algorithm.fit(self.scores_t, yscaled)
+            self._isfitted = True
+
             y_pred = self.logreg_algorithm.predict(self.scores_t)
             accuracy = metrics.accuracy_score(y, y_pred)
             precision = metrics.precision_score(y, y_pred)
@@ -171,7 +172,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                                                  'Probability': probability, 'LogLoss': log_loss,
                                                  'ClassPredictions': y_pred}}
 
-            self._isfitted = True
 
         except ValueError as verr:
             raise verr
@@ -1010,6 +1010,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
             ypred = self.y_scaler.transform(model.predict(x, y=None))
             xpred = self.x_scaler.transform(model.predict(x=None, y=y))
+
             rssy = np.sum((yscaled - ypred) ** 2)
             rssx = np.sum((xscaled - xpred) ** 2)
             ssx_comp.append(rssx)
@@ -1055,6 +1056,8 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
             # These have to be recalculated from the rotations
             newmodel.beta_coeffs = np.dot(newmodel.rotations_ws, newmodel.loadings_q.T)
+
+            newmodel.logreg_algorithm = None
             # Line also in the original sklearn method, but unnecessary when scaling = False - kept here for testing...
             # newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
             #                        newmodel.beta_coeffs * newmodel.y_scaler.scale_)

@@ -123,13 +123,14 @@ class ChemometricsPLS_LDA(ChemometricsPLS, ClassifierMixin):
                               self.scores_u)
             self.beta_coeffs = self.pls_algorithm.coef_
             # Needs to come here for the method shortcuts down the line to work...
-            self._isfitted = True
 
             # Calculate RSSy/RSSx, R2Y/R2X
-            R2Y = super(ChemometricsPLS, self).score(x=x, y=y, block_to_score='y')
-            R2X = super(ChemometricsPLS, self).score(x=x, y=y, block_to_score='x')
+            R2Y = super(ChemometricsPLS_LDA, self).score(x=x, y=y, block_to_score='y')
+            R2X = super(ChemometricsPLS_LDA, self).score(x=x, y=y, block_to_score='x')
 
             self.da_algorithm.fit(self.scores_t, yscaled)
+            self._isfitted = True
+
             y_pred = self.da_algorithm.predict(self.scores_t)
 
             accuracy = metrics.accuracy_score(y, y_pred)
@@ -143,7 +144,6 @@ class ChemometricsPLS_LDA(ChemometricsPLS, ClassifierMixin):
             roc_curve = metrics.roc_curve(y, class_score)
             zero_oneloss = metrics.zero_one_loss(y, y_pred)
             probability = self.da_algorithm.predict_proba(self.scores_t)
-
             matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
             # Obtain residual sum of squares for whole data set and per component
             cm_fit = self._cummulativefit(self.ncomps, x, y)
