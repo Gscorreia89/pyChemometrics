@@ -176,11 +176,11 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             else:
                 y_pred = self.logreg_algorithm.predict(self.scores_t)
                 accuracy = metrics.accuracy_score(y, y_pred)
-                precision = metrics.precision_score(y, y_pred)
-                recall = metrics.recall_score(y, y_pred)
+                precision = metrics.precision_score(y, y_pred, average='weighted')
+                recall = metrics.recall_score(y, y_pred, average='weighted')
                 misclassified_samples = np.where(y.ravel() != y_pred.ravel())[0]
                 auc_area = metrics.roc_auc_score(y, class_score)
-                f1_score = metrics.f1_score(y, y_pred)
+                f1_score = metrics.f1_score(y, y_pred, average='weighted')
                 conf_matrix = metrics.confusion_matrix(y, y_pred)
                 class_score = self.logreg_algorithm.decision_function(self.scores_t)
                 roc_curve = metrics.roc_curve(y, class_score)
@@ -194,16 +194,14 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
             tpr = roc_curve[0]
             fpr = roc_curve[1]
-            auc_area
+            #auc_area
 
-            all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+            fpr_grid = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1])
 
             # Then interpolate all ROC curves at this points
-            mean_tpr = np.zeros_like(all_fpr)
+            interpolated_tpr = np.zeros_like(fpr_grid)
             for i in range(n_classes):
-                mean_tpr += interp(all_fpr, fpr[i], tpr[i])
-
-            interp()
+                interpolated_tpr += interp(fpr_grid, fpr[i], tpr[i])
 
             self.modelParameters = {'PLS': {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
                                     'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']},
