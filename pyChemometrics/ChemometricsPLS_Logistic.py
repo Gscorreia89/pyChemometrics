@@ -36,7 +36,8 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
     scores, and this is a dimensionality reduction method, there is no need for regularization in the logistic model.
     Interpretation of the model is performed as follows:
     1) Idenfitying the regression coefficients from the Logistic regression models which are relevant 
-    2) Anal, without forgetting that the first "predictive" component is related  
+    2) Analise the PLS vectors associated with the scores passed to the LogisticRegression model, 
+    without forgetting that the first "predictive" component is related  
     """
 
     def __init__(self, ncomps=2, pls_algorithm=PLSRegression, logreg_algorithm=LogisticRegression,
@@ -110,10 +111,16 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             # do this by default, this is solely to make everything ultra clear and to expose the
             # interface for potential future modification
             # Comply with the sklearn-scaler behaviour convention
+
             if y.ndim == 1:
                 y = y.reshape(-1, 1)
-            #if x.ndim == 1:
-            #    x = x.reshape(-1, 1)
+            else:
+                raise TypeError('Please supply a dummy vector with class membership')
+
+            n_classes = np.unique(y).size
+            # Not so important but just for consistency
+            if x.ndim == 1:
+                x = x.reshape(-1, 1)
 
             xscaled = self.x_scaler.fit_transform(x)
             yscaled = self.y_scaler.fit_transform(y)
@@ -151,23 +158,52 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
             self.logistic_coefs = self.logreg_algorithm.coef_
             class_score = self.logreg_algorithm.decision_function(self.scores_t)
+            if n_classes == 2:
+                y_pred = self.logreg_algorithm.predict(self.scores_t)
+                accuracy = metrics.accuracy_score(y, y_pred)
+                precision = metrics.precision_score(y, y_pred)
+                recall = metrics.recall_score(y, y_pred)
+                misclassified_samples = np.where(y.ravel() != y_pred.ravel())[0]
+                auc_area = metrics.roc_auc_score(y, class_score)
+                f1_score = metrics.f1_score(y, y_pred)
+                conf_matrix = metrics.confusion_matrix(y, y_pred)
+                class_score = self.logreg_algorithm.decision_function(self.scores_t)
+                roc_curve = metrics.roc_curve(y, class_score)
+                zero_oneloss = metrics.zero_one_loss(y, y_pred)
+                probability = self.logreg_algorithm.predict_proba(self.scores_t)
+                log_loss = metrics.log_loss(y, y_pred)
+                matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
+            else:
+                y_pred = self.logreg_algorithm.predict(self.scores_t)
+                accuracy = metrics.accuracy_score(y, y_pred)
+                precision = metrics.precision_score(y, y_pred)
+                recall = metrics.recall_score(y, y_pred)
+                misclassified_samples = np.where(y.ravel() != y_pred.ravel())[0]
+                auc_area = metrics.roc_auc_score(y, class_score)
+                f1_score = metrics.f1_score(y, y_pred)
+                conf_matrix = metrics.confusion_matrix(y, y_pred)
+                class_score = self.logreg_algorithm.decision_function(self.scores_t)
+                roc_curve = metrics.roc_curve(y, class_score)
+                zero_oneloss = metrics.zero_one_loss(y, y_pred)
+                probability = self.logreg_algorithm.predict_proba(self.scores_t)
+                log_loss = metrics.log_loss(y, y_pred)
+                matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
 
-            y_pred = self.logreg_algorithm.predict(self.scores_t)
-            accuracy = metrics.accuracy_score(y, y_pred)
-            precision = metrics.precision_score(y, y_pred)
-            recall = metrics.recall_score(y, y_pred)
-            misclassified_samples = np.where(y.ravel() != y_pred.ravel())[0]
-            auc_area = metrics.roc_auc_score(y, class_score)
-            f1_score = metrics.f1_score(y, y_pred)
-            conf_matrix = metrics.confusion_matrix(y, y_pred)
-            class_score = self.logreg_algorithm.decision_function(self.scores_t)
-            roc_curve = metrics.roc_curve(y, class_score)
-            zero_oneloss = metrics.zero_one_loss(y, y_pred)
-            probability = self.logreg_algorithm.predict_proba(self.scores_t)
-            log_loss = metrics.log_loss(y, y_pred)
-            matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
             # Obtain residual sum of squares for whole data set and per component
             cm_fit = self._cummulativefit(x, y)
+
+            tpr = roc_curve[0]
+            fpr = roc_curve[1]
+            auc_area
+
+            all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+
+            # Then interpolate all ROC curves at this points
+            mean_tpr = np.zeros_like(all_fpr)
+            for i in range(n_classes):
+                mean_tpr += interp(all_fpr, fpr[i], tpr[i])
+
+            interp()
 
             self.modelParameters = {'PLS': {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
                                     'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']},
@@ -590,6 +626,9 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             cv_pipeline = deepcopy(self)
             ncvrounds = cv_method.get_n_splits()
 
+            # Number of classes to tell binary from multiclass discrimination apart
+            n_classes = np.unique(y).size
+
             if x.ndim > 1:
                 x_nvars = x.shape[1]
             else:
@@ -751,13 +790,23 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 class_score = cv_pipeline.logreg_algorithm.decision_function(testscores)
 
                 y_pred = cv_pipeline.predict(xtest)
-                test_accuracy = metrics.accuracy_score(ytest, y_pred)
-                test_precision = metrics.precision_score(ytest, y_pred)
-                test_recall = metrics.recall_score(ytest, y_pred)
-                test_auc_area = metrics.roc_auc_score(ytest, class_score)
-                test_f1_score = metrics.f1_score(ytest, y_pred)
-                test_zero_oneloss = metrics.zero_one_loss(ytest, y_pred)
-                test_matthews_mcc = metrics.matthews_corrcoef(ytest, y_pred)
+                if n_classes == 2:
+                    test_accuracy = metrics.accuracy_score(ytest, y_pred)
+                    test_precision = metrics.precision_score(ytest, y_pred)
+                    test_recall = metrics.recall_score(ytest, y_pred)
+                    test_auc_area = metrics.roc_auc_score(ytest, class_score)
+                    test_f1_score = metrics.f1_score(ytest, y_pred)
+                    test_zero_oneloss = metrics.zero_one_loss(ytest, y_pred)
+                    test_matthews_mcc = metrics.matthews_corrcoef(ytest, y_pred)
+
+                else:
+                    test_accuracy = metrics.accuracy_score(ytest, y_pred)
+                    test_precision = metrics.precision_score(ytest, y_pred)
+                    test_recall = metrics.recall_score(ytest, y_pred)
+                    test_auc_area = metrics.roc_auc_score(ytest, class_score)
+                    test_f1_score = metrics.f1_score(ytest, y_pred)
+                    test_zero_oneloss = metrics.zero_one_loss(ytest, y_pred)
+                    test_matthews_mcc = metrics.matthews_corrcoef(ytest, y_pred)
                 # Obtain residual sum of squares for whole data set and per component
 
                 # Check the actual indexes in the original samples
@@ -812,7 +861,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                         cv_train_scores_u.append([*zip(train, cv_pipeline.scores_u)])
                         cv_test_scores_t.append([*zip(test, cv_pipeline.scores_t)])
                         cv_test_scores_u.append([*zip(test, cv_pipeline.scores_u)])
-
 
 
             # Calculate total sum of squares
@@ -948,6 +996,8 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             else:
                 y_nvars = 1
 
+            n_classes = np.unique(y).size
+
             # Initialize data structures for permuted distributions
             perm_loadings_q = np.zeros((nperms, y_nvars, self.ncomps))
             perm_loadings_p = np.zeros((nperms, x_nvars, self.ncomps))
@@ -964,6 +1014,32 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             permuted_Q2X = np.zeros(nperms)
             permuted_R2Y_test = np.zeros(nperms)
             permuted_R2X_test = np.zeros(nperms)
+
+            perm_logisticcoefs = np.zeros((nperms, self.ncomps))
+
+            perm_trainprecision = np.zeros(nperms)
+            perm_trainrecall = np.zeros(nperms)
+            perm_trainaccuracy = np.zeros(nperms)
+            perm_trainauc = np.zeros(nperms)
+            perm_trainmatthews_mcc = np.zeros(nperms)
+            perm_trainzerooneloss = np.zeros(nperms)
+            perm_trainf1 = np.zeros(nperms)
+            perm_trainclasspredictions = list()
+            perm_trainroc_curve = list()
+            perm_trainconfusionmatrix = list()
+            perm_trainmisclassifiedsamples = list()
+
+            perm_testprecision = np.zeros(nperms)
+            perm_testrecall = np.zeros(nperms)
+            perm_testaccuracy = np.zeros(nperms)
+            perm_testauc = np.zeros(nperms)
+            perm_testmatthews_mcc = np.zeros(nperms)
+            perm_testzerooneloss = np.zeros(nperms)
+            perm_testf1 = np.zeros(nperms)
+            perm_testclasspredictions = list()
+            perm_testroc_curve = list()
+            perm_testconfusionmatrix = list()
+            perm_testmisclassifiedsamples = list()
 
             for permutation in range(0, nperms):
                 # Copy original column order, shuffle array in place...
@@ -987,6 +1063,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 perm_rotations_ws[permutation, :, :] = permute_class.rotations_ws
                 perm_beta[permutation, :, :] = permute_class.beta_coeffs
                 perm_vipsw[permutation, :] = permute_class.VIP()
+
             # Align model parameters due to sign indeterminacy.
             # Solution provided is to select the sign that gives a more similar profile to the
             # Loadings calculated with the whole data.
