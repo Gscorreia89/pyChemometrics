@@ -375,8 +375,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # The prediction here of both X and Y is done using the other block of data only
             # so these R2s can be interpreted as as a "classic" R2, and not as a proportion of variance modelled
             # Here we use X = Ub_uW', as opposed to (X = TP').
-            ypred = self.y_scaler.transform(self.predict(x, y=None))
-            xpred = self.x_scaler.transform(self.predict(x=None, y=y))
+            ypred = self.y_scaler.transform(ChemometricsPLS.predict(self, x, y=None))
+            xpred = self.x_scaler.transform(ChemometricsPLS.predict(self, x=None, y=y))
             rssy = np.sum((yscaled - ypred) ** 2)
             rssx = np.sum((xscaled - xpred) ** 2)
             R2Y = 1 - (rssy / tssy)

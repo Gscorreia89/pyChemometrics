@@ -1,5 +1,6 @@
 from copy import deepcopy
 import numpy as np
+from scipy import interp
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
@@ -544,9 +545,9 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             nvars = self.loadings_p.shape[0]
             vipnum = np.zeros(nvars)
             for comp in range(0, self.ncomps):
-                vipnum += (choices[mode][:, comp] ** 2) * (self.modelParameters[ss_dir][comp])
+                vipnum += (choices[mode][:, comp] ** 2) * (self.modelParameters['PLS'][ss_dir][comp])
 
-            vip = np.sqrt(vipnum * nvars / self.modelParameters[ss_dir].sum())
+            vip = np.sqrt(vipnum * nvars / self.modelParameters['PLS'][ss_dir].sum())
 
             return vip
 
@@ -608,9 +609,10 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             cv_train_scores_t = list()
             cv_train_scores_u = list()
 
-            # More informative for ShuffleSplit than other cross_vals
+            # CV test scores more informative for ShuffleSplit than KFold but kept here
             cv_test_scores_t = list()
             cv_test_scores_u = list()
+
             cv_rotations_ws = np.zeros((ncvrounds, x_nvars, self.ncomps))
             cv_rotations_cs = np.zeros((ncvrounds, y_nvars, self.ncomps))
             cv_betacoefs = np.zeros((ncvrounds, x_nvars))
@@ -623,7 +625,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             cv_trainaccuracy = np.zeros(ncvrounds)
             cv_trainauc = np.zeros(ncvrounds)
             cv_trainmatthews_mcc = np.zeros(ncvrounds)
-            cv_trainlogloss = np.zeros(ncvrounds)
             cv_trainzerooneloss = np.zeros(ncvrounds)
             cv_trainf1 = np.zeros(ncvrounds)
             cv_trainprobability = list()
@@ -637,7 +638,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             cv_testaccuracy = np.zeros(ncvrounds)
             cv_testauc = np.zeros(ncvrounds)
             cv_testmatthews_mcc = np.zeros(ncvrounds)
-            cv_testlogloss = np.zeros(ncvrounds)
             cv_testzerooneloss = np.zeros(ncvrounds)
             cv_testf1 = np.zeros(ncvrounds)
             cv_testprobability = list()
@@ -701,11 +701,11 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                     xtest_scaled = cv_pipeline.x_scaler.transform(xtest)
                     ytest_scaled = cv_pipeline.y_scaler.transform(ytest)
 
-                R2X_training[cvround] = cv_pipeline.score(xtrain, ytrain, 'x')
-                R2Y_training[cvround] = cv_pipeline.score(xtrain, ytrain, 'y')
+                R2X_training[cvround] = ChemometricsPLS.score(cv_pipeline, xtrain, ytrain, 'x')
+                R2Y_training[cvround] = ChemometricsPLS.score(cv_pipeline, xtrain, ytrain, 'y')
                 # Use super here  for Q2
-                ypred = ChemometricsPLS.cv_pipeline.predict(self, x=xtest, y=None)
-                xpred = ChemometricsPLS.cv_pipeline.predict(self, x=None, y=ytest)
+                ypred = ChemometricsPLS.predict(cv_pipeline, x=xtest, y=None)
+                xpred = ChemometricsPLS.predict(cv_pipeline, x=None, y=ytest)
 
                 xpred = cv_pipeline.x_scaler.transform(xpred).squeeze()
                 ypred = cv_pipeline.y_scaler.transform(ypred).squeeze()
@@ -714,8 +714,8 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 curr_pressx = np.sum((xtest_scaled - xpred) ** 2)
                 curr_pressy = np.sum((ytest_scaled - ypred) ** 2)
 
-                R2X_test[cvround] = cv_pipeline.score(xtest, ytest, 'x')
-                R2Y_test[cvround] = cv_pipeline.score(xtest, ytest, 'y')
+                R2X_test[cvround] = ChemometricsPLS.score(cv_pipeline, xtest, ytest, 'x')
+                R2Y_test[cvround] = ChemometricsPLS.score(cv_pipeline, xtest, ytest, 'y')
 
                 pressx += curr_pressx
                 pressy += curr_pressy
@@ -724,13 +724,11 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 cv_loadings_q[cvround, :, :] = cv_pipeline.loadings_q
                 cv_weights_w[cvround, :, :] = cv_pipeline.weights_w
                 cv_weights_c[cvround, :, :] = cv_pipeline.weights_c
-                cv_train_scores_t.append([*zip(train, cv_pipeline.scores_t)])
-                cv_train_scores_u.append([*zip(train, cv_pipeline.scores_u)])
                 cv_rotations_ws[cvround, :, :] = cv_pipeline.rotations_ws
                 cv_rotations_cs[cvround, :, :] = cv_pipeline.rotations_cs
                 cv_betacoefs[cvround, :] = cv_pipeline.beta_coeffs.T
                 cv_vipsw[cvround, :] = cv_pipeline.VIP()
-                cv_logisticcoefs[cvround] = cv_pipeline.modelParameters['Logistic']['BetaCoefs']
+                cv_logisticcoefs[cvround] = cv_pipeline.logistic_coefs
 
                 # Training metrics
                 cv_trainaccuracy[cvround] = cv_pipeline.modelParameters['Logistic']['Accuracy']
@@ -740,36 +738,36 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 cv_trainf1[cvround] = cv_pipeline.modelParameters['Logistic']['F1']
                 cv_trainmatthews_mcc[cvround] = cv_pipeline.modelParameters['Logistic']['MatthewsMCC']
                 cv_trainzerooneloss[cvround] = cv_pipeline.modelParameters['Logistic']['0-1Loss']
-                cv_trainlogloss[cvround] = cv_pipeline.modelParameters['Logistic']['LogLoss']
 
                 # Check this indexes, same as CV scores
-                cv_trainmisclassifiedsamples.append(cv_pipeline.modelParameters['Logistic']['MisclassifiedSamples'])
+                cv_trainmisclassifiedsamples.append(train[cv_pipeline.modelParameters['Logistic']['MisclassifiedSamples']])
                 cv_trainmisclassifiedsamples.append([*zip(train, cv_pipeline.modelParameters['Logistic']['ClassPredictions'])])
-                cv_trainroc_curve.append(cv_pipeline.modelParameters['Logistic']['ROCCurve'])
                 cv_trainprobability.append([*zip(train, cv_pipeline.modelParameters['Logistic']['Probability'])])
 
-                testscores = cv_pipeline.transform(x=xtrain)
+                # TODO: add the roc curve interpolation in the end
+                cv_trainroc_curve.append(cv_pipeline.modelParameters['Logistic']['ROC'])
+
+                testscores = cv_pipeline.transform(x=xtest)
                 class_score = cv_pipeline.logreg_algorithm.decision_function(testscores)
 
-                y_pred = cv_pipeline.predict(testscores)
-                test_accuracy = metrics.accuracy_score(y, y_pred)
-                test_precision = metrics.precision_score(y, y_pred)
-                test_recall = metrics.recall_score(y, y_pred)
-                test_auc_area = metrics.roc_auc_score(y, class_score)
-                test_f1_score = metrics.f1_score(y, y_pred)
-                test_zero_oneloss = metrics.zero_one_loss(y, y_pred)
-                test_log_loss = metrics.log_loss(y, y_pred)
-                test_matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
+                y_pred = cv_pipeline.predict(xtest)
+                test_accuracy = metrics.accuracy_score(ytest, y_pred)
+                test_precision = metrics.precision_score(ytest, y_pred)
+                test_recall = metrics.recall_score(ytest, y_pred)
+                test_auc_area = metrics.roc_auc_score(ytest, class_score)
+                test_f1_score = metrics.f1_score(ytest, y_pred)
+                test_zero_oneloss = metrics.zero_one_loss(ytest, y_pred)
+                test_matthews_mcc = metrics.matthews_corrcoef(ytest, y_pred)
                 # Obtain residual sum of squares for whole data set and per component
 
                 # Check the actual indexes in the original samples
-                test_misclassified_samples = np.where(y.ravel() != y_pred.ravel())[0]
+                test_misclassified_samples = test[np.where(ytest.ravel() != y_pred.ravel())[0]]
                 test_probability = cv_pipeline.logreg_algorithm.predict_proba(testscores)
-                test_classpredictions = ypred
-                test_conf_matrix = metrics.confusion_matrix(y, y_pred)
+                test_classpredictions = [*zip(test, y_pred)]
+                test_conf_matrix = metrics.confusion_matrix(ytest, y_pred)
 
-                # Add curve interpolate the curves so we they can be averaged after
-                test_roc_curve = metrics.roc_curve(y, class_score)
+                # TODO: Add ROC curve interpolation in the end
+                test_roc_curve = metrics.roc_curve(ytest, class_score)
 
                 # Test metrics
                 cv_testaccuracy[cvround] = test_accuracy
@@ -779,8 +777,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 cv_testf1[cvround] = test_f1_score
                 cv_testmatthews_mcc[cvround] = test_matthews_mcc
                 cv_testzerooneloss[cvround] = test_zero_oneloss
-                cv_testlogloss[cvround] = test_log_loss
-
                 # Check this indexes, same as CV scores
                 cv_testmisclassifiedsamples.append(test_misclassified_samples)
                 cv_testroc_curve.append(test_roc_curve)
@@ -807,8 +803,17 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                         cv_weights_c[cvround, :, currload] = -1 * cv_weights_c[cvround, :, currload]
                         cv_rotations_ws[cvround, :, currload] = -1 * cv_rotations_ws[cvround, :, currload]
                         cv_rotations_cs[cvround, :, currload] = -1 * cv_rotations_cs[cvround, :, currload]
-                        # cv_scores_t[cvround, currload, :] = -1 * cv_scores_t[cvround, currload, :]
-                        # cv_scores_u[cvround, currload, :] = -1 * cv_scores_u[cvround, currload, :]
+                        cv_train_scores_t.append([*zip(train, -1*cv_pipeline.scores_t)])
+                        cv_train_scores_u.append([*zip(train, -1*cv_pipeline.scores_u)])
+                        cv_test_scores_t.append([*zip(test, -1*cv_pipeline.scores_t)])
+                        cv_test_scores_u.append([*zip(test, -1*cv_pipeline.scores_u)])
+                    else:
+                        cv_train_scores_t.append([*zip(train, cv_pipeline.scores_t)])
+                        cv_train_scores_u.append([*zip(train, cv_pipeline.scores_u)])
+                        cv_test_scores_t.append([*zip(test, cv_pipeline.scores_t)])
+                        cv_test_scores_u.append([*zip(test, cv_pipeline.scores_u)])
+
+
 
             # Calculate total sum of squares
             q_squaredy = 1 - (pressy / ssy)
@@ -823,7 +828,8 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                                  'MeanR2X_Test': np.mean(R2X_test),
                                  'MeanR2Y_Test': np.mean(R2Y_test),
                                  'StdevR2X_Test': np.std(R2X_test),
-                                 'StdevR2Y_Test': np.std(R2Y_test)}}
+                                 'StdevR2Y_Test': np.std(R2Y_test)},
+                                 'Logistic': dict()}
 
             # Means and standard deviations...
             self.cvParameters['PLS']['Mean_Loadings_q'] = cv_loadings_q.mean(0)
@@ -838,10 +844,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             self.cvParameters['PLS']['Stdev_Rotations_ws'] = cv_rotations_ws.std(0)
             self.cvParameters['PLS']['Mean_Rotations_cs'] = cv_rotations_cs.mean(0)
             self.cvParameters['PLS']['Stdev_Rotations_cs'] = cv_rotations_cs.std(0)
-            # self.cvParameters['Mean_Scores_t'] = cv_scores_t.mean(0)
-            # self.cvParameters['Stdev_Scores_t'] = cv_scores_t.std(0)
-            # self.cvParameters['Mean_Scores_u'] = cv_scores_u.mean(0)
-            # self.cvParameters['Stdev_Scores_u'] = cv_scores_u.std(0)
             self.cvParameters['PLS']['Mean_Beta'] = cv_betacoefs.mean(0)
             self.cvParameters['PLS']['Stdev_Beta'] = cv_betacoefs.std(0)
             self.cvParameters['PLS']['Mean_VIP'] = cv_vipsw.mean(0)
@@ -856,8 +858,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             self.cvParameters['Logistic']['Stdev_Accuracy'] = cv_testaccuracy.std(0)
             self.cvParameters['Logistic']['Mean_f1'] = cv_testf1.mean(0)
             self.cvParameters['Logistic']['Stdev_f1'] = cv_testf1.std(0)
-            self.cvParameters['Logistic']['Mean_LogLoss'] = cv_testlogloss.mean(0)
-            self.cvParameters['Logistic']['Stdev_LogLoss'] = cv_testlogloss.std(0)
             self.cvParameters['Logistic']['Mean_0-1Loss'] = cv_testzerooneloss.mean(0)
             self.cvParameters['Logistic']['Stdev_0-1Loss'] = cv_testzerooneloss.std(0)
             self.cvParameters['Logistic']['Mean_Coefs'] = cv_logisticcoefs.mean(0)
@@ -877,8 +877,10 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 self.cvParameters['PLS']['CV_Weights_w'] = cv_weights_w
                 self.cvParameters['PLS']['CV_Rotations_ws'] = cv_rotations_ws
                 self.cvParameters['PLS']['CV_Rotations_cs'] = cv_rotations_cs
-                # self.cvParameters['CV_Scores_t'] = cv_scores_t
-                # self.cvParameters['CV_Scores_u'] = cv_scores_u
+                self.cvParameters['PLS']['CV_TestScores_t'] = cv_test_scores_t
+                self.cvParameters['PLS']['CV_TestScores_u'] = cv_test_scores_u
+                self.cvParameters['PLS']['CV_TrainScores_t'] = cv_train_scores_t
+                self.cvParameters['PLS']['CV_TrainScores_u'] = cv_train_scores_u
                 self.cvParameters['PLS']['CV_Beta'] = cv_betacoefs
                 self.cvParameters['PLS']['CV_VIPw'] = cv_vipsw
 
@@ -889,7 +891,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 self.cvParameters['Logistic']['CV_TestPrecision'] = cv_testprecision
                 self.cvParameters['Logistic']['CV_TestAccuracy'] = cv_testaccuracy
                 self.cvParameters['Logistic']['CV_Testf1'] = cv_testf1
-                self.cvParameters['Logistic']['CV_TestLogLoss'] = cv_testlogloss
                 self.cvParameters['Logistic']['CV_Test0-1Loss'] = cv_testzerooneloss
                 self.cvParameters['Logistic']['CV_TestROC'] = cv_testroc_curve
                 self.cvParameters['Logistic']['CV_TestConfusionMatrix'] = cv_testconfusionmatrix
@@ -901,7 +902,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 self.cvParameters['Logistic']['CV_TrainPrecision'] = cv_trainprecision
                 self.cvParameters['Logistic']['CV_TrainAccuracy'] = cv_trainaccuracy
                 self.cvParameters['Logistic']['CV_Trainf1'] = cv_trainf1
-                self.cvParameters['Logistic']['CV_TrainLogLoss'] = cv_trainlogloss
                 self.cvParameters['Logistic']['CV_Train0-1Loss'] = cv_trainzerooneloss
                 self.cvParameters['Logistic']['CV_TrainROC'] = cv_trainroc_curve
                 self.cvParameters['Logistic']['CV_TrainConfusionMatrix'] = cv_trainconfusionmatrix
@@ -1063,8 +1063,8 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
         for curr_comp in range(1, self.ncomps + 1):
             model = self._reduce_ncomps(curr_comp)
 
-            ypred = self.y_scaler.transform(model.predict(x, y=None))
-            xpred = self.x_scaler.transform(model.predict(x=None, y=y))
+            ypred = self.y_scaler.transform(ChemometricsPLS.predict(model, x, y=None))
+            xpred = self.x_scaler.transform(ChemometricsPLS.predict(model, x=None, y=y))
 
             rssy = np.sum((yscaled - ypred) ** 2)
             rssx = np.sum((xscaled - xpred) ** 2)
