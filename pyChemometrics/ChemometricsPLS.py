@@ -160,8 +160,11 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # do this by default, this is solely to make everything ultra clear and to expose the
             # interface for potential future modification
             # Comply with the sklearn-scaler behaviour convention
+
             if y.ndim == 1:
                 y = y.reshape(-1, 1)
+            # Not so important as don't expect a user applying a single x variable to a multivariate regression
+            # method, but for consistency/testing purposes
             if x.ndim == 1:
                 x = x.reshape(-1, 1)
 
@@ -219,16 +222,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         try:
             self.fit(x, y, **fit_params)
-            # Comply with the sklearn scaler behaviour - y vector doesn't work
-            if y.ndim == 1:
-                y = y.reshape(-1, 1)
-            if x.ndim == 1:
-                x = x.reshape(-1, 1)
-
-            xscaled = self.x_scaler.fit_transform(x)
-            yscaled = self.y_scaler.fit_transform(y)
-
-            return self.transform(xscaled, y=None), self.transform(x=None, y=yscaled)
+            return self.transform(x, y=None), self.transform(x=None, y=y)
 
         except ValueError as verr:
             raise verr
@@ -249,14 +243,13 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         try:
-
             # Check if model is fitted
             if self._isfitted is True:
                 # If X and Y are passed, complain and do nothing
                 if (x is not None) and (y is not None):
                     raise ValueError('xx')
                 # If nothing is passed at all, complain and do nothing
-                elif (x is None and y is None):
+                elif (x is None) and (y is None):
                     raise ValueError('yy')
                 # If Y is given, return U
                 elif x is None:
@@ -271,12 +264,13 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
                 # If X is given, return T
                 elif y is None:
-                    # Comply with the sklearn scaler behaviour
+                    # Not so important as don't expect a user applying a single x variable to a multivariate regression
+                    # method, but for consistency/testing purposes
                     if x.ndim == 1:
                         x = x.reshape(-1, 1)
 
                     xscaled = self.x_scaler.transform(x)
-                    # Taking advantage of the rotation_x
+                    # Taking advantage of already calculated rotation_x
                     # Otherwise this would be would the full calculation T = X*pinv(WP')*W
                     T = np.dot(xscaled, self.rotations_ws)
                     return T
@@ -361,6 +355,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # Comply with the sklearn scaler behaviour
             if y.ndim == 1:
                 y = y.reshape(-1, 1)
+            # Not so important as don't expect a user applying a single x variable to a multivariate regression
+            # method, but for consistency/testing purposes
             if x.ndim == 1:
                 x = x.reshape(-1, 1)
 
@@ -593,7 +589,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         try:
-
+            # Code not really adequate for each Y variable in the multi-Y case - SSy should be changed so
+            # that it is calculated for each y and not for the whole bloc
             if self._isfitted is False:
                 raise AttributeError("Model is not fitted")
             if mode not in ['w', 'p', 'ws', 'cs', 'c', 'q']:
@@ -831,37 +828,26 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             q_squaredx = 1 - (pressx / ssx)
 
             # Store everything...
-            self.cvParameters = {'Q2X': q_squaredx, 'Q2Y': q_squaredy,
-                                 'MeanR2X_Training': np.mean(R2X_training),
-                                 'MeanR2Y_Training': np.mean(R2Y_training),
-                                 'StdevR2X_Training': np.std(R2X_training),
-                                 'StdevR2Y_Training': np.std(R2X_training),
-                                 'MeanR2X_Test': np.mean(R2X_test),
-                                 'MeanR2Y_Test': np.mean(R2Y_test),
-                                 'StdevR2X_Test': np.std(R2X_test),
-                                 'StdevR2Y_Test': np.std(R2Y_test)}
+            self.cvParameters = {'Q2X': q_squaredx, 'Q2Y': q_squaredy, 'MeanR2X_Training': np.mean(R2X_training),
+                                 'MeanR2Y_Training': np.mean(R2Y_training), 'StdevR2X_Training': np.std(R2X_training),
+                                 'StdevR2Y_Training': np.std(R2X_training), 'MeanR2X_Test': np.mean(R2X_test),
+                                 'MeanR2Y_Test': np.mean(R2Y_test), 'StdevR2X_Test': np.std(R2X_test),
+                                 'StdevR2Y_Test': np.std(R2Y_test), 'Mean_Loadings_q': cv_loadings_q.mean(0),
+                                 'Stdev_Loadings_q': cv_loadings_q.std(0), 'Mean_Loadings_p': cv_loadings_p.mean(0),
+                                 'Stdev_Loadings_p': cv_loadings_q.std(0), 'Mean_Weights_c': cv_weights_c.mean(0),
+                                 'Stdev_Weights_c': cv_weights_c.std(0), 'Mean_Weights_w': cv_weights_w.mean(0),
+                                 'Stdev_Loadings_w': cv_weights_w.std(0), 'Mean_Rotations_ws': cv_rotations_ws.mean(0),
+                                 'Stdev_Rotations_ws': cv_rotations_ws.std(0),
+                                 'Mean_Rotations_cs': cv_rotations_cs.mean(0),
+                                 'Stdev_Rotations_cs': cv_rotations_cs.std(0), 'Mean_Beta': cv_betacoefs.mean(0),
+                                 'Stdev_Beta': cv_betacoefs.std(0), 'Mean_VIP': cv_vipsw.mean(0),
+                                 'Stdev_VIP': cv_vipsw.std(0)}
 
             # Means and standard deviations...
-            self.cvParameters['Mean_Loadings_q'] = cv_loadings_q.mean(0)
-            self.cvParameters['Stdev_Loadings_q'] = cv_loadings_q.std(0)
-            self.cvParameters['Mean_Loadings_p'] = cv_loadings_p.mean(0)
-            self.cvParameters['Stdev_Loadings_p'] = cv_loadings_q.std(0)
-            self.cvParameters['Mean_Weights_c'] = cv_weights_c.mean(0)
-            self.cvParameters['Stdev_Weights_c'] = cv_weights_c.std(0)
-            self.cvParameters['Mean_Weights_w'] = cv_weights_w.mean(0)
-            self.cvParameters['Stdev_Loadings_w'] = cv_weights_w.std(0)
-            self.cvParameters['Mean_Rotations_ws'] = cv_rotations_ws.mean(0)
-            self.cvParameters['Stdev_Rotations_ws'] = cv_rotations_ws.std(0)
-            self.cvParameters['Mean_Rotations_cs'] = cv_rotations_cs.mean(0)
-            self.cvParameters['Stdev_Rotations_cs'] = cv_rotations_cs.std(0)
             # self.cvParameters['Mean_Scores_t'] = cv_scores_t.mean(0)
             # self.cvParameters['Stdev_Scores_t'] = cv_scores_t.std(0)
             # self.cvParameters['Mean_Scores_u'] = cv_scores_u.mean(0)
             # self.cvParameters['Stdev_Scores_u'] = cv_scores_u.std(0)
-            self.cvParameters['Mean_Beta'] = cv_betacoefs.mean(0)
-            self.cvParameters['Stdev_Beta'] = cv_betacoefs.std(0)
-            self.cvParameters['Mean_VIP'] = cv_vipsw.mean(0)
-            self.cvParameters['Stdev_VIP'] = cv_vipsw.std(0)
             # Save everything found during CV
             if outputdist is True:
                 self.cvParameters['CVR2X_Training'] = R2X_training
