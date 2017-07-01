@@ -1,11 +1,9 @@
 from copy import deepcopy
-
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin, clone
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
-
 from .ChemometricsScaler import ChemometricsScaler
 
 __author__ = 'gd2212'
@@ -113,7 +111,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 xscaler = ChemometricsScaler(0, with_std=False)
                 # Force scaling to false, as this will be handled by the provided scaler or not
             if yscaler is None:
-                yscaler = ChemometricsScaler(0, with_std=False)
+                yscaler = ChemometricsScaler(0, with_std=False, with_mean=False)
 
             self.pls_algorithm = pls_algorithm
             # Most initialized as None, before object is fitted...
@@ -193,8 +191,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self._isfitted = True
 
             # Calculate RSSy/RSSx, R2Y/R2X
-            R2Y = self.score(x=x, y=y, block_to_score='y')
-            R2X = self.score(x=x, y=y, block_to_score='x')
+            R2Y = ChemometricsPLS.score(self, x=x, y=y, block_to_score='y')
+            R2X = ChemometricsPLS.score(self, x=x, y=y, block_to_score='x')
 
             # Obtain residual sum of squares for whole data set and per component
             cm_fit = self._cummulativefit(x, y)
@@ -360,27 +358,26 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             if x.ndim == 1:
                 x = x.reshape(-1, 1)
 
-            xscaled = self.x_scaler.transform(x)
-            yscaled = self.y_scaler.transform(y)
-
-            # Calculate total sum of squares of X and Y for R2X and R2Y calculation
-            tssy = np.sum(yscaled ** 2)
-            tssx = np.sum(xscaled ** 2)
-
             # Calculate RSSy/RSSx, R2Y/R2X
+            if block_to_score == 'y':
+                yscaled = deepcopy(self.y_scaler).fit_transform(y)
+                # Calculate total sum of squares of X and Y for R2X and R2Y calculation
+                tssy = np.sum(yscaled ** 2)
+                ypred = self.y_scaler.transform(ChemometricsPLS.predict(self, x, y=None))
+                rssy = np.sum((yscaled - ypred) ** 2)
+                R2Y = 1 - (rssy / tssy)
+                return R2Y
             # The prediction here of both X and Y is done using the other block of data only
             # so these R2s can be interpreted as as a "classic" R2, and not as a proportion of variance modelled
             # Here we use X = Ub_uW', as opposed to (X = TP').
-            ypred = self.y_scaler.transform(ChemometricsPLS.predict(self, x, y=None))
-            xpred = self.x_scaler.transform(ChemometricsPLS.predict(self, x=None, y=y))
-            rssy = np.sum((yscaled - ypred) ** 2)
-            rssx = np.sum((xscaled - xpred) ** 2)
-            R2Y = 1 - (rssy / tssy)
-            R2X = 1 - (rssx / tssx)
-
-            if block_to_score == 'y':
-                return R2Y
             else:
+                xscaled = deepcopy(self.x_scaler).fit_transform(x)
+                # Calculate total sum of squares of X and Y for R2X and R2Y calculation
+                tssx = np.sum(xscaled ** 2)
+                xpred = self.x_scaler.transform(ChemometricsPLS.predict(self, x=None, y=y))
+                tssx = np.sum(xscaled ** 2)
+                rssx = np.sum((xscaled - xpred) ** 2)
+                R2X = 1 - (rssx / tssx)
                 return R2X
 
         except ValueError as verr:
@@ -423,8 +420,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 # Predict X from Y
                 elif y is not None:
                     # Comply with the sklearn scaler behaviour
-                    if y.ndim == 1:
-                        y = y.reshape(-1, 1)
+                    #if y.ndim == 1:
+                    #    y = y.reshape(-1, 1)
                     # Going through calculation of U and then X = Ub_uW'
                     u_scores = self.transform(x=None, y=y)
                     predicted = np.dot(np.dot(u_scores, self.b_u), self.weights_w.T)
@@ -1000,13 +997,16 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         per components, for both the X and Y data blocks.
         :rtype: dict
         """
+
         if y.ndim == 1:
             y = y.reshape(-1, 1)
         if x.ndim == 1:
             x = x.reshape(-1, 1)
+        if self._isfitted is False:
+            raise AttributeError('fit model first')
 
-        xscaled = self.x_scaler.fit_transform(x)
-        yscaled = self.y_scaler.fit_transform(y)
+        xscaled = self.x_scaler.transform(x)
+        yscaled = self.y_scaler.transform(y)
 
         ssx_comp = list()
         ssy_comp = list()
@@ -1020,8 +1020,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         for curr_comp in range(1, self.ncomps + 1):
             model = self._reduce_ncomps(curr_comp)
 
-            ypred = self.y_scaler.transform(model.predict(x, y=None))
-            xpred = self.x_scaler.transform(model.predict(x=None, y=y))
+            ypred = model.y_scaler.transform(ChemometricsPLS.predict(model, x, y=None))
+            xpred = model.x_scaler.transform(ChemometricsPLS.predict(model, x=None, y=y))
+
             rssy = np.sum((yscaled - ypred) ** 2)
             rssx = np.sum((xscaled - xpred) ** 2)
             ssx_comp.append(rssx)

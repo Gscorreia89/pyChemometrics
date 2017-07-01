@@ -112,8 +112,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 x = x.reshape(-1, 1)
             # Scaling for the classifier setting proceeds as usual for the X block
             xscaled = self.x_scaler.fit_transform(x)
-            # Secretly used here so we can call parent class methods for PLS scoring
-            self._y_scaler.fit(y)
+
             # For this "classifier" PLS objects, the yscaler is not used, as we are not interesting in decentering and
             # scaling class labels and dummy matrices.
 
@@ -131,8 +130,12 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 # Remake the internal logistic regression - option One vs the rest is not used, the user can just
                 # provide a different binary labelled y vector to use it instead.
                 self.logreg_algorithm = LogisticRegression(multi_class='multinomial', solver='newton-cg')
+                y_pls = self.y_scaler.fit_transform(y_pls)
+
             else:
-                y_pls = y
+                y_pls = self.y_scaler.fit_transform(y).squeeze()
+
+            # Secretly used here so we can call parent class methods for PLS scoring
 
             # The PLS algorithm either gets a single vector in binary classification or a
             # Dummy matrix for the multiple classification case:
@@ -162,8 +165,8 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
             # Calculate RSSy/RSSx, R2Y/R2X
             # Method inheritance from parent, as in this case we really want the "PLS" only metrics
-            R2Y = ChemometricsPLS.score(self, x=x, y=y, block_to_score='y')
-            R2X = ChemometricsPLS.score(self, x=x, y=y, block_to_score='x')
+            R2Y = ChemometricsPLS.score(self, x=x, y=y_pls, block_to_score='y')
+            R2X = ChemometricsPLS.score(self, x=x, y=y_pls, block_to_score='x')
 
             # Now using the derived T scores (the low-dimensionality projection of the X data) from PLS in
             # Logistic Regression
@@ -203,7 +206,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 f1_score = metrics.f1_score(y, y_pred, average='weighted')
                 conf_matrix = metrics.confusion_matrix(y, y_pred)
                 zero_oneloss = metrics.zero_one_loss(y, y_pred)
-                matthews_mcc = 'NA'
+                matthews_mcc = np.nan
                 roc_curve = list()
                 auc_area = list()
 
@@ -228,7 +231,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
             # Obtain residual sum of squares for whole data set and per component
             # Same as Chemometrics PLS, this is so we can use VIP's and other metrics as usual
-            cm_fit = self._cummulativefit(x, y)
+            cm_fit = self._cummulativefit(x, y_pls)
 
             # Assemble the dictionary for storing the model parameters
             self.modelParameters = {'PLS': {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
@@ -298,15 +301,17 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                     #    raise TypeError('Please supply a dummy vector with integer as class membership')
                     # Previously fitted model will already have the number of classes
                     if self.n_classes <= 2:
-                        y = y
+                        y = self.y_scaler.transform(y)
                     else:
                         # The dummy matrix is created here manually because its possible for the model to be fitted to
                         # a larger number of classes than what is being passed in transform
                         # and other methods post-fitting
-                        dummy_matrix = np.zeros((len(y), self.n_classes))
-                        for col in range(self.n_classes):
-                            dummy_matrix[np.where(y == col), col] = 1
-                        y = dummy_matrix
+                        # If matrix is not dummy, generate the dummy accordingly
+                        if y.ndim ==1:
+                            dummy_matrix = np.zeros((len(y), self.n_classes))
+                            for col in range(self.n_classes):
+                                dummy_matrix[np.where(y == col), col] = 1
+                            y = self.y_scaler.transform(dummy_matrix)
                     # Taking advantage of rotations_y
                     # Otherwise this would be the full calculation U = Y*pinv(CQ')*C
                     U = np.dot(y, self.rotations_cs)
@@ -518,6 +523,34 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
         except TypeError as typerr:
             raise typerr
 
+    @property
+    def y_scaler(self):
+        try:
+            return self._y_scaler
+        except AttributeError as atre:
+            raise atre
+
+    @y_scaler.setter
+    def y_scaler(self, scaler):
+        """
+
+        Setter for the Y data block scaler.
+
+        :param scaler: The object which will handle data scaling.
+        :type scaler: ChemometricsScaler object, scaling/preprocessing objects from scikit-learn or None
+        :raise AttributeError: If there is a problem changing the scaler and resetting the model.
+        :raise TypeError: If the new scaler provided is not a valid object.
+        """
+        try:
+            # ignore the value -
+            self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=False)
+            return None
+
+        except AttributeError as atre:
+            raise atre
+        except TypeError as typerr:
+            raise typerr
+
     def VIP(self, mode='w', direction='y'):
         """
 
@@ -610,13 +643,16 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
             # The y variable expected is a single vector with ints as class label - binary
             # and multiclass classification are allowed but not multilabel so this will work.
+            # but for the PLS part in case of more than 2 classes a dummy matrix is constructed and kept separately
+            # throughout
             if y.ndim == 1:
-                #y = y.reshape(-1, 1)
-                y_nvars = 1
+                # y = y.reshape(-1, 1)
                 if self.n_classes > 2:
-                    y = pds.get_dummies(y).values
+                    y_pls = pds.get_dummies(y).values
+                    y_nvars = y_pls.shape[1]
                 else:
-                    y = y
+                    y_nvars = 1
+                    y_pls = y
             else:
                 raise TypeError('Please supply a dummy vector with integer as class membership')
 
@@ -628,21 +664,21 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             cv_train_scores_t = list()
             cv_train_scores_u = list()
 
-            # CV test scores more informative for ShuffleSplit than KFold but kept here
+            # CV test scores more informative for ShuffleSplit than KFold but kept here anyway
             cv_test_scores_t = list()
             cv_test_scores_u = list()
 
             cv_rotations_ws = np.zeros((ncvrounds, x_nvars, self.ncomps))
             cv_rotations_cs = np.zeros((ncvrounds, y_nvars, self.ncomps))
-            cv_betacoefs = np.zeros((ncvrounds, x_nvars))
+            cv_betacoefs = np.zeros((ncvrounds, y_nvars, x_nvars))
             cv_vipsw = np.zeros((ncvrounds, x_nvars))
 
-            cv_logisticcoefs = np.zeros((ncvrounds, self.ncomps))
+            cv_logisticcoefs = np.zeros((ncvrounds, self.ncomps, y_nvars))
 
             cv_trainprecision = np.zeros(ncvrounds)
             cv_trainrecall = np.zeros(ncvrounds)
             cv_trainaccuracy = np.zeros(ncvrounds)
-            cv_trainauc = np.zeros(ncvrounds)
+            cv_trainauc = np.zeros((ncvrounds, y_nvars))
             cv_trainmatthews_mcc = np.zeros(ncvrounds)
             cv_trainzerooneloss = np.zeros(ncvrounds)
             cv_trainf1 = np.zeros(ncvrounds)
@@ -654,7 +690,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             cv_testprecision = np.zeros(ncvrounds)
             cv_testrecall = np.zeros(ncvrounds)
             cv_testaccuracy = np.zeros(ncvrounds)
-            cv_testauc = np.zeros(ncvrounds)
+            cv_testauc = np.zeros((ncvrounds, y_nvars))
             cv_testmatthews_mcc = np.zeros(ncvrounds)
             cv_testzerooneloss = np.zeros(ncvrounds)
             cv_testf1 = np.zeros(ncvrounds)
@@ -669,7 +705,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
             # Calculate Sum of Squares SS in whole dataset for future calculations
             ssx = np.sum((cv_pipeline.x_scaler.fit_transform(x)) ** 2)
-            ssy = np.sum((cv_pipeline.y_scaler.fit_transform(y)) ** 2)
+            ssy = np.sum((cv_pipeline._y_scaler.fit_transform(y)) ** 2)
 
             # As assessed in the test set..., opposed to PRESS
             R2X_training = np.zeros(ncvrounds)
@@ -684,12 +720,8 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 test = train_testidx[1]
 
                 # Check dimensions for the indexing
-                if y_nvars == 1:
-                    ytrain = y[train]
-                    ytest = y[test]
-                else:
-                    ytrain = y[train, :]
-                    ytest = y[test, :]
+                ytrain = y[train]
+                ytest = y[test]
                 if x_nvars == 1:
                     xtrain = x[train]
                     xtest = x[test]
@@ -702,9 +734,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 # If testset_scale is True, these are scaled individually...
 
                 # Comply with the sklearn scaler behaviour
-                if ytest.ndim == 1:
-                    ytest = ytest.reshape(-1, 1)
-                    ytrain = ytrain.reshape(-1, 1)
                 if xtest.ndim == 1:
                     xtest = xtest.reshape(-1, 1)
                     xtrain = xtrain.reshape(-1, 1)
@@ -712,27 +741,30 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
                 if testset_scale is True:
                     xtest_scaled = cv_pipeline.x_scaler.fit_transform(xtest)
-                    ytest_scaled = cv_pipeline.y_scaler.fit_transform(ytest)
                 # Otherwise (default), training set mean and scaling vectors are used
                 else:
                     xtest_scaled = cv_pipeline.x_scaler.transform(xtest)
-                    ytest_scaled = cv_pipeline.y_scaler.transform(ytest)
 
                 R2X_training[cvround] = ChemometricsPLS.score(cv_pipeline, xtrain, ytrain, 'x')
                 R2Y_training[cvround] = ChemometricsPLS.score(cv_pipeline, xtrain, ytrain, 'y')
+
+                if y_pls.ndim > 1:
+                    yplstest = y_pls[test, :]
+                else:
+                    yplstest = y_pls[test]
+
                 # Use super here  for Q2
                 ypred = ChemometricsPLS.predict(cv_pipeline, x=xtest, y=None)
                 xpred = ChemometricsPLS.predict(cv_pipeline, x=None, y=ytest)
 
                 xpred = cv_pipeline.x_scaler.transform(xpred).squeeze()
-                ypred = cv_pipeline.y_scaler.transform(ypred).squeeze()
-                ytest_scaled = ytest_scaled.squeeze()
+                ypred = cv_pipeline._y_scaler.transform(ypred).squeeze()
 
                 curr_pressx = np.sum((xtest_scaled - xpred) ** 2)
-                curr_pressy = np.sum((ytest_scaled - ypred) ** 2)
+                curr_pressy = np.sum((yplstest - ypred) ** 2)
 
-                R2X_test[cvround] = ChemometricsPLS.score(cv_pipeline, xtest, ytest, 'x')
-                R2Y_test[cvround] = ChemometricsPLS.score(cv_pipeline, xtest, ytest, 'y')
+                R2X_test[cvround] = ChemometricsPLS.score(cv_pipeline, xtest, yplstest, 'x')
+                R2Y_test[cvround] = ChemometricsPLS.score(cv_pipeline, xtest, yplstest, 'y')
 
                 pressx += curr_pressx
                 pressy += curr_pressy
@@ -743,15 +775,15 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 cv_weights_c[cvround, :, :] = cv_pipeline.weights_c
                 cv_rotations_ws[cvround, :, :] = cv_pipeline.rotations_ws
                 cv_rotations_cs[cvround, :, :] = cv_pipeline.rotations_cs
-                cv_betacoefs[cvround, :] = cv_pipeline.beta_coeffs.T
+                cv_betacoefs[cvround, :, :] = cv_pipeline.beta_coeffs.T
                 cv_vipsw[cvround, :] = cv_pipeline.VIP()
-                cv_logisticcoefs[cvround] = cv_pipeline.logistic_coefs
+                cv_logisticcoefs[cvround] = cv_pipeline.logistic_coefs.T
 
                 # Training metrics
                 cv_trainaccuracy[cvround] = cv_pipeline.modelParameters['Logistic']['Accuracy']
                 cv_trainprecision[cvround] = cv_pipeline.modelParameters['Logistic']['Precision']
                 cv_trainrecall[cvround] = cv_pipeline.modelParameters['Logistic']['Recall']
-                cv_trainauc[cvround] = cv_pipeline.modelParameters['Logistic']['AUC']
+                #cv_trainauc[cvround, y_nvars] = cv_pipeline.modelParameters['Logistic']['AUC']
                 cv_trainf1[cvround] = cv_pipeline.modelParameters['Logistic']['F1']
                 cv_trainmatthews_mcc[cvround] = cv_pipeline.modelParameters['Logistic']['MatthewsMCC']
                 cv_trainzerooneloss[cvround] = cv_pipeline.modelParameters['Logistic']['0-1Loss']
@@ -767,6 +799,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 class_score = cv_pipeline.logreg_algorithm.decision_function(testscores)
 
                 y_pred = cv_pipeline.predict(xtest)
+
                 if n_classes == 2:
                     test_accuracy = metrics.accuracy_score(ytest, y_pred)
                     test_precision = metrics.precision_score(ytest, y_pred)
@@ -778,12 +811,12 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
                 else:
                     test_accuracy = metrics.accuracy_score(ytest, y_pred)
-                    test_precision = metrics.precision_score(ytest, y_pred)
-                    test_recall = metrics.recall_score(ytest, y_pred)
-                    test_auc_area = metrics.roc_auc_score(ytest, class_score)
-                    test_f1_score = metrics.f1_score(ytest, y_pred)
+                    test_precision = metrics.precision_score(ytest, y_pred, average='weighted')
+                    test_recall = metrics.recall_score(ytest, y_pred, average='weighted')
+                    #test_auc_area = metrics.roc_auc_score(ytest, class_score)
+                    test_f1_score = metrics.f1_score(ytest, y_pred, average='weighted')
                     test_zero_oneloss = metrics.zero_one_loss(ytest, y_pred)
-                    test_matthews_mcc = metrics.matthews_corrcoef(ytest, y_pred)
+                    test_matthews_mcc = np.nan
 
                 # Check the actual indexes in the original samples
                 test_misclassified_samples = test[np.where(ytest.ravel() != y_pred.ravel())[0]]
@@ -791,13 +824,13 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                 test_conf_matrix = metrics.confusion_matrix(ytest, y_pred)
 
                 # TODO: Apply the same ROC curve interpolation as the fit method
-                test_roc_curve = metrics.roc_curve(ytest, class_score)
-
+                #test_roc_curve = metrics.roc_curve(ytest, class_score[:, 0], pos_label=0)
+                test_roc_curve = 1
                 # Test metrics
                 cv_testaccuracy[cvround] = test_accuracy
                 cv_testprecision[cvround] = test_precision
                 cv_testrecall[cvround] = test_recall
-                cv_testauc[cvround] = test_auc_area
+                #cv_testauc[cvround, y_nvars] = test_auc_area
                 cv_testf1[cvround] = test_f1_score
                 cv_testmatthews_mcc[cvround] = test_matthews_mcc
                 cv_testzerooneloss[cvround] = test_zero_oneloss
@@ -1097,9 +1130,11 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             y = y.reshape(-1, 1)
         if x.ndim == 1:
             x = x.reshape(-1, 1)
+        if self._isfitted is False:
+            raise AttributeError('fit model first')
 
-        xscaled = self.x_scaler.fit_transform(x)
-        yscaled = self.y_scaler.fit_transform(y)
+        xscaled = self.x_scaler.transform(x)
+        yscaled = self.y_scaler.transform(y)
 
         ssx_comp = list()
         ssy_comp = list()
@@ -1113,8 +1148,8 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
         for curr_comp in range(1, self.ncomps + 1):
             model = self._reduce_ncomps(curr_comp)
 
-            ypred = self.y_scaler.transform(ChemometricsPLS.predict(model, x, y=None))
-            xpred = self.x_scaler.transform(ChemometricsPLS.predict(model, x=None, y=y))
+            ypred = model.y_scaler.transform(ChemometricsPLS.predict(model, x, y=None))
+            xpred = model.x_scaler.transform(ChemometricsPLS.predict(model, x=None, y=y))
 
             rssy = np.sum((yscaled - ypred) ** 2)
             rssx = np.sum((xscaled - xpred) ** 2)
