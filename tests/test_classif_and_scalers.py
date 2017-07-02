@@ -27,7 +27,11 @@ class test_plsobjconsistency(unittest.TestCase):
         self.plsreg.fit(self.twoclass_dataset[0], self.twoclass_dataset([1]))
         self.plslog.fit(self.twoclass_dataset[0], self.twoclass_dataset([1]))
         self.assertEqual(self.plsreg.rotations_cs, self.plslog.rotations_cs)
-
+        self.assertEqual(self.plsreg.rotations_cs, self.plslog.rotations_cs)
+        self.assertEqual(self.plsreg.rotations_cs, self.plslog.rotations_cs)
+        self.assertEqual(self.plsreg.rotations_cs, self.plslog.rotations_cs)
+        self.assertEqual(self.plsreg.rotations_cs, self.plslog.rotations_cs)
+        
     def test_multi_y(self):
         self.plsreg.fit(self.threeclass_dataset[0], self.threeclass_dataset([1]))
         self.plslog.fit(self.threeclass_dataset[0], self.threeclass_dataset([1]))
@@ -35,5 +39,3 @@ class test_plsobjconsistency(unittest.TestCase):
 
     def test_(self):
         self.assertEqual()
-
-
