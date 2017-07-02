@@ -35,5 +35,3 @@ class test_plsobjconsistency(unittest.TestCase):
 
     def test_(self):
         self.assertEqual()
-
-
