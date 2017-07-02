@@ -1,6 +1,7 @@
 import unittest
 from sklearn.datasets import make_classification
 from pyChemometrics import ChemometricsScaler, ChemometricsPLS, ChemometricsPLS_Logistic
+
 """
 Suite of tests to ensure that all PLS objects are consistent among each other: 
 For example, the ChemometricsPLS object in Regression mode needs to give the same results (coefficients, 
@@ -35,5 +36,3 @@ class test_plsobjconsistency(unittest.TestCase):
 
     def test_(self):
         self.assertEqual()
-
-
