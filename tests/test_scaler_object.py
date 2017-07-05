@@ -12,14 +12,14 @@ provided we account for the differences in data input and vector to dummy matrix
 class test_ChemometricsScaler(unittest.TestCase):
     """
 
-    Use a made up dataset on the fly... 
+    Use a made up dataset on the fly...
 
     """
 
     def setUp(self):
-    
-   
-        
+        self.ples = 1
+
+
     def test_scaleVector(self):
         """
         Check that scaling works with arbitrary value between 0 and 1 as expected on a single vector.
@@ -35,8 +35,7 @@ class test_ChemometricsScaler(unittest.TestCase):
         Check that scaling works with arbitrary value between 0 and 1 as expected on a matrix of m samples by n features.
         """
 
-        numpy.testing.assert_array_almost_equal(correctedDataP.intensityData, correctedDataS.intensityData,
-                                                err_msg="Serial and parallel corrected data not equal.")
+        np.testing.assert_array_almost_equal()
 
     def scale_back(self):
         """

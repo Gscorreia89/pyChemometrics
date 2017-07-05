@@ -5,12 +5,13 @@ import numpy as np
 
 """
 Suite of tests to assess correctness of the PLS Regression object.
+Cross - checked with R's pls, and SIMCA P.
 """
 
 dataset = {'X': np.array([]), 'Y':np.array([])}
 expected_weights = {'w': [], 'c': []}
 expected_scores = {'t': [], 'u': []}
-expect_R2 = {'Y': [], 'X'}
+expect_R2 = {'Y': [], 'X': []}
 expected_loadings = {'p': [], 'q': []}
 expected_rotations = {'ws': [], 'cs': []}
 expected_regression_coefs = {'beta': []}

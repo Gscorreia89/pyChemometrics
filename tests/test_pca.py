@@ -1,12 +1,18 @@
 import unittest
 from sklearn.datasets import make_classification
 from pyChemometrics import ChemometricsScaler, ChemometricsPLS, ChemometricsPLS_Logistic
+import numpy as np
+
 """
-Suite of tests to ensure that all PLS objects are consistent among each other: 
-For example, the ChemometricsPLS object in Regression mode needs to give the same results (coefficients, 
-loadings, scores R2s, etc) as the PLS-Classifier ojects (ChemometricPLS_Logistic and ChemometricsPLS_QDA), 
-provided we account for the differences in data input and vector to dummy matrix conversion.
+Suite of tests to assess correctness of the PCA object.
+Cross - checked with R's pcamethods.
 """
+
+dataset = {'X': np.array([]), 'Y':np.array([])}
+expected_scores = {'t': []}
+expect_R2 = {'X': []}
+expected_loadings = {'p': []}
+expected_prediction = {'x': []}
 
 
 class test_plsobjconsistency(unittest.TestCase):
