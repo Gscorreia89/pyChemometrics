@@ -9,7 +9,7 @@ provided we account for the differences in data input and vector to dummy matrix
 """
 
 
-class test_plsobjconsistency(unittest.TestCase):
+class test_plslogistic(unittest.TestCase):
     """
     Verify agreement of PLS algorithms under different objects and conditions
     """
@@ -36,4 +36,5 @@ class test_plsobjconsistency(unittest.TestCase):
     def test_(self):
         self.assertEqual()
 
-
+if __name__ == '__main__':
+    unittest.main()

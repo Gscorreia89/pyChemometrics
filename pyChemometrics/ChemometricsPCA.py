@@ -38,6 +38,7 @@ class ChemometricsPCA(_BasePCA):
                 raise TypeError("Scikit-learn Transformer-like object or None")
             if scaler is None:
                 scaler = ChemometricsScaler(0, with_std=False)
+
             # Add a check for partial fit methods? As in deploy partial fit child class if PCA is incremental??
             # By default it will work, but having the partial_fit function acessible might be usefull
             # types.MethodType(self, partial_fit)
@@ -333,7 +334,7 @@ class ChemometricsPCA(_BasePCA):
         except TypeError as typerr:
             raise typerr
 
-    def hotelling_T2(self, comps):
+    def hotelling_T2(self, comps, alpha=0.05):
         """
 
         Obtain the parameters for the Hotelling T2 ellipse at the desired significance level.

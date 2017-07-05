@@ -38,3 +38,6 @@ class test_plsobjconsistency(unittest.TestCase):
 
     def test_(self):
         self.assertEqual()
+
+if __name__ == '__main__':
+    unittest.main()
