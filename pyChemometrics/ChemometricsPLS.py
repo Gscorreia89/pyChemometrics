@@ -1,9 +1,11 @@
 from copy import deepcopy
+
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin, clone
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
+
 from .ChemometricsScaler import ChemometricsScaler
 
 __author__ = 'gd2212'
@@ -111,7 +113,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 xscaler = ChemometricsScaler(0, with_std=False)
                 # Force scaling to false, as this will be handled by the provided scaler or not
             if yscaler is None:
-                yscaler = ChemometricsScaler(0, with_std=False, with_mean=False)
+                yscaler = ChemometricsScaler(0, with_std=False)
 
             self.pls_algorithm = pls_algorithm
             # Most initialized as None, before object is fitted...

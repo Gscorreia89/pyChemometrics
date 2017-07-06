@@ -1,7 +1,6 @@
 import unittest
+
 import numpy as np
-from sklearn.datasets import make_classification
-from pyChemometrics import ChemometricsScaler, ChemometricsPLS, ChemometricsPLS_Logistic
 
 """
 Suite of tests to ensure that all PLS objects are consistent among each other: 
@@ -46,3 +45,4 @@ class test_ChemometricsScaler(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+    

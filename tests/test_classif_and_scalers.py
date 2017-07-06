@@ -1,5 +1,7 @@
 import unittest
+
 from sklearn.datasets import make_regression, make_classification
+
 from pyChemometrics import ChemometricsScaler, ChemometricsPLS, ChemometricsPCA
 
 """

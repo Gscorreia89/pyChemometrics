@@ -1,7 +1,9 @@
 import unittest
-from sklearn.datasets import make_classification
-from pyChemometrics import ChemometricsScaler, ChemometricsPLS, ChemometricsPLS_Logistic
+
 import numpy as np
+from sklearn.datasets import make_classification
+
+from pyChemometrics import ChemometricsScaler, ChemometricsPLS, ChemometricsPLS_Logistic
 
 """
 Suite of tests to assess correctness of the PCA object.

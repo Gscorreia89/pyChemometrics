@@ -1,5 +1,7 @@
 import unittest
+
 from sklearn.datasets import make_classification
+
 from pyChemometrics import ChemometricsScaler, ChemometricsPLS, ChemometricsPLS_Logistic
 
 """
@@ -39,3 +41,4 @@ class test_plsobjconsistency(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

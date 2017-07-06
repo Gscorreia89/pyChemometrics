@@ -1,7 +1,9 @@
 import unittest
-from sklearn.datasets import make_regression
-from pyChemometrics import ChemometricsScaler, ChemometricsPLS
+
 import numpy as np
+from sklearn.datasets import make_regression
+
+from pyChemometrics import ChemometricsScaler, ChemometricsPLS
 
 """
 Suite of tests to assess correctness of the PLS Regression object.
@@ -48,4 +50,5 @@ class test_pls_regression(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
 
