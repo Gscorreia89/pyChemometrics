@@ -43,8 +43,6 @@ class test_plsobjconsistency(unittest.TestCase):
 
         assert_array_equal(self.plsreg.scores_t, self.plslog.scores_t)
         assert_array_equal(self.plsreg.scores_u, self.plslog.scores_u)
-        assert_array_equal(self.plsreg.scores_u, self.plslog.scores_u)
-        assert_array_equal(self.plsreg.loadings_p, self.plslog.loadings_p)
         assert_array_equal(self.plsreg.rotations_cs, self.plslog.rotations_cs)
         assert_array_equal(self.plsreg.rotations_ws, self.plslog.rotations_ws)
         assert_array_equal(self.plsreg.weights_w, self.plslog.weights_w)

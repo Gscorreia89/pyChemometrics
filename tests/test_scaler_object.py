@@ -1,6 +1,8 @@
 import unittest
 
+from numpy.testing import assert_allclose
 import numpy as np
+from pyChemometrics import ChemometricsScaler
 
 """
 Suite of tests to ensure that all PLS objects are consistent among each other: 
@@ -18,12 +20,13 @@ class test_ChemometricsScaler(unittest.TestCase):
     """
 
     def setUp(self):
-        self.ples = 1
+        self.scaler = ChemometricsScaler()
 
     def test_scaleVector(self):
         """
         Check that scaling works with arbitrary value between 0 and 1 as expected on a single vector.
         """
+
         # Modify here - pull a random number between 0 and 1
         scaling_factor = 1
         scaledData = self.scaler.transform()
@@ -35,7 +38,7 @@ class test_ChemometricsScaler(unittest.TestCase):
         Check that scaling works with arbitrary value between 0 and 1 as expected on a matrix of m samples by n features.
         """
 
-        np.testing.assert_array_almost_equal()
+        assert_allclose()
 
     def scale_back(self):
         """
