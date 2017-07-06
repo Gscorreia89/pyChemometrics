@@ -1,13 +1,10 @@
 from copy import deepcopy
-
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin, clone
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
-
 from .ChemometricsScaler import ChemometricsScaler
-
 __author__ = 'gd2212'
 
 

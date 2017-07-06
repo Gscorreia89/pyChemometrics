@@ -1,11 +1,12 @@
-from setuptools import setup
+from distutils.core import setup
 
-setup(name='pyChemometrics',
-      version='0.1',
-      description='...',
-      url='http://github.com/gscorreia89/pyChemometrics',
-      author='Gscorreia',
-      author_email='gscorreia89@gmail.com',
-      license='tba',
-      packages=['pyChemometrics'],
-      zip_safe=False)
+setup(
+    name='pyChemometrics',
+    version='',
+    packages=['tests', 'pyChemometrics'],
+    url='',
+    license='',
+    author='gd2212',
+    author_email='',
+    description=''
+)
