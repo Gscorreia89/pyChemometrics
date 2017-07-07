@@ -615,7 +615,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             raise atter
         except ValueError as verr:
             raise verr
-        
+
     def hotelling_T2(self, comps):
         """
 
