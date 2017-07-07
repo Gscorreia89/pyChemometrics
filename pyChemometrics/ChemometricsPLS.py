@@ -615,7 +615,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             raise atter
         except ValueError as verr:
             raise verr
-
+        
     def hotelling_T2(self, comps):
         """
 
@@ -647,13 +647,21 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
         return NotImplementedError
 
-    def leverages(self):
+    def leverages(self, block='X'):
         """
         Calculate the leverages for each observation
         :return:
         :rtype:
         """
-        return NotImplementedError
+        try:
+            if block == 'X':
+                return np.dot(self.scores_t, np.dot(np.linalg.inv(np.dot(self.scores_t.T, self.scores_t), self.scores_t.T)))
+            elif block == 'Y':
+                return np.dot(self.scores_u,np.dot(np.linalg.inv(np.dot(self.scores_u.T, self.scores_u), self.scores_u.T)))
+            else:
+                raise ValueError
+        except ValueError as verr:
+            raise ValueError('block option must be either X or Y')
 
     def cross_validation(self, x, y, cv_method=KFold(7, True), outputdist=False, testset_scale=False,
                          **crossval_kwargs):

@@ -6,7 +6,6 @@ from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
-from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 from .ChemometricsPLS import ChemometricsPLS
 from .ChemometricsScaler import ChemometricsScaler
@@ -194,9 +193,16 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 conf_matrix = metrics.confusion_matrix(y, y_pred)
                 zero_oneloss = metrics.zero_one_loss(y, y_pred)
                 matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
-                # Sort and interpolate here
+
+                # Interpolated ROC curve and AUC
                 roc_curve = metrics.roc_curve(y, class_score)
-                auc_area = metrics.roc_auc_score(y, class_score)
+                tpr = roc_curve[0]
+                fpr = roc_curve[1]
+                interpolated_tpr = np.zeros_like(fpr_grid)
+                interpolated_tpr += interp(fpr_grid, fpr, tpr)
+                roc_curve = (fpr_grid, interpolated_tpr, roc_curve[2])
+                auc_area = metrics.auc(fpr, interpolated_tpr)
+
             else:
                 y_pred = self.logreg_algorithm.predict(self.scores_t)
                 accuracy = metrics.accuracy_score(y, y_pred)
@@ -212,22 +218,16 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
                 # Generate multiple ROC curves - one for each class the multiple class case
                 for predclass in range(self.n_classes):
-                    roc_curve.append(metrics.roc_curve(y, class_score[:, predclass], pos_label=predclass))
+                    roc_curve = metrics.roc_curve(y, class_score[:, predclass], pos_label=predclass)
                     # Interpolate all ROC curves to a finite grid
                     #  Makes it easier to average and compare multiple models - with CV in mind
-                    # TODO: Under construction here...
-                    # tpr = roc_curve[0]
-                    # fpr = roc_curve[1]
-                    # auc_area
-                    # Then interpolate all ROC curves at this points
-                    # interpolated_tpr = np.zeros_like(fpr_grid)
-                    # for i in range(n_classes):
-                    #    interpolated_tpr += interp(fpr_grid, fpr[i], tpr[i])
-                    #    auc_area.append(metrics.auc(fpr_grid, interpolated_tpr))
+                    tpr = roc_curve[0]
+                    fpr = roc_curve[1]
 
-                    # roc_curve = list()
-                    # for predclass in range(self.n_classes):
-                    #    roc_curve.append(metrics.roc_curve(y, class_score[:, predclass], poslabel=predclass))
+                    interpolated_tpr = np.zeros_like(fpr_grid)
+                    interpolated_tpr += interp(fpr_grid, fpr, tpr)
+                    roc_curve.append(fpr_grid, interpolated_tpr, roc_curve[2])
+                    auc_area.append(metrics.auc(fpr_grid, interpolated_tpr))
 
             # Obtain residual sum of squares for whole data set and per component
             # Same as Chemometrics PLS, this is so we can use VIP's and other metrics as usual
@@ -968,7 +968,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         """
 
         Permutation test for the classifier. Outputs permuted null distributions for model performance metrics (Q2X/Q2Y)
-        and most model parameters.
+        and many other model parameters.
 
         :param x: Data matrix to fit the PLS model.
         :type x: numpy.ndarray, shape [n_samples, n_features]
@@ -1104,6 +1104,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
             obs_q2y = self.cvParameters['Q2Y']
             pvals = dict()
+            # the permutation p-value generated here is for the Q2'Y
             pvals['Q2Y'] = (len(np.where(permuted_Q2Y >= obs_q2y)) + 1) / (nperms + 1)
 
             return permutationTest, pvals
@@ -1113,7 +1114,9 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
     def _cummulativefit(self, x, y):
         """
+
         Measure the cumulative Regression sum of Squares for each individual component.
+        Meant to be used internally by the fit method and VIP calculation.
 
         :param x: Data matrix to fit the PLS model.
         :type x: numpy.ndarray, shape [n_samples, n_features]
@@ -1161,6 +1164,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         """
 
         Generate a new model with a smaller set of components.
+        Meant to be used internally by the fit method.
 
         :param int ncomps: Number of ordered first N components from the original model to be kept.
         Must be smaller than the ncomps value of the original model.
@@ -1168,6 +1172,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         :rtype: ChemometricsPLS
         :raise ValueError: If number of components desired is larger than original number of components
         :raise AttributeError: If model is not fitted.
+
         """
         try:
             if ncomps > self.ncomps:
@@ -1194,14 +1199,12 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             # These have to be recalculated from the rotations
             newmodel.beta_coeffs = np.dot(newmodel.rotations_ws, newmodel.loadings_q.T)
 
-            newmodel.logreg_algorithm = None
             # Line also in the original sklearn method, but unnecessary when scaling = False - kept here for testing...
             # newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
             #                        newmodel.beta_coeffs * newmodel.y_scaler.scale_)
 
-            # What to do with the reffiting of the classification model?? - Easy way out - Mention
-            # That the predictor will be broken, since this is only to use during the crossvalidation anyway...
-            # newmodel.logreg_algorithm = log - What about this?
+            # NOTE: this "destroys" the internal state of the classifier apart from the PLS component,
+            # but this is only meant to be used inside the fit object and for the VIP calculation.
             return newmodel
         except ValueError as verr:
             raise verr

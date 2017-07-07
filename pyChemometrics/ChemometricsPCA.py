@@ -366,7 +366,7 @@ class ChemometricsPCA(_BasePCA):
         :return:
         :rtype:
         """
-        return NotImplementedError
+        return np.dot(self.scores, np.dot(np.linalg.inv(np.dot(self.scores.T, self.scores)), self.scores.T))
 
     def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_impute=True, testset_scale=False):
         """
