@@ -354,6 +354,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                         xscaled = xpred
 
                     return xscaled
+
                 # If U is given, return T
                 # This might be a bit weird in dummy matrices/etc, but kept here for "symmetry" with
                 # parent ChemometricsPLS implementation
@@ -498,8 +499,6 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             self.b_t = None
             self.b_u = None
             self.beta_coeffs = None
-            self.logreg_algorithm = LogisticRegression
-            self.logistic_coefs = None
             self.n_classes = None
 
             return None
