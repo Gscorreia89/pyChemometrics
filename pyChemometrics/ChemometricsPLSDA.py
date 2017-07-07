@@ -31,20 +31,30 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
     """
 
     """
-    PLS - DA (y with dummy matrix) followed by Logistic Regression
+    PLS-DA (y with dummy matrix), with the classifier using SIMCA.
     The underlying PLS-DA model is exactly the same as standard PLS, and this objects inherits from ChemometricsPLS.
-    The PLS scores are then provided for a multivariate logistic regression model. Since PLS components have orthogonal 
-    scores, and this is a dimensionality reduction method, there is no need for regularization in the logistic model.
+    The PLS scores are then used to generate class densities and . 
+    # See: 
+    - Bylesjo et. al. OPLS discriminant analysis: Combining the strengths of PLS-DA and SIMCA classification 
+    - Indhal et. al., From dummy to 
+    - Barker et. al.,
     Interpretation of the model is performed as follows:
     1) Idenfitying the regression coefficients from the Logistic regression models which are relevant 
     2) Analise the PLS vectors associated with the scores passed to the LogisticRegression model, 
     without forgetting that the first "predictive" component is related  
-    3) Q2's are usual regression diagnostics are calculated as part of PLS, but... 
+    3) Q2's are usual regression diagnostics are calculated as part of PLS, but...
     """
 
-    def __init__(self, ncomps=2, pls_algorithm=PLSRegression, logreg_algorithm=LogisticRegression,
+    def __init__(self, ncomps=2, pls_algorithm=PLSRegression,
                  xscaler=ChemometricsScaler(), **pls_type_kwargs):
+        """
 
+        :param ncomps:
+        :param pls_algorithm:
+        :param logreg_algorithm:
+        :param xscaler:
+        :param pls_type_kwargs:
+        """
         try:
             # Perform the check with is instance but avoid abstract base class runs.
             pls_algorithm = pls_algorithm(ncomps, scale=False, **pls_type_kwargs)
@@ -56,14 +66,15 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             # Secretly declared here so calling methods from parent ChemometricsPLS class is possible
             self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=False)
 
-            logreg_algorithm = logreg_algorithm()
-            if not isinstance(logreg_algorithm, (BaseEstimator, LogisticRegression)):
-                raise TypeError("Scikit-learn LogisticRegression please")
-            # 2 blocks of data = two scaling options
+            # 2 blocks of data = two scaling options in PLS but here...
             if xscaler is None:
                 xscaler = ChemometricsScaler(0, with_std=False)
-                # Force scaling to false, as this will be handled by the provided scaler or not
-            # in these PLS + Logistic/LDA the y scaling will not be used anyway, but in the future might be
+
+            # Secretly declared here so calling methods from parent ChemometricsPLS class is possible
+            self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=False)
+            # Force y_scaling scaling to false, as this will be handled by the provided scaler or not
+            # in PLS_DA/Logistic/LDA the y scaling is not used anyway,
+            # but the interface is respected nevertheless
 
             self.pls_algorithm = pls_algorithm
             # Most initialized as None, before object is fitted...
@@ -135,8 +146,10 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
             # The PLS algorithm either gets a single vector in binary classification or a
             # Dummy matrix for the multiple classification case:
-            # See Indhal et. al, From dummy to ...
-            # & PLS-DA trygg paper
+            # See:
+            # - Indhal et. al., From dummy to ...
+            # - Bylesjo et. al., (O) PLS-DA trygg paper
+            # - Barker et. al.,
             self.pls_algorithm.fit(xscaled, y_pls, **fit_params)
 
             # Expose the model parameters - Same as in ChemometricsPLS

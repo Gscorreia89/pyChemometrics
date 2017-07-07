@@ -236,8 +236,8 @@ class ChemometricsPCA(_BasePCA):
             raise verr
 
     def _press_impute_transpose(self, x, var_to_pred):
+        # TODO: NOT READY needs finishing.
         """
-        NOT READY needs finishing.
 
         Single value imputation method, essential to use in the cross-validation
         In theory can also be used to do missing data imputation.
