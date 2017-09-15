@@ -6,7 +6,7 @@ from sklearn.decomposition.base import _BasePCA
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
 from .ChemometricsScaler import ChemometricsScaler
-
+import scipy.stats as st
 __author__ = 'gd2212'
 
 
@@ -345,7 +345,9 @@ class ChemometricsPCA(_BasePCA):
         :raise ValueError: If the dimensions request
         """
         try:
-            self.scores[:, comps]
+            nsamples = self.scores_t.shape[0]
+            a = (nsamples-1)/nsamples*2*((nsamples**2) -1)/(nsamples*(nsamples -2))
+            #st.f.ppf(0.95, , dfd, loc=0, scale=1)
             return None
         except AttributeError as atre:
             raise atre
