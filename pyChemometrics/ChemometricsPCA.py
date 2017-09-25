@@ -10,9 +10,9 @@ import scipy.stats as st
 __author__ = 'gd2212'
 
 
-class ChemometricsPCA(_BasePCA):
+class ChemometricsPCA(_BasePCA, BaseEstimator):
     """
-    
+
     ChemometricsPCA object - Wrapper for sklearn.decomposition PCA algorithms, with tailored methods
     for Chemometric Data analysis.
 
@@ -31,24 +31,23 @@ class ChemometricsPCA(_BasePCA):
 
         try:
             # Perform the check with is instance but avoid abstract base class runs. PCA needs number of comps anyway!
-            pca_algorithm = pca_algorithm(n_components=ncomps, **pca_type_kwargs)
-            if not isinstance(pca_algorithm, (_BasePCA, BaseEstimator, TransformerMixin)):
+            init_pca_algorithm = pca_algorithm(n_components=ncomps, **pca_type_kwargs)
+            if not isinstance(init_pca_algorithm, (_BasePCA, BaseEstimator, TransformerMixin)):
                 raise TypeError("Scikit-learn model please")
             if not (isinstance(scaler, TransformerMixin) or scaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
             if scaler is None:
                 scaler = ChemometricsScaler(0, with_std=False)
 
+            # TODO try adding partial fit methods
             # Add a check for partial fit methods? As in deploy partial fit child class if PCA is incremental??
             # By default it will work, but having the partial_fit function acessible might be usefull
-            # types.MethodType(self, partial_fit)
-            # def partial_fit():
-            #    returnx
+            # Method hook in case the underlying pca algo allows partial fit?
 
             # The kwargs provided for the model are exactly the same as those
             # go and check for these examples the correct exception to throw when kwarg is not valid
-            # TO DO: Set the sklearn params for PCA to be a junction of the custom ones and the "core" params of model
-            self.pca_algorithm = pca_algorithm
+            # TODO: Set the sklearn params for PCA to be a junction of the custom ones and the "core" params of model
+            self.pca_algorithm = init_pca_algorithm
 
             # Most initialized as None, before object is fitted.
             self.scores = None
@@ -90,6 +89,7 @@ class ChemometricsPCA(_BasePCA):
                 self.modelParameters = {'R2X': 1 - (rss / ss),
                                         'VarExpRatio': self.pca_algorithm.explained_variance_ratio_,
                                         'VarExp': self.pca_algorithm.explained_variance_}
+
             else:
                 self.pca_algorithm.fit(x, **fit_params)
                 self.scores = self.pca_algorithm.transform(x)
@@ -98,6 +98,7 @@ class ChemometricsPCA(_BasePCA):
                 rss = np.sum((x - predicted) ** 2)
                 self.modelParameters = {'R2X': 1 - (rss / ss), 'VarExp': self.pca_algorithm.explained_variance_,
                                         'VarExpRatio': self.pca_algorithm.explained_variance_ratio_}
+
             # Kernel PCA and other non-linear methods might not have explicit loadings - safeguard against this
             if hasattr(self.pca_algorithm, 'components_'):
                 self.loadings = self.pca_algorithm.components_
@@ -112,6 +113,7 @@ class ChemometricsPCA(_BasePCA):
         :param x:
         :return:
         """
+        # TODO partial fit support
         return NotImplementedError
 
     def fit_transform(self, x, **fit_params):
@@ -219,13 +221,15 @@ class ChemometricsPCA(_BasePCA):
         :raise ValueError: If there is any error during the imputation process.
         """
 
+        # TODO Check this section here as well as the transpose impute
+
         try:
             # Scaling check for consistency
             if self.scaler is not None:
                 xscaled = self.scaler.transform(x)
             else:
                 xscaled = x
-            # Following from
+            # Following from reference 1
             to_pred = np.delete(xscaled, var_to_pred, axis=1)
             topred_loads = np.delete(self.loadings.T, var_to_pred, axis=0)
             imputed_x = np.dot(np.dot(to_pred, np.linalg.pinv(topred_loads).T), self.loadings)
@@ -236,7 +240,6 @@ class ChemometricsPCA(_BasePCA):
             raise verr
 
     def _press_impute_transpose(self, x, var_to_pred):
-        # TODO: NOT READY needs finishing.
         """
 
         Single value imputation method, essential to use in the cross-validation
@@ -251,6 +254,7 @@ class ChemometricsPCA(_BasePCA):
         :rtype: numpy.ndarray, shape [n_samples, n_features]
         :raise ValueError: If there is any error during the imputation process.
         """
+        # TODO: NOT READY needs finishing, and check correctness in the end - will be an optional feature anyway
         try:
             # Scaling check for consistency
             if self.scaler is not None:
@@ -344,6 +348,7 @@ class ChemometricsPCA(_BasePCA):
         :rtype:
         :raise ValueError: If the dimensions request
         """
+        # TODO compare with Matlab and SIMCA on toy datasets
         try:
             nsamples = self.scores_t.shape[0]
             a = (nsamples-1)/nsamples*2*((nsamples**2) -1)/(nsamples*(nsamples -2))
@@ -360,6 +365,7 @@ class ChemometricsPCA(_BasePCA):
         """
         :return:
         """
+        # TODO add this, but we should check if it works well
         return NotImplementedError
 
     def leverages(self):
@@ -368,6 +374,8 @@ class ChemometricsPCA(_BasePCA):
         :return:
         :rtype:
         """
+        # TODO: compare with matlab and simca on the toy datasets
+
         return np.dot(self.scores, np.dot(np.linalg.inv(np.dot(self.scores.T, self.scores)), self.scores.T))
 
     def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_impute=True, testset_scale=False):
@@ -379,9 +387,12 @@ class ChemometricsPCA(_BasePCA):
         :type x: numpy.ndarray, shape [n_samples, n_feeatures]
         :param cv_method: An instance of a scikit-learn CrossValidator object.
         :type cv_method: BaseCrossValidator
-        :param bool outputdist: Output the whole distribution for. Useful when ShuffleSplit or CrossValidators other than KFold.
-        :param bool press_impute: Use imputation of test set observations instead of row wise cross-validation. Slower but more reliable.
-        :param bool testset_scale: Scale the test set using its own mean and standard deviation instead of the scaler fitted on training set.
+        :param bool outputdist: Output the whole distribution for the cross validated parameters.
+        Useful when using ShuffleSplit or CrossValidators other than KFold.
+        :param bool press_impute: Use imputation of test set observations instead of row wise cross-validation.
+        Slower but more reliable.
+        :param bool testset_scale: Scale the test set using its own mean and standard deviation
+        instead of the scaler fitted on training set.
         :return:
         :rtype: dict
         :raise TypeError: If the cv_method passed is not a scikit-learn CrossValidator object.
@@ -409,8 +420,9 @@ class ChemometricsPCA(_BasePCA):
             if hasattr(self.pca_algorithm, 'components_'):
                 loadings = []
 
-            # CV_varexplained_training is a list containg lists with the SingularValue/Variance explained as obtained
-            # in the training set during fitting. cv_varexplained_test is a single R2X measure obtained from using the
+            # cv_varexplained_training is a list containing lists with the SingularValue/Variance Explained metric
+            # as obtained in the training set during fitting.
+            # cv_varexplained_test is a single R2X measure obtained from using the
             # model fitted with the training set in the test set.
             cv_varexplained_training = []
             cv_varexplained_test = []
@@ -453,8 +465,10 @@ class ChemometricsPCA(_BasePCA):
                     cv_loads.append(np.array([x[comp] for x in loadings]))
 
                 # Align loadings due to sign indeterminacy.
-                # Solution provided is to select the sign that gives a more similar profile to the
+                # The solution followed here is to select the sign that gives a more similar profile to the
                 # Loadings calculated with the whole data.
+                # TODO add scores for CV scores, but still need to check the best way to do it properly
+                # Don't want to enforce the common "just average everything" and interpret score plot behaviour...
                 for cvround in range(0, cv_method.n_splits):
                     for currload in range(0, self.ncomps):
                         choice = np.argmin(np.array([np.sum(np.abs(self.loadings - cv_loads[currload][cvround, :])),
@@ -504,6 +518,7 @@ class ChemometricsPCA(_BasePCA):
         :rtype: numpy.ndarray, shape [ncomps, n_perms, n_features]
         :raise ValueError: If there is a problem with the input x data or during the procedure.
         """
+        # TODO: See if this would really be necessary
         try:
             # Check if global model is fitted... and if not, fit it using all of X
             if self._isfitted is False or self.loadings is None:
@@ -541,7 +556,7 @@ class ChemometricsPCA(_BasePCA):
 
     def permutationtest_components(self, x, nperms=1000):
         """
-        Under Construction...
+        Unfinished
         Permutation test for a whole component. Also outputs permuted null distributions for the loadings.
 
         :param x: Data matrix.
@@ -551,6 +566,7 @@ class ChemometricsPCA(_BasePCA):
         :rtype: numpy.ndarray, shape [ncomps, n_perms, n_features]
         :raise ValueError: If there is a problem with the input data.
         """
+        # TODO: See if this really would be necessary
         try:
             # Check if global model is fitted... and if not, fit it using all of X
             if self._isfitted is False:

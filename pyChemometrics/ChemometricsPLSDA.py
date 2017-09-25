@@ -1131,13 +1131,10 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         if x.ndim == 1:
             x = x.reshape(-1, 1)
         if self._isfitted is False:
-            raise AttributeError('fit model first')
+            raise AttributeError('Fit model first')
 
         xscaled = self.x_scaler.transform(x)
         yscaled = self.y_scaler.transform(y)
-
-        ssx_comp = list()
-        ssy_comp = list()
 
         # Obtain residual sum of squares for whole data set and per component
         SSX = np.sum(xscaled ** 2)
@@ -1203,7 +1200,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             # newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
             #                        newmodel.beta_coeffs * newmodel.y_scaler.scale_)
 
-            # NOTE: this "destroys" the internal state of the classifier apart from the PLS component,
+            # NOTE: this "destroys" the internal state of the classifier apart from the PLS components,
             # but this is only meant to be used inside the fit object and for the VIP calculation.
             return newmodel
         except ValueError as verr:

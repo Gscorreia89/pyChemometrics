@@ -15,7 +15,9 @@ provided that we account for the differences in data input and class vector do d
 
 class test_plsobjconsistency(unittest.TestCase):
     """
+
     Verify agreement of PLS algorithms under different objects and conditions
+
     """
 
     def setUp(self):
