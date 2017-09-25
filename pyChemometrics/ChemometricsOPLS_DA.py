@@ -1,14 +1,19 @@
 from copy import deepcopy
 import numpy as np
-from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin, clone
+import pandas as pds
+from scipy import interp
+from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
+from sklearn import metrics
+from .ChemometricsPLS import ChemometricsPLS
 from .ChemometricsScaler import ChemometricsScaler
+
 __author__ = 'gd2212'
 
 
-class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
+class ChemometricsOPLS_DA(ChemometricsPLS, ClassifierMixin):
     """
 
     ChemometricsPLS object - Wrapper for sklearn.cross_decomposition PLS algorithms, with tailored methods
@@ -25,92 +30,50 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     """
 
     """
-    This object is designed to fit flexibly both PLSRegression with one or multiple Y and PLSCanonical, both
-    with either NIPALS or SVD. PLS-SVD doesn't calculate the same type of model parameters, and should
-    not be used with this object.
-    For PLSRegression/PLS1/PLS2 and PLSCanonical/PLS-C2A/PLS-W2A, the actual components
-    found may differ (depending on type of deflation, etc), and this has to be taken into consideration,
-    but the actual nomenclature/definitions should be the "same".
-    Nomenclature is as follows:
-    X - T Scores - Projections of X, called T
-    Y - U Scores - Projections of Y, called U
-    X - Loadings P - Vector/multivariate directions associated with T on X are called P (equivalent to PCA)
-    Y - Loadings Q - Vector/multivariate directions associated with U on Y are called q
-    X - Weights W - Weights/directions of maximum covariance with Y of the X block are called W
-    Y - Weights C - Weights/directions of maximum covariance with X of the Y block block are called C
-    These "y-weights" tend to be almost negligible (not in the calculation though... ) of PLS1/PLS Regression
-    but are necessary in multi-Y/SVD-PLS/PLS2
-    X - Rotations W*/Ws/R - The rotation of X variables to LV space pinv(WP')W
-    Y - Rotations C*/Cs - The rotation of Y variables to LV space pinv(CQ')C
-    T = X W(P'W)^-1 = XW* (W* : p x k matrix)
-    U = Y C(Q'C)^-1 = YC* (C* : q x k matrix)
-    Loadings and weights after the first component do not represent
-    the original variables. The SIMPLS W*/Ws/R and C*/Cs act weight vectors
-    which relate to the original X and Y variables, and not to their deflated versions.
-    See Sijmen de Jong, "SIMPLS: an alternative approach to partial least squares regression", Chemometrics
-    and Intelligent Laboratory Systems 1992
-    "Inner" relation regression coefficients of T b_t: U = Tb_t
-    "Inner" relation regression coefficients of U b_U: T = Ub_u
-    These are obtained by regressing the U's and T's, applying standard linear regression to them.
-    B = pinv(X'X)X'Y
-    b_t = pinv(T'T)T'U
-    b_u = pinv(U'U)U'T
-    or in a more familiar form: b_t are the betas from regressing T on U - t'u/u'u
-    and b_u are the betas from regressing U on T - u't/t't
-
-    In summary, there are various ways to approach the model. Following a general nomenclature applicable
-    for both single and block Y:
-    The predictive model, assuming the Latent variable formulation, uses an "inner relation"
-    between the latent variable projections, where U = Tb_t and T = Ub_u.
-    Prediction using the so-called "mixed relations" (relate T with U and subsequently Y/relate
-    U with T and subsequently X), works through the following formulas
-    Y = T*b_t*C' + G
-    X = U*b_u*W' + H
-    The b_u and b_s are effectively "regression coefficients" between the latent variable scores
-
-    In parallel, we can think in terms of "outer relations", data decompositions or linear approximations to
-    the original data blocks, similar to PCA components
-    Y = UQ' + F
-    X = TP' + E
-    For PLS regression with single y, Y = UC' + F = Y = UQ' + F, due to Q = C, but not necessarily true for
-    multi Y, so Q' is used here. Notice that this formula cannot be used directly to
-    predict Y from X and vice-versa, the inner relation regression using latent variable scores is necessary.
-
-    Finally, assuming PLSRegression (single or multi Y, but asymmetric deflation):
-    The PLS model can be approached from a multivariate regression/regularized regression point of view,
-    where Y is related to the original X variables, through regression coefficients Beta,
-    bypassing the latent variable definition and concepts.
-    Y = XBQ', Y = XB, where B are the regression coefficients and B = W*Q' (the W*/ws is the SIMPLS_R,
-    X rotation in sklearn default PLS).
-    These Betas (regression coefficients) are obtained in this manner directly relate the original X variables
-    to the prediction of Y.
-
-    This MLR approach to PLS has the advantage of exposing the PLS betas and PLS mechanism
-    as a biased regression applying a degree of shrinkage, which decreases with the number of components
-    all the way up to B(OLS), when Number of Components = number of variables/columns.
-    See Frank and Friedman, Jong and Kramer/Rosipal
-
+    PLS-DA (y with dummy matrix), with the classifier using SIMCA.
+    The underlying PLS-DA model is exactly the same as standard PLS, and this objects inherits from ChemometricsPLS.
+    The PLS scores are then used to generate class densities and . 
+    # See: 
+    - Bylesjo et. al. OPLS discriminant analysis: Combining the strengths of PLS-DA and SIMCA classification 
+    - Indhal et. al., From dummy to 
+    - Barker et. al.,
+    Interpretation of the model is performed as follows:
+    1) Idenfitying the regression coefficients from the Logistic regression models which are relevant 
+    2) Analise the PLS vectors associated with the scores passed to the LogisticRegression model, 
+    without forgetting that the first "predictive" component is related  
+    3) Q2's are usual regression diagnostics are calculated as part of PLS, but...
     """
 
-    def __init__(self, ncomps=2, pls_algorithm=PLSRegression, xscaler=ChemometricsScaler(), yscaler=None,
-                 **pls_type_kwargs):
+    def __init__(self, ncomps=2, pls_algorithm=PLSRegression,
+                 xscaler=ChemometricsScaler(), **pls_type_kwargs):
+        """
 
+        :param ncomps:
+        :param pls_algorithm:
+        :param logreg_algorithm:
+        :param xscaler:
+        :param pls_type_kwargs:
+        """
         try:
-
             # Perform the check with is instance but avoid abstract base class runs.
             pls_algorithm = pls_algorithm(ncomps, scale=False, **pls_type_kwargs)
             if not isinstance(pls_algorithm, (BaseEstimator, _PLS)):
                 raise TypeError("Scikit-learn model please")
             if not (isinstance(xscaler, TransformerMixin) or xscaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
-            if not (isinstance(yscaler, TransformerMixin) or yscaler is None):
-                raise TypeError("Scikit-learn Transformer-like object or None")
-            # 2 blocks of data = two scaling options
+
+            # Secretly declared here so calling methods from parent ChemometricsPLS class is possible
+            self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=False)
+
+            # 2 blocks of data = two scaling options in PLS but here...
             if xscaler is None:
                 xscaler = ChemometricsScaler(0, with_std=False)
-                # Force scaling to false, as this will be handled by the provided scaler or not
-            if yscaler is None:
-                yscaler = ChemometricsScaler(0, with_std=False)
+
+            # Secretly declared here so calling methods from parent ChemometricsPLS class is possible
+            self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=False)
+            # Force y_scaling scaling to false, as this will be handled by the provided scaler or not
+            # in PLS_DA/Logistic/LDA the y scaling is not used anyway,
+            # but the interface is respected nevertheless
 
             self.pls_algorithm = pls_algorithm
             # Most initialized as None, before object is fitted...
@@ -125,10 +88,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.b_u = None
             self.b_t = None
             self.beta_coeffs = None
+            self.n_classes = None
 
             self._ncomps = ncomps
             self._x_scaler = xscaler
-            self._y_scaler = yscaler
             self.cvParameters = None
             self.modelParameters = None
             self._isfitted = False
@@ -150,27 +113,45 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :raise ValueError: If any problem occurs during fitting.
         """
         try:
-            # This scaling check is always performed to ensure running model with scaling or with scaling == None
-            # always gives consistent results (the same type of data scale used fitting will be expected or returned
-            # by all methods of the ChemometricsPLS object)
-            # For no scaling, mean centering is performed nevertheless - sklearn objects
-            # do this by default, this is solely to make everything ultra clear and to expose the
-            # interface for potential future modification
-            # Comply with the sklearn-scaler behaviour convention
 
-            if y.ndim == 1:
-                y = y.reshape(-1, 1)
             # Not so important as don't expect a user applying a single x variable to a multivariate regression
             # method, but for consistency/testing purposes
             if x.ndim == 1:
                 x = x.reshape(-1, 1)
-
+            # Scaling for the classifier setting proceeds as usual for the X block
             xscaled = self.x_scaler.fit_transform(x)
-            yscaled = self.y_scaler.fit_transform(y)
 
-            self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
+            # For this "classifier" PLS objects, the yscaler is not used, as we are not interesting in decentering and
+            # scaling class labels and dummy matrices.
 
-            # Expose the model parameters
+            # Instead, we just do some on the fly detection of binary vs multiclass classification
+            # Verify number of classes in the provided class label y vector so the algorithm can adjust accordingly
+            n_classes = np.unique(y).size
+            self.n_classes = n_classes
+
+            # If there are more than 2 classes, a Dummy 0-1 matrix is generated so PLS can do its job in
+            # multi-class setting
+            # Only for PLS: the sklearn LogisticRegression still requires a single vector!
+            if self.n_classes > 2:
+                create_dummy_mat = pds.get_dummies(y).values
+                y_pls = create_dummy_mat
+                # Remake the internal logistic regression - option One vs the rest is not used, the user can just
+                # provide a different binary labelled y vector to use it instead.
+                y_pls = self.y_scaler.fit_transform(y_pls)
+            else:
+                y_pls = self.y_scaler.fit_transform(y).squeeze()
+
+            # Secretly used here so we can call parent class methods for PLS scoring
+
+            # The PLS algorithm either gets a single vector in binary classification or a
+            # Dummy matrix for the multiple classification case:
+            # See:
+            # - Indhal et. al., From dummy to ...
+            # - Bylesjo et. al., (O) PLS-DA trygg paper
+            # - Barker et. al.,
+            self.pls_algorithm.fit(xscaled, y_pls, **fit_params)
+
+            # Expose the model parameters - Same as in ChemometricsPLS
             self.loadings_p = self.pls_algorithm.x_loadings_
             self.loadings_q = self.pls_algorithm.y_loadings_
             self.weights_w = self.pls_algorithm.x_weights_
@@ -186,18 +167,81 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.b_t = np.dot(np.dot(np.linalg.pinv(np.dot(self.scores_t.T, self.scores_t)), self.scores_t.T),
                               self.scores_u)
             self.beta_coeffs = self.pls_algorithm.coef_
+
             # Needs to come here for the method shortcuts down the line to work...
             self._isfitted = True
 
             # Calculate RSSy/RSSx, R2Y/R2X
-            R2Y = ChemometricsPLS.score(self, x=x, y=y, block_to_score='y')
-            R2X = ChemometricsPLS.score(self, x=x, y=y, block_to_score='x')
+            # Method inheritance from parent, as in this case we really want the "PLS" only metrics
+            R2Y = ChemometricsPLS.score(self, x=x, y=y_pls, block_to_score='y')
+            R2X = ChemometricsPLS.score(self, x=x, y=y_pls, block_to_score='x')
+
+            # Grid of False positive ratios to standardize the ROC curves
+            # All ROC curves will be interpolated to a constant grid
+            # This will make it easier to average and compare multiple models, especially during cross-validation
+            fpr_grid = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1])
+            # Obtain the class score
+            class_score = self.logreg_algorithm.decision_function(self.scores_t)
+
+            if n_classes == 2:
+                y_pred = self.logreg_algorithm.predict(self.scores_t)
+                accuracy = metrics.accuracy_score(y, y_pred)
+                precision = metrics.precision_score(y, y_pred)
+                recall = metrics.recall_score(y, y_pred)
+                misclassified_samples = np.where(y.ravel() != y_pred.ravel())[0]
+                f1_score = metrics.f1_score(y, y_pred)
+                conf_matrix = metrics.confusion_matrix(y, y_pred)
+                zero_oneloss = metrics.zero_one_loss(y, y_pred)
+                matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
+
+                # Interpolated ROC curve and AUC
+                roc_curve = metrics.roc_curve(y, class_score)
+                tpr = roc_curve[0]
+                fpr = roc_curve[1]
+                interpolated_tpr = np.zeros_like(fpr_grid)
+                interpolated_tpr += interp(fpr_grid, fpr, tpr)
+                roc_curve = (fpr_grid, interpolated_tpr, roc_curve[2])
+                auc_area = metrics.auc(fpr, interpolated_tpr)
+
+            else:
+                y_pred = self.logreg_algorithm.predict(self.scores_t)
+                accuracy = metrics.accuracy_score(y, y_pred)
+                precision = metrics.precision_score(y, y_pred, average='weighted')
+                recall = metrics.recall_score(y, y_pred, average='weighted')
+                misclassified_samples = np.where(y.ravel() != y_pred.ravel())[0]
+                f1_score = metrics.f1_score(y, y_pred, average='weighted')
+                conf_matrix = metrics.confusion_matrix(y, y_pred)
+                zero_oneloss = metrics.zero_one_loss(y, y_pred)
+                matthews_mcc = np.nan
+                roc_curve = list()
+                auc_area = list()
+
+                # Generate multiple ROC curves - one for each class the multiple class case
+                for predclass in range(self.n_classes):
+                    roc_curve = metrics.roc_curve(y, class_score[:, predclass], pos_label=predclass)
+                    # Interpolate all ROC curves to a finite grid
+                    #  Makes it easier to average and compare multiple models - with CV in mind
+                    tpr = roc_curve[0]
+                    fpr = roc_curve[1]
+
+                    interpolated_tpr = np.zeros_like(fpr_grid)
+                    interpolated_tpr += interp(fpr_grid, fpr, tpr)
+                    roc_curve.append(fpr_grid, interpolated_tpr, roc_curve[2])
+                    auc_area.append(metrics.auc(fpr_grid, interpolated_tpr))
 
             # Obtain residual sum of squares for whole data set and per component
-            cm_fit = self._cummulativefit(x, y)
+            # Same as Chemometrics PLS, this is so we can use VIP's and other metrics as usual
+            cm_fit = self._cummulativefit(x, y_pls)
 
-            self.modelParameters = {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
-                                    'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']}
+            # Assemble the dictionary for storing the model parameters
+            self.modelParameters = {'PLS': {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
+                                            'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']},
+                                    'Logistic': {'Accuracy': accuracy, 'AUC': auc_area,
+                                                 'ConfusionMatrix': conf_matrix, 'ROC': roc_curve,
+                                                 'MisclassifiedSamples': misclassified_samples,
+                                                 'Precision': precision, 'Recall': recall,
+                                                 'F1': f1_score, '0-1Loss': zero_oneloss, 'MatthewsMCC': matthews_mcc,
+                                                 'ClassPredictions': y_pred}}
 
         except ValueError as verr:
             raise verr
@@ -218,6 +262,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         try:
+            # Self explanatory - the scaling and sorting out of the Y vector will be handled inside
             self.fit(x, y, **fit_params)
             return self.transform(x, y=None), self.transform(x=None, y=y)
 
@@ -250,30 +295,40 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                     raise ValueError('yy')
                 # If Y is given, return U
                 elif x is None:
-                    if y.ndim == 1:
-                        y = y.reshape(-1, 1)
-
-                    yscaled = self.y_scaler.transform(y)
+                    # The y variable expected is a single vector with ints as class label - binary
+                    # and multiclass classification are allowed but not multilabel so this will work.
+                    # if y.ndim != 1:
+                    #    raise TypeError('Please supply a dummy vector with integer as class membership')
+                    # Previously fitted model will already have the number of classes
+                    if self.n_classes <= 2:
+                        y = self.y_scaler.transform(y)
+                    else:
+                        # The dummy matrix is created here manually because its possible for the model to be fitted to
+                        # a larger number of classes than what is being passed in transform
+                        # and other methods post-fitting
+                        # If matrix is not dummy, generate the dummy accordingly
+                        if y.ndim == 1:
+                            dummy_matrix = np.zeros((len(y), self.n_classes))
+                            for col in range(self.n_classes):
+                                dummy_matrix[np.where(y == col), col] = 1
+                            y = self.y_scaler.transform(dummy_matrix)
                     # Taking advantage of rotations_y
                     # Otherwise this would be the full calculation U = Y*pinv(CQ')*C
-                    U = np.dot(yscaled, self.rotations_cs)
+                    U = np.dot(y, self.rotations_cs)
                     return U
 
                 # If X is given, return T
                 elif y is None:
-                    # Not so important as don't expect a user applying a single x variable to a multivariate regression
-                    # method, but for consistency/testing purposes
+                    # Comply with the sklearn scaler behaviour and X scaling - business as usual
                     if x.ndim == 1:
                         x = x.reshape(-1, 1)
-
                     xscaled = self.x_scaler.transform(x)
-                    # Taking advantage of already calculated rotation_x
+                    # Taking advantage of the rotation_x
                     # Otherwise this would be would the full calculation T = X*pinv(WP')*W
                     T = np.dot(xscaled, self.rotations_ws)
                     return T
             else:
                 raise AttributeError('Model not fitted')
-
         except ValueError as verr:
             raise verr
         except AttributeError as atter:
@@ -312,25 +367,23 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                         xscaled = xpred
 
                     return xscaled
+
                 # If U is given, return T
+                # This might be a bit weird in dummy matrices/etc, but kept here for "symmetry" with
+                # parent ChemometricsPLS implementation
                 elif u is not None:
                     # Calculate Y from U - using Y = UQ'
                     ypred = np.dot(u, self.loadings_q.T)
-                    if self.y_scaler is not None:
-                        yscaled = self.y_scaler.inverse_transform(ypred)
-                    else:
-                        yscaled = ypred
-
-                    return yscaled
+                    return ypred
 
         except ValueError as verr:
             raise verr
 
-    def score(self, x, y, block_to_score='y', sample_weight=None):
+    def score(self, x, y, sample_weight=None):
         """
 
         Predict and calculate the R2 for the model using one of the data blocks (X or Y) provided.
-        Equivalent to the scikit-learn RegressorMixin score method.
+        Equivalent to the scikit-learn ClassifierMixin score method.
 
         :param x: Data matrix to fit the PLS model.
         :type x: numpy.ndarray, shape [n_samples, n_features] or None
@@ -345,44 +398,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :rtype: float
         :raise ValueError: If block to score argument is not acceptable or date mismatch issues with the provided data.
         """
-        # TO DO: actually use sample_weight
         try:
-            if block_to_score not in ['x', 'y']:
-                raise ValueError("x or y are the only accepted values for block_to_score")
-            # Comply with the sklearn scaler behaviour
-            if y.ndim == 1:
-                y = y.reshape(-1, 1)
-            # Not so important as don't expect a user applying a single x variable to a multivariate regression
-            # method, but for consistency/testing purposes
-            if x.ndim == 1:
-                x = x.reshape(-1, 1)
-
-            # Calculate RSSy/RSSx, R2Y/R2X
-            if block_to_score == 'y':
-                yscaled = deepcopy(self.y_scaler).fit_transform(y)
-                # Calculate total sum of squares of X and Y for R2X and R2Y calculation
-                tssy = np.sum(yscaled ** 2)
-                ypred = self.y_scaler.transform(ChemometricsPLS.predict(self, x, y=None))
-                rssy = np.sum((yscaled - ypred) ** 2)
-                R2Y = 1 - (rssy / tssy)
-                return R2Y
-            # The prediction here of both X and Y is done using the other block of data only
-            # so these R2s can be interpreted as as a "classic" R2, and not as a proportion of variance modelled
-            # Here we use X = Ub_uW', as opposed to (X = TP').
-            else:
-                xscaled = deepcopy(self.x_scaler).fit_transform(x)
-                # Calculate total sum of squares of X and Y for R2X and R2Y calculation
-                tssx = np.sum(xscaled ** 2)
-                xpred = self.x_scaler.transform(ChemometricsPLS.predict(self, x=None, y=y))
-                tssx = np.sum(xscaled ** 2)
-                rssx = np.sum((xscaled - xpred) ** 2)
-                R2X = 1 - (rssx / tssx)
-                return R2X
-
+            return metrics.accuracy_score(y, self.predict(x), sample_weight=sample_weight)
         except ValueError as verr:
             raise verr
 
-    def predict(self, x=None, y=None):
+    def predict(self, x):
         """
 
         Predict the values in one data block using the other. Same as its scikit-learn's RegressorMixin namesake method.
@@ -398,38 +419,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         try:
-            if self._isfitted is True:
-                if (x is not None) and (y is not None):
-                    raise ValueError('xx')
-                # If nothing is passed at all, complain and do nothing
-                elif (x is None) and (y is None):
-                    raise ValueError('yy')
-                # Predict Y from X
-                elif x is not None:
-                    if x.ndim == 1:
-                        x = x.reshape(-1, 1)
-                    xscaled = self.x_scaler.transform(x)
-
-                    # Using Betas to predict Y directly
-                    predicted = np.dot(xscaled, self.beta_coeffs)
-                    if predicted.ndim == 1:
-                        predicted = predicted.reshape(-1, 1)
-                    predicted = self.y_scaler.inverse_transform(predicted)
-                    return predicted
-                # Predict X from Y
-                elif y is not None:
-                    # Comply with the sklearn scaler behaviour
-                    #if y.ndim == 1:
-                    #    y = y.reshape(-1, 1)
-                    # Going through calculation of U and then X = Ub_uW'
-                    u_scores = self.transform(x=None, y=y)
-                    predicted = np.dot(np.dot(u_scores, self.b_u), self.weights_w.T)
-                    if predicted.ndim == 1:
-                        predicted = predicted.reshape(-1, 1)
-                    predicted = self.x_scaler.inverse_transform(predicted)
-                    return predicted
-            else:
+            if self._isfitted is False:
                 raise AttributeError("Model is not fitted")
+            # project X onto T - so then the logistic can do its business
+            scores = self.transform(x=x)
+
+            return None
         except ValueError as verr:
             raise verr
         except AttributeError as atter:
@@ -469,11 +464,13 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.b_t = None
             self.b_u = None
             self.beta_coeffs = None
+            self.n_classes = None
 
             return None
+
         except AttributeError as atre:
             raise atre
-        
+
     @property
     def x_scaler(self):
         try:
@@ -515,8 +512,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.b_t = None
             self.b_u = None
             self.beta_coeffs = None
+            self.n_classes = None
 
             return None
+
         except AttributeError as atre:
             raise atre
         except TypeError as typerr:
@@ -541,27 +540,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :raise TypeError: If the new scaler provided is not a valid object.
         """
         try:
-            if not (isinstance(scaler, TransformerMixin) or scaler is None):
-                raise TypeError("Scikit-learn Transformer-like object or None")
-            if scaler is None:
-                scaler = ChemometricsScaler(0, with_std=False)
-
-            self._y_scaler = scaler
-            self.pls_algorithm = clone(self.pls_algorithm, safe=True)
-            self.modelParameters = None
-            self.cvParameters = None
-            self.loadings_p = None
-            self.weights_w = None
-            self.weights_c = None
-            self.loadings_q = None
-            self.rotations_ws = None
-            self.rotations_cs = None
-            self.scores_t = None
-            self.scores_u = None
-            self.b_t = None
-            self.b_u = None
-            self.beta_coeffs = None
-
+            # ignore the value -
+            self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=False)
             return None
 
         except AttributeError as atre:
@@ -583,10 +563,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :raise ValueError: If mode or direction is not a valid option.
         :raise AttributeError: Calling method without a fitted model.
         """
-        # TODO Check with matlab and SIMCA
+        # TODO check with matlab and SIMCA
         try:
             # Code not really adequate for each Y variable in the multi-Y case - SSy should be changed so
-            # that it is calculated for each y and not for the whole bloc
+            # that it is calculated for each y and not for the whole block
             if self._isfitted is False:
                 raise AttributeError("Model is not fitted")
             if mode not in ['w', 'p', 'ws', 'cs', 'c', 'q']:
@@ -605,9 +585,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             nvars = self.loadings_p.shape[0]
             vipnum = np.zeros(nvars)
             for comp in range(0, self.ncomps):
-                vipnum += (choices[mode][:, comp] ** 2) * (self.modelParameters[ss_dir][comp])
+                vipnum += (choices[mode][:, comp] ** 2) * (self.modelParameters['PLS'][ss_dir][comp])
 
-            vip = np.sqrt(vipnum * nvars / self.modelParameters[ss_dir].sum())
+            vip = np.sqrt(vipnum * nvars / self.modelParameters['PLS'][ss_dir].sum())
 
             return vip
 
@@ -615,56 +595,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             raise atter
         except ValueError as verr:
             raise verr
-
-    def hotelling_T2(self, comps):
-        """
-
-        Obtain the parameters for the Hotelling T2 ellipse at the desired significance level.
-
-        :param list comps:
-        :return:
-        :rtype:
-        :raise ValueError: If the dimensions request
-        """
-        # TODO and compare with matlab and SIMCA
-        try:
-            if self._isfitted is False:
-                raise AttributeError("Model is not fitted")
-            for comp in comps:
-                self.scores_t[:, comp]
-            hoteling = 1
-            return hoteling
-
-        except AttributeError as atre:
-            raise atre
-        except ValueError as valerr:
-            raise valerr
-        except TypeError as typerr:
-            raise typerr
-
-    def dModX(self):
-        """
-        :return:
-        """
-        # TODO and check with simca and matlab
-        return NotImplementedError
-
-    def leverages(self, block='X'):
-        """
-        Calculate the leverages for each observation
-        :return:
-        :rtype:
-        """
-        # TODO check with matlab and simca
-        try:
-            if block == 'X':
-                return np.dot(self.scores_t, np.dot(np.linalg.inv(np.dot(self.scores_t.T, self.scores_t), self.scores_t.T)))
-            elif block == 'Y':
-                return np.dot(self.scores_u,np.dot(np.linalg.inv(np.dot(self.scores_u.T, self.scores_u), self.scores_u.T)))
-            else:
-                raise ValueError
-        except ValueError as verr:
-            raise ValueError('block option must be either X or Y')
 
     def cross_validation(self, x, y, cv_method=KFold(7, True), outputdist=False, testset_scale=False,
                          **crossval_kwargs):
@@ -695,35 +625,77 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             if self._isfitted is False:
                 self.fit(x, y)
 
-            # Make a copy of the object, to ensure the internal state doesn't come out differently from the
-            # cross validation method call...
+            # Make a copy of the object, to ensure the internal state of the object is not modified during
+            # the cross_validation method call
             cv_pipeline = deepcopy(self)
+            # Number of splits
             ncvrounds = cv_method.get_n_splits()
+
+            # Number of classes to select tell binary from multi-class discrimination parameter calculation
+            n_classes = np.unique(y).size
 
             if x.ndim > 1:
                 x_nvars = x.shape[1]
             else:
                 x_nvars = 1
 
-            if y.ndim > 1:
-                y_nvars = y.shape[1]
+            # The y variable expected is a single vector with ints as class label - binary
+            # and multiclass classification are allowed but not multilabel so this will work.
+            # but for the PLS part in case of more than 2 classes a dummy matrix is constructed and kept separately
+            # throughout
+            if y.ndim == 1:
+                # y = y.reshape(-1, 1)
+                if self.n_classes > 2:
+                    y_pls = pds.get_dummies(y).values
+                    y_nvars = y_pls.shape[1]
+                else:
+                    y_nvars = 1
+                    y_pls = y
             else:
-                y_nvars = 1
-                y = y.reshape(-1, 1)
-
-            # TODO check CV scores and if possible how to do it a bit better than usual
+                raise TypeError('Please supply a dummy vector with integer as class membership')
 
             # Initialize list structures to contain the fit
             cv_loadings_p = np.zeros((ncvrounds, x_nvars, self.ncomps))
             cv_loadings_q = np.zeros((ncvrounds, y_nvars, self.ncomps))
             cv_weights_w = np.zeros((ncvrounds, x_nvars, self.ncomps))
             cv_weights_c = np.zeros((ncvrounds, y_nvars, self.ncomps))
-            # cv_scores_t = np.zeros((ncvrounds, x.shape[0], self.ncomps))
-            # cv_scores_u = np.zeros((ncvrounds, y.shape[0], self.ncomps))
+            cv_train_scores_t = list()
+            cv_train_scores_u = list()
+
+            # CV test scores more informative for ShuffleSplit than KFold but kept here anyway
+            cv_test_scores_t = list()
+            cv_test_scores_u = list()
+
             cv_rotations_ws = np.zeros((ncvrounds, x_nvars, self.ncomps))
             cv_rotations_cs = np.zeros((ncvrounds, y_nvars, self.ncomps))
-            cv_betacoefs = np.zeros((ncvrounds, x_nvars))
+            cv_betacoefs = np.zeros((ncvrounds, y_nvars, x_nvars))
             cv_vipsw = np.zeros((ncvrounds, x_nvars))
+
+            cv_logisticcoefs = np.zeros((ncvrounds, self.ncomps, y_nvars))
+
+            cv_trainprecision = np.zeros(ncvrounds)
+            cv_trainrecall = np.zeros(ncvrounds)
+            cv_trainaccuracy = np.zeros(ncvrounds)
+            cv_trainauc = np.zeros((ncvrounds, y_nvars))
+            cv_trainmatthews_mcc = np.zeros(ncvrounds)
+            cv_trainzerooneloss = np.zeros(ncvrounds)
+            cv_trainf1 = np.zeros(ncvrounds)
+            cv_trainclasspredictions = list()
+            cv_trainroc_curve = list()
+            cv_trainconfusionmatrix = list()
+            cv_trainmisclassifiedsamples = list()
+
+            cv_testprecision = np.zeros(ncvrounds)
+            cv_testrecall = np.zeros(ncvrounds)
+            cv_testaccuracy = np.zeros(ncvrounds)
+            cv_testauc = np.zeros((ncvrounds, y_nvars))
+            cv_testmatthews_mcc = np.zeros(ncvrounds)
+            cv_testzerooneloss = np.zeros(ncvrounds)
+            cv_testf1 = np.zeros(ncvrounds)
+            cv_testclasspredictions = list()
+            cv_testroc_curve = list()
+            cv_testconfusionmatrix = list()
+            cv_testmisclassifiedsamples = list()
 
             # Initialise predictive residual sum of squares variable (for whole CV routine)
             pressy = 0
@@ -731,7 +703,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             # Calculate Sum of Squares SS in whole dataset for future calculations
             ssx = np.sum((cv_pipeline.x_scaler.fit_transform(x)) ** 2)
-            ssy = np.sum((cv_pipeline.y_scaler.fit_transform(y)) ** 2)
+            ssy = np.sum((cv_pipeline._y_scaler.fit_transform(y)) ** 2)
 
             # As assessed in the test set..., opposed to PRESS
             R2X_training = np.zeros(ncvrounds)
@@ -746,12 +718,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 test = train_testidx[1]
 
                 # Check dimensions for the indexing
-                if y_nvars == 1:
-                    ytrain = y[train]
-                    ytest = y[test]
-                else:
-                    ytrain = y[train, :]
-                    ytest = y[test, :]
+                ytrain = y[train]
+                ytest = y[test]
                 if x_nvars == 1:
                     xtrain = x[train]
                     xtest = x[test]
@@ -764,9 +732,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 # If testset_scale is True, these are scaled individually...
 
                 # Comply with the sklearn scaler behaviour
-                if ytest.ndim == 1:
-                    ytest = ytest.reshape(-1, 1)
-                    ytrain = ytrain.reshape(-1, 1)
                 if xtest.ndim == 1:
                     xtest = xtest.reshape(-1, 1)
                     xtrain = xtrain.reshape(-1, 1)
@@ -774,27 +739,30 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
                 if testset_scale is True:
                     xtest_scaled = cv_pipeline.x_scaler.fit_transform(xtest)
-                    ytest_scaled = cv_pipeline.y_scaler.fit_transform(ytest)
                 # Otherwise (default), training set mean and scaling vectors are used
                 else:
                     xtest_scaled = cv_pipeline.x_scaler.transform(xtest)
-                    ytest_scaled = cv_pipeline.y_scaler.transform(ytest)
 
-                R2X_training[cvround] = cv_pipeline.score(xtrain, ytrain, 'x')
-                R2Y_training[cvround] = cv_pipeline.score(xtrain, ytrain, 'y')
-                ypred = cv_pipeline.predict(x=xtest, y=None)
-                xpred = cv_pipeline.predict(x=None, y=ytest)
+                R2X_training[cvround] = ChemometricsPLS.score(cv_pipeline, xtrain, ytrain, 'x')
+                R2Y_training[cvround] = ChemometricsPLS.score(cv_pipeline, xtrain, ytrain, 'y')
+
+                if y_pls.ndim > 1:
+                    yplstest = y_pls[test, :]
+                else:
+                    yplstest = y_pls[test]
+
+                # Use super here  for Q2
+                ypred = ChemometricsPLS.predict(cv_pipeline, x=xtest, y=None)
+                xpred = ChemometricsPLS.predict(cv_pipeline, x=None, y=ytest)
 
                 xpred = cv_pipeline.x_scaler.transform(xpred).squeeze()
-
-                ypred = cv_pipeline.y_scaler.transform(ypred).squeeze()
-                ytest_scaled = ytest_scaled.squeeze()
+                ypred = cv_pipeline._y_scaler.transform(ypred).squeeze()
 
                 curr_pressx = np.sum((xtest_scaled - xpred) ** 2)
-                curr_pressy = np.sum((ytest_scaled - ypred) ** 2)
+                curr_pressy = np.sum((yplstest - ypred) ** 2)
 
-                R2X_test[cvround] = cv_pipeline.score(xtest, ytest, 'x')
-                R2Y_test[cvround] = cv_pipeline.score(xtest, ytest, 'y')
+                R2X_test[cvround] = ChemometricsPLS.score(cv_pipeline, xtest, yplstest, 'x')
+                R2Y_test[cvround] = ChemometricsPLS.score(cv_pipeline, xtest, yplstest, 'y')
 
                 pressx += curr_pressx
                 pressy += curr_pressy
@@ -803,17 +771,79 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 cv_loadings_q[cvround, :, :] = cv_pipeline.loadings_q
                 cv_weights_w[cvround, :, :] = cv_pipeline.weights_w
                 cv_weights_c[cvround, :, :] = cv_pipeline.weights_c
-                # cv_scores_t[cvround, :, :] = cv_pipeline.scores_t
-                # cv_scores_u[cvround, :, :] = cv_pipeline.scores_u
                 cv_rotations_ws[cvround, :, :] = cv_pipeline.rotations_ws
                 cv_rotations_cs[cvround, :, :] = cv_pipeline.rotations_cs
-                cv_betacoefs[cvround, :] = cv_pipeline.beta_coeffs.T
+                cv_betacoefs[cvround, :, :] = cv_pipeline.beta_coeffs.T
                 cv_vipsw[cvround, :] = cv_pipeline.VIP()
+                cv_logisticcoefs[cvround] = cv_pipeline.logistic_coefs.T
+
+                # Training metrics
+                cv_trainaccuracy[cvround] = cv_pipeline.modelParameters['Logistic']['Accuracy']
+                cv_trainprecision[cvround] = cv_pipeline.modelParameters['Logistic']['Precision']
+                cv_trainrecall[cvround] = cv_pipeline.modelParameters['Logistic']['Recall']
+                # cv_trainauc[cvround, y_nvars] = cv_pipeline.modelParameters['Logistic']['AUC']
+                cv_trainf1[cvround] = cv_pipeline.modelParameters['Logistic']['F1']
+                cv_trainmatthews_mcc[cvround] = cv_pipeline.modelParameters['Logistic']['MatthewsMCC']
+                cv_trainzerooneloss[cvround] = cv_pipeline.modelParameters['Logistic']['0-1Loss']
+
+                # Check this indexes, same as CV scores
+                cv_trainmisclassifiedsamples.append(
+                    train[cv_pipeline.modelParameters['Logistic']['MisclassifiedSamples']])
+                cv_trainclasspredictions.append(
+                    [*zip(train, cv_pipeline.modelParameters['Logistic']['ClassPredictions'])])
+
+                # TODO: add the roc curve interpolation in the fitting method
+                cv_trainroc_curve.append(cv_pipeline.modelParameters['Logistic']['ROC'])
+
+                testscores = cv_pipeline.transform(x=xtest)
+                class_score = cv_pipeline.logreg_algorithm.decision_function(testscores)
+
+                y_pred = cv_pipeline.predict(xtest)
+
+                if n_classes == 2:
+                    test_accuracy = metrics.accuracy_score(ytest, y_pred)
+                    test_precision = metrics.precision_score(ytest, y_pred)
+                    test_recall = metrics.recall_score(ytest, y_pred)
+                    test_auc_area = metrics.roc_auc_score(ytest, class_score)
+                    test_f1_score = metrics.f1_score(ytest, y_pred)
+                    test_zero_oneloss = metrics.zero_one_loss(ytest, y_pred)
+                    test_matthews_mcc = metrics.matthews_corrcoef(ytest, y_pred)
+
+                else:
+                    test_accuracy = metrics.accuracy_score(ytest, y_pred)
+                    test_precision = metrics.precision_score(ytest, y_pred, average='weighted')
+                    test_recall = metrics.recall_score(ytest, y_pred, average='weighted')
+                    # test_auc_area = metrics.roc_auc_score(ytest, class_score)
+                    test_f1_score = metrics.f1_score(ytest, y_pred, average='weighted')
+                    test_zero_oneloss = metrics.zero_one_loss(ytest, y_pred)
+                    test_matthews_mcc = np.nan
+
+                # Check the actual indexes in the original samples
+                test_misclassified_samples = test[np.where(ytest.ravel() != y_pred.ravel())[0]]
+                test_classpredictions = [*zip(test, y_pred)]
+                test_conf_matrix = metrics.confusion_matrix(ytest, y_pred)
+
+                # TODO: Apply the same ROC curve interpolation as the fit method
+                # test_roc_curve = metrics.roc_curve(ytest, class_score[:, 0], pos_label=0)
+                test_roc_curve = 1
+                # Test metrics
+                cv_testaccuracy[cvround] = test_accuracy
+                cv_testprecision[cvround] = test_precision
+                cv_testrecall[cvround] = test_recall
+                # cv_testauc[cvround, y_nvars] = test_auc_area
+                cv_testf1[cvround] = test_f1_score
+                cv_testmatthews_mcc[cvround] = test_matthews_mcc
+                cv_testzerooneloss[cvround] = test_zero_oneloss
+                # Check this indexes, same as CV scores
+                cv_testmisclassifiedsamples.append(test_misclassified_samples)
+                cv_testroc_curve.append(test_roc_curve)
+                cv_testconfusionmatrix.append(test_conf_matrix)
+                cv_testclasspredictions.append(test_classpredictions)
 
             # Align model parameters to account for sign indeterminacy.
-            # The criteria here used is to select the sign that gives a more similar profile (by L1 distance) to the loadings fitted
+            # The criteria here used is to select the sign that gives a more similar profile (by L1 distance) to the loadings from
             # on the model fitted with the whole data. Any other parameter can be used, but since the loadings in X capture
-            # the covariance structure in X data block, in theory they should have more pronounced features even in cases of
+            # the covariance structure in the X data block, in theory they should have more pronounced features even in cases of
             # null X-Y association, making the sign flip more resilient.
             for cvround in range(0, ncvrounds):
                 for currload in range(0, self.ncomps):
@@ -829,50 +859,105 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                         cv_weights_c[cvround, :, currload] = -1 * cv_weights_c[cvround, :, currload]
                         cv_rotations_ws[cvround, :, currload] = -1 * cv_rotations_ws[cvround, :, currload]
                         cv_rotations_cs[cvround, :, currload] = -1 * cv_rotations_cs[cvround, :, currload]
-                        # cv_scores_t[cvround, currload, :] = -1 * cv_scores_t[cvround, currload, :]
-                        # cv_scores_u[cvround, currload, :] = -1 * cv_scores_u[cvround, currload, :]
+                        cv_train_scores_t.append([*zip(train, -1 * cv_pipeline.scores_t)])
+                        cv_train_scores_u.append([*zip(train, -1 * cv_pipeline.scores_u)])
+                        cv_test_scores_t.append([*zip(test, -1 * cv_pipeline.scores_t)])
+                        cv_test_scores_u.append([*zip(test, -1 * cv_pipeline.scores_u)])
+                    else:
+                        cv_train_scores_t.append([*zip(train, cv_pipeline.scores_t)])
+                        cv_train_scores_u.append([*zip(train, cv_pipeline.scores_u)])
+                        cv_test_scores_t.append([*zip(test, cv_pipeline.scores_t)])
+                        cv_test_scores_u.append([*zip(test, cv_pipeline.scores_u)])
 
-            # Calculate total sum of squares
+            # Calculate Q-squareds
             q_squaredy = 1 - (pressy / ssy)
             q_squaredx = 1 - (pressx / ssx)
 
             # Store everything...
-            self.cvParameters = {'Q2X': q_squaredx, 'Q2Y': q_squaredy, 'MeanR2X_Training': np.mean(R2X_training),
-                                 'MeanR2Y_Training': np.mean(R2Y_training), 'StdevR2X_Training': np.std(R2X_training),
-                                 'StdevR2Y_Training': np.std(R2X_training), 'MeanR2X_Test': np.mean(R2X_test),
-                                 'MeanR2Y_Test': np.mean(R2Y_test), 'StdevR2X_Test': np.std(R2X_test),
-                                 'StdevR2Y_Test': np.std(R2Y_test), 'Mean_Loadings_q': cv_loadings_q.mean(0),
-                                 'Stdev_Loadings_q': cv_loadings_q.std(0), 'Mean_Loadings_p': cv_loadings_p.mean(0),
-                                 'Stdev_Loadings_p': cv_loadings_q.std(0), 'Mean_Weights_c': cv_weights_c.mean(0),
-                                 'Stdev_Weights_c': cv_weights_c.std(0), 'Mean_Weights_w': cv_weights_w.mean(0),
-                                 'Stdev_Loadings_w': cv_weights_w.std(0), 'Mean_Rotations_ws': cv_rotations_ws.mean(0),
-                                 'Stdev_Rotations_ws': cv_rotations_ws.std(0),
-                                 'Mean_Rotations_cs': cv_rotations_cs.mean(0),
-                                 'Stdev_Rotations_cs': cv_rotations_cs.std(0), 'Mean_Beta': cv_betacoefs.mean(0),
-                                 'Stdev_Beta': cv_betacoefs.std(0), 'Mean_VIP': cv_vipsw.mean(0),
-                                 'Stdev_VIP': cv_vipsw.std(0)}
+            self.cvParameters = {'PLS': {'Q2X': q_squaredx, 'Q2Y': q_squaredy,
+                                         'MeanR2X_Training': np.mean(R2X_training),
+                                         'MeanR2Y_Training': np.mean(R2Y_training),
+                                         'StdevR2X_Training': np.std(R2X_training),
+                                         'StdevR2Y_Training': np.std(R2X_training),
+                                         'MeanR2X_Test': np.mean(R2X_test),
+                                         'MeanR2Y_Test': np.mean(R2Y_test),
+                                         'StdevR2X_Test': np.std(R2X_test),
+                                         'StdevR2Y_Test': np.std(R2Y_test)}}
 
             # Means and standard deviations...
-            # self.cvParameters['Mean_Scores_t'] = cv_scores_t.mean(0)
-            # self.cvParameters['Stdev_Scores_t'] = cv_scores_t.std(0)
-            # self.cvParameters['Mean_Scores_u'] = cv_scores_u.mean(0)
-            # self.cvParameters['Stdev_Scores_u'] = cv_scores_u.std(0)
+            self.cvParameters['PLS']['Mean_Loadings_q'] = cv_loadings_q.mean(0)
+            self.cvParameters['PLS']['Stdev_Loadings_q'] = cv_loadings_q.std(0)
+            self.cvParameters['PLS']['Mean_Loadings_p'] = cv_loadings_p.mean(0)
+            self.cvParameters['PLS']['Stdev_Loadings_p'] = cv_loadings_q.std(0)
+            self.cvParameters['PLS']['Mean_Weights_c'] = cv_weights_c.mean(0)
+            self.cvParameters['PLS']['Stdev_Weights_c'] = cv_weights_c.std(0)
+            self.cvParameters['PLS']['Mean_Weights_w'] = cv_weights_w.mean(0)
+            self.cvParameters['PLS']['Stdev_Loadings_w'] = cv_weights_w.std(0)
+            self.cvParameters['PLS']['Mean_Rotations_ws'] = cv_rotations_ws.mean(0)
+            self.cvParameters['PLS']['Stdev_Rotations_ws'] = cv_rotations_ws.std(0)
+            self.cvParameters['PLS']['Mean_Rotations_cs'] = cv_rotations_cs.mean(0)
+            self.cvParameters['PLS']['Stdev_Rotations_cs'] = cv_rotations_cs.std(0)
+            self.cvParameters['PLS']['Mean_Beta'] = cv_betacoefs.mean(0)
+            self.cvParameters['PLS']['Stdev_Beta'] = cv_betacoefs.std(0)
+            self.cvParameters['PLS']['Mean_VIP'] = cv_vipsw.mean(0)
+            self.cvParameters['PLS']['Stdev_VIP'] = cv_vipsw.std(0)
+            self.cvParameters['DA']['Mean_MCC'] = cv_testmatthews_mcc.mean(0)
+            self.cvParameters['DA']['Stdev_MCC'] = cv_testmatthews_mcc.std(0)
+            self.cvParameters['DA']['Mean_Recall'] = cv_testrecall.mean(0)
+            self.cvParameters['DA']['Stdev_Recall'] = cv_testrecall.std(0)
+            self.cvParameters['DA']['Mean_Precision'] = cv_testprecision.mean(0)
+            self.cvParameters['DA']['Stdev_Precision'] = cv_testprecision.std(0)
+            self.cvParameters['DA']['Mean_Accuracy'] = cv_testaccuracy.mean(0)
+            self.cvParameters['DA']['Stdev_Accuracy'] = cv_testaccuracy.std(0)
+            self.cvParameters['DA']['Mean_f1'] = cv_testf1.mean(0)
+            self.cvParameters['DA']['Stdev_f1'] = cv_testf1.std(0)
+            self.cvParameters['DA']['Mean_0-1Loss'] = cv_testzerooneloss.mean(0)
+            self.cvParameters['DA']['Stdev_0-1Loss'] = cv_testzerooneloss.std(0)
+
+
             # Save everything found during CV
             if outputdist is True:
-                self.cvParameters['CVR2X_Training'] = R2X_training
-                self.cvParameters['CVR2Y_Training'] = R2Y_training
-                self.cvParameters['CVR2X_Test'] = R2X_test
-                self.cvParameters['CVR2Y_Test'] = R2Y_test
-                self.cvParameters['CV_Loadings_q'] = cv_loadings_q
-                self.cvParameters['CV_Loadings_p'] = cv_loadings_p
-                self.cvParameters['CV_Weights_c'] = cv_weights_c
-                self.cvParameters['CV_Weights_w'] = cv_weights_w
-                self.cvParameters['CV_Rotations_ws'] = cv_rotations_ws
-                self.cvParameters['CV_Rotations_cs'] = cv_rotations_cs
-                # self.cvParameters['CV_Scores_t'] = cv_scores_t
-                # self.cvParameters['CV_Scores_u'] = cv_scores_u
-                self.cvParameters['CV_Beta'] = cv_betacoefs
-                self.cvParameters['CV_VIPw'] = cv_vipsw
+                # Apart from R'2s and scores, the PLS parameters and Logistic regression coefficients are
+                # All relevant from a training set point of view
+                self.cvParameters['PLS']['CVR2X_Training'] = R2X_training
+                self.cvParameters['PLS']['CVR2Y_Training'] = R2Y_training
+                self.cvParameters['PLS']['CVR2X_Test'] = R2X_test
+                self.cvParameters['PLS']['CVR2Y_Test'] = R2Y_test
+                self.cvParameters['PLS']['CV_Loadings_q'] = cv_loadings_q
+                self.cvParameters['PLS']['CV_Loadings_p'] = cv_loadings_p
+                self.cvParameters['PLS']['CV_Weights_c'] = cv_weights_c
+                self.cvParameters['PLS']['CV_Weights_w'] = cv_weights_w
+                self.cvParameters['PLS']['CV_Rotations_ws'] = cv_rotations_ws
+                self.cvParameters['PLS']['CV_Rotations_cs'] = cv_rotations_cs
+                self.cvParameters['PLS']['CV_TestScores_t'] = cv_test_scores_t
+                self.cvParameters['PLS']['CV_TestScores_u'] = cv_test_scores_u
+                self.cvParameters['PLS']['CV_TrainScores_t'] = cv_train_scores_t
+                self.cvParameters['PLS']['CV_TrainScores_u'] = cv_train_scores_u
+                self.cvParameters['PLS']['CV_Beta'] = cv_betacoefs
+                self.cvParameters['PLS']['CV_VIPw'] = cv_vipsw
+
+                # CV Test set metrics - The metrics which matter to benchmark classifier
+                self.cvParameters['DA']['CV_TestMCC'] = cv_testmatthews_mcc
+                self.cvParameters['DA']['CV_TestRecall'] = cv_testrecall
+                self.cvParameters['DA']['CV_TestPrecision'] = cv_testprecision
+                self.cvParameters['DA']['CV_TestAccuracy'] = cv_testaccuracy
+                self.cvParameters['DA']['CV_Testf1'] = cv_testf1
+                self.cvParameters['DA']['CV_Test0-1Loss'] = cv_testzerooneloss
+                self.cvParameters['DA']['CV_TestROC'] = cv_testroc_curve
+                self.cvParameters['DA']['CV_TestConfusionMatrix'] = cv_testconfusionmatrix
+                self.cvParameters['DA']['CV_TestSamplePrediction'] = cv_testclasspredictions
+                self.cvParameters['DA']['CV_TestMisclassifiedsamples'] = cv_testmisclassifiedsamples
+                # CV Train parameters - so we can keep a look on model performance in training set
+                self.cvParameters['DA']['CV_TrainMCC'] = cv_trainmatthews_mcc
+                self.cvParameters['DA']['CV_TrainRecall'] = cv_trainrecall
+                self.cvParameters['DA']['CV_TrainPrecision'] = cv_trainprecision
+                self.cvParameters['DA']['CV_TrainAccuracy'] = cv_trainaccuracy
+                self.cvParameters['DA']['CV_Trainf1'] = cv_trainf1
+                self.cvParameters['DA']['CV_Train0-1Loss'] = cv_trainzerooneloss
+                self.cvParameters['DA']['CV_TrainROC'] = cv_trainroc_curve
+                self.cvParameters['DA']['CV_TrainConfusionMatrix'] = cv_trainconfusionmatrix
+                self.cvParameters['DA']['CV_TrainSamplePrediction'] = cv_trainclasspredictions
+                self.cvParameters['DA']['CV_TrainMisclassifiedsamples'] = cv_trainmisclassifiedsamples
 
             return None
 
@@ -883,7 +968,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         Permutation test for the classifier. Outputs permuted null distributions for model performance metrics (Q2X/Q2Y)
-        and most model parameters.
+        and many other model parameters.
 
         :param x: Data matrix to fit the PLS model.
         :type x: numpy.ndarray, shape [n_samples, n_features]
@@ -914,6 +999,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             else:
                 y_nvars = 1
 
+            n_classes = np.unique(y).size
+
+            # TODO store all the DA objects
+
             # Initialize data structures for permuted distributions
             perm_loadings_q = np.zeros((nperms, y_nvars, self.ncomps))
             perm_loadings_p = np.zeros((nperms, x_nvars, self.ncomps))
@@ -930,6 +1019,32 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             permuted_Q2X = np.zeros(nperms)
             permuted_R2Y_test = np.zeros(nperms)
             permuted_R2X_test = np.zeros(nperms)
+
+            perm_logisticcoefs = np.zeros((nperms, self.ncomps))
+
+            perm_trainprecision = np.zeros(nperms)
+            perm_trainrecall = np.zeros(nperms)
+            perm_trainaccuracy = np.zeros(nperms)
+            perm_trainauc = np.zeros(nperms)
+            perm_trainmatthews_mcc = np.zeros(nperms)
+            perm_trainzerooneloss = np.zeros(nperms)
+            perm_trainf1 = np.zeros(nperms)
+            perm_trainclasspredictions = list()
+            perm_trainroc_curve = list()
+            perm_trainconfusionmatrix = list()
+            perm_trainmisclassifiedsamples = list()
+
+            perm_testprecision = np.zeros(nperms)
+            perm_testrecall = np.zeros(nperms)
+            perm_testaccuracy = np.zeros(nperms)
+            perm_testauc = np.zeros(nperms)
+            perm_testmatthews_mcc = np.zeros(nperms)
+            perm_testzerooneloss = np.zeros(nperms)
+            perm_testf1 = np.zeros(nperms)
+            perm_testclasspredictions = list()
+            perm_testroc_curve = list()
+            perm_testconfusionmatrix = list()
+            perm_testmisclassifiedsamples = list()
 
             for permutation in range(0, nperms):
                 # Copy original column order, shuffle array in place...
@@ -953,6 +1068,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 perm_rotations_ws[permutation, :, :] = permute_class.rotations_ws
                 perm_beta[permutation, :, :] = permute_class.beta_coeffs
                 perm_vipsw[permutation, :] = permute_class.VIP()
+
             # Align model parameters due to sign indeterminacy.
             # Solution provided is to select the sign that gives a more similar profile to the
             # Loadings calculated with the whole data.
@@ -990,6 +1106,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             obs_q2y = self.cvParameters['Q2Y']
             pvals = dict()
+            # the permutation p-value generated here is for the Q2'Y
             pvals['Q2Y'] = (len(np.where(permuted_Q2Y >= obs_q2y)) + 1) / (nperms + 1)
 
             return permutationTest, pvals
@@ -999,7 +1116,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     def _cummulativefit(self, x, y):
         """
+
         Measure the cumulative Regression sum of Squares for each individual component.
+        Meant to be used internally by the fit method and VIP calculation.
 
         :param x: Data matrix to fit the PLS model.
         :type x: numpy.ndarray, shape [n_samples, n_features]
@@ -1009,19 +1128,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         per components, for both the X and Y data blocks.
         :rtype: dict
         """
-
         if y.ndim == 1:
             y = y.reshape(-1, 1)
         if x.ndim == 1:
             x = x.reshape(-1, 1)
         if self._isfitted is False:
-            raise AttributeError('fit model first')
+            raise AttributeError('Fit model first')
 
         xscaled = self.x_scaler.transform(x)
         yscaled = self.y_scaler.transform(y)
-
-        ssx_comp = list()
-        ssy_comp = list()
 
         # Obtain residual sum of squares for whole data set and per component
         SSX = np.sum(xscaled ** 2)
@@ -1048,6 +1163,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
 
         Generate a new model with a smaller set of components.
+        Meant to be used internally by the fit method.
 
         :param int ncomps: Number of ordered first N components from the original model to be kept.
         Must be smaller than the ncomps value of the original model.
@@ -1055,6 +1171,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :rtype: ChemometricsPLS
         :raise ValueError: If number of components desired is larger than original number of components
         :raise AttributeError: If model is not fitted.
+
         """
         try:
             if ncomps > self.ncomps:
@@ -1080,10 +1197,13 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             # These have to be recalculated from the rotations
             newmodel.beta_coeffs = np.dot(newmodel.rotations_ws, newmodel.loadings_q.T)
+
             # Line also in the original sklearn method, but unnecessary when scaling = False - kept here for testing...
             # newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
             #                        newmodel.beta_coeffs * newmodel.y_scaler.scale_)
 
+            # NOTE: this "destroys" the internal state of the classifier apart from the PLS components,
+            # but this is only meant to be used inside the fit object and for the VIP calculation.
             return newmodel
         except ValueError as verr:
             raise verr

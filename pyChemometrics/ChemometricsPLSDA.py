@@ -563,7 +563,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         :raise ValueError: If mode or direction is not a valid option.
         :raise AttributeError: Calling method without a fitted model.
         """
-
+        # TODO check with matlab and SIMCA
         try:
             # Code not really adequate for each Y variable in the multi-Y case - SSy should be changed so
             # that it is calculated for each y and not for the whole block
@@ -1000,6 +1000,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 y_nvars = 1
 
             n_classes = np.unique(y).size
+
+            # TODO store all the DA objects
 
             # Initialize data structures for permuted distributions
             perm_loadings_q = np.zeros((nperms, y_nvars, self.ncomps))

@@ -1,5 +1,5 @@
 library("pls")
-
+library("ropls")
 #script.dir <- getSrcDirectory(function(x) {x})
 #setwd(script.dir)
 # Use the python script to generate the datasets in case they don't exist
@@ -12,7 +12,3 @@ pls_da_set <- list(Class=pls_da_set$Class, X=as.matrix(pls_da_set[, 2:dim(pls_da
 
 # fit the algorithm
 pls_da <- plsr(Class ~ X, ncomp = 10, data = pls_da_set, validation = "LOO")
-
-
-
-

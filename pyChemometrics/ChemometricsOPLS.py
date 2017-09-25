@@ -5,10 +5,11 @@ from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
 from .ChemometricsScaler import ChemometricsScaler
+
 __author__ = 'gd2212'
 
 
-class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
+class ChemometricsOPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     """
 
     ChemometricsPLS object - Wrapper for sklearn.cross_decomposition PLS algorithms, with tailored methods
@@ -419,7 +420,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 # Predict X from Y
                 elif y is not None:
                     # Comply with the sklearn scaler behaviour
-                    #if y.ndim == 1:
+                    # if y.ndim == 1:
                     #    y = y.reshape(-1, 1)
                     # Going through calculation of U and then X = Ub_uW'
                     u_scores = self.transform(x=None, y=y)
@@ -473,7 +474,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             return None
         except AttributeError as atre:
             raise atre
-        
+
     @property
     def x_scaler(self):
         try:
@@ -658,9 +659,11 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         # TODO check with matlab and simca
         try:
             if block == 'X':
-                return np.dot(self.scores_t, np.dot(np.linalg.inv(np.dot(self.scores_t.T, self.scores_t), self.scores_t.T)))
+                return np.dot(self.scores_t,
+                              np.dot(np.linalg.inv(np.dot(self.scores_t.T, self.scores_t), self.scores_t.T)))
             elif block == 'Y':
-                return np.dot(self.scores_u,np.dot(np.linalg.inv(np.dot(self.scores_u.T, self.scores_u), self.scores_u.T)))
+                return np.dot(self.scores_u,
+                              np.dot(np.linalg.inv(np.dot(self.scores_u.T, self.scores_u), self.scores_u.T)))
             else:
                 raise ValueError
         except ValueError as verr:
