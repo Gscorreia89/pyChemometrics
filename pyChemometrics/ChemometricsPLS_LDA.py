@@ -310,7 +310,7 @@ class ChemometricsPLS_LDA(ChemometricsPLS, ClassifierMixin):
         :rtype: float
         :raise ValueError: If block to score argument is not acceptable or date mismatch issues with the provided data.
         """
-        # TO DO: actually use sample_weight
+        # TODO: actually incorporate sample weight
         try:
             if block_to_score not in ['x', 'y']:
                 raise ValueError("x or y are the only accepted values for block_to_score")

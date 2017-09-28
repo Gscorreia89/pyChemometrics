@@ -345,7 +345,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :rtype: float
         :raise ValueError: If block to score argument is not acceptable or date mismatch issues with the provided data.
         """
-        # TO DO: actually use sample_weight
+        # TODO: actually use sample_weight
         try:
             if block_to_score not in ['x', 'y']:
                 raise ValueError("x or y are the only accepted values for block_to_score")
@@ -711,8 +711,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 y_nvars = 1
                 y = y.reshape(-1, 1)
 
-            # TODO check CV scores and if possible how to do it a bit better than usual
-
             # Initialize list structures to contain the fit
             cv_loadings_p = np.zeros((ncvrounds, x_nvars, self.ncomps))
             cv_loadings_q = np.zeros((ncvrounds, y_nvars, self.ncomps))
@@ -811,6 +809,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 cv_betacoefs[cvround, :] = cv_pipeline.beta_coeffs.T
                 cv_vipsw[cvround, :] = cv_pipeline.VIP()
 
+            # TODO CV scores done properly
             # Align model parameters to account for sign indeterminacy.
             # The criteria here used is to select the sign that gives a more similar profile (by L1 distance) to the loadings fitted
             # on the model fitted with the whole data. Any other parameter can be used, but since the loadings in X capture
@@ -840,10 +839,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                         cv_test_scores_t.append([*zip(test, cv_pipeline.scores_t)])
                         cv_test_scores_u.append([*zip(test, cv_pipeline.scores_u)])
 
-
-                        # cv_scores_t[cvround, currload, :] = -1 * cv_scores_t[cvround, currload, :]
-                        # cv_scores_u[cvround, currload, :] = -1 * cv_scores_u[cvround, currload, :]
-
             # Calculate total sum of squares
             q_squaredy = 1 - (pressy / ssy)
             q_squaredx = 1 - (pressx / ssx)
@@ -863,7 +858,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                                  'Stdev_Rotations_cs': cv_rotations_cs.std(0), 'Mean_Beta': cv_betacoefs.mean(0),
                                  'Stdev_Beta': cv_betacoefs.std(0), 'Mean_VIP': cv_vipsw.mean(0),
                                  'Stdev_VIP': cv_vipsw.std(0)}
-
+            # TODO average this properly
             # Means and standard deviations...
             # self.cvParameters['Mean_Scores_t'] = cv_scores_t.mean(0)
             # self.cvParameters['Stdev_Scores_t'] = cv_scores_t.std(0)
@@ -881,8 +876,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 self.cvParameters['CV_Weights_w'] = cv_weights_w
                 self.cvParameters['CV_Rotations_ws'] = cv_rotations_ws
                 self.cvParameters['CV_Rotations_cs'] = cv_rotations_cs
-                # self.cvParameters['CV_Scores_t'] = cv_scores_t
-                # self.cvParameters['CV_Scores_u'] = cv_scores_u
+                self.cvParameters['CV_Train_Scores_t'] = cv_train_scores_t
+                self.cvParameters['CV_Train_Scores_u'] = cv_test_scores_u
                 self.cvParameters['CV_Beta'] = cv_betacoefs
                 self.cvParameters['CV_VIPw'] = cv_vipsw
 

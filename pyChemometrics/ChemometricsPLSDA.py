@@ -811,7 +811,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 cv_trainclasspredictions.append(
                     [*zip(train, cv_pipeline.modelParameters['DA']['ClassPredictions'])])
 
-                # TODO check
+                # TODO check rock curve
                 cv_trainroc_curve.append(cv_pipeline.modelParameters['DA']['ROC'])
 
                 testscores = cv_pipeline.transform(x=xtest)
@@ -934,6 +934,12 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             self.cvParameters['DA']['Mean_0-1Loss'] = cv_testzerooneloss.mean(0)
             self.cvParameters['DA']['Stdev_0-1Loss'] = cv_testzerooneloss.std(0)
 
+            # TODO add cv scores averaging and stdev properly
+            # Means and standard deviations...
+            # self.cvParameters['Mean_Scores_t'] = cv_scores_t.mean(0)
+            # self.cvParameters['Stdev_Scores_t'] = cv_scores_t.std(0)
+            # self.cvParameters['Mean_Scores_u'] = cv_scores_u.mean(0)
+            # self.cvParameters['Stdev_Scores_u'] = cv_scores_u.std(0)
             # Save everything found during CV
             if outputdist is True:
                 # Apart from R'2s and scores, the PLS parameters and Logistic regression coefficients are
