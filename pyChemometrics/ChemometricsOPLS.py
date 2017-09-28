@@ -93,15 +93,10 @@ class ChemometricsOPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
     """
 
-    def __init__(self, ncomps=2, pls_algorithm=PLSRegression, xscaler=ChemometricsScaler(), yscaler=None,
+    def __init__(self, ncomps=2, xscaler=ChemometricsScaler(), yscaler=None,
                  **pls_type_kwargs):
 
         try:
-
-            # Perform the check with is instance but avoid abstract base class runs.
-            pls_algorithm = pls_algorithm(ncomps, scale=False, **pls_type_kwargs)
-            if not isinstance(pls_algorithm, (BaseEstimator, _PLS)):
-                raise TypeError("Scikit-learn model please")
             if not (isinstance(xscaler, TransformerMixin) or xscaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
             if not (isinstance(yscaler, TransformerMixin) or yscaler is None):
@@ -113,7 +108,6 @@ class ChemometricsOPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             if yscaler is None:
                 yscaler = ChemometricsScaler(0, with_std=False)
 
-            self.pls_algorithm = pls_algorithm
             # Most initialized as None, before object is fitted...
             self.scores_t = None
             self.scores_u = None
@@ -169,7 +163,10 @@ class ChemometricsOPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             xscaled = self.x_scaler.fit_transform(x)
             yscaled = self.y_scaler.fit_transform(y)
 
-            self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
+
+            __nipals__inner_loop()
+
+            #self.pls_algorithm.fit(xscaled, yscaled, **fit_params)
 
             # Expose the model parameters
             self.loadings_p = self.pls_algorithm.x_loadings_

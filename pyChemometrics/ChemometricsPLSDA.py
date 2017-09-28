@@ -45,7 +45,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
     """
 
     def __init__(self, ncomps=2, pls_algorithm=PLSRegression,
-                 xscaler=ChemometricsScaler(), **pls_type_kwargs):
+                 xscaler=ChemometricsScaler(scale_power=1), **pls_type_kwargs):
         """
 
         :param ncomps:
@@ -62,15 +62,12 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             if not (isinstance(xscaler, TransformerMixin) or xscaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
 
-            # Secretly declared here so calling methods from parent ChemometricsPLS class is possible
-            self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=False)
-
             # 2 blocks of data = two scaling options in PLS but here...
             if xscaler is None:
                 xscaler = ChemometricsScaler(0, with_std=False)
 
             # Secretly declared here so calling methods from parent ChemometricsPLS class is possible
-            self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=False)
+            self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=True)
             # Force y_scaling scaling to false, as this will be handled by the provided scaler or not
             # in PLS_DA/Logistic/LDA the y scaling is not used anyway,
             # but the interface is respected nevertheless
@@ -89,7 +86,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             self.b_t = None
             self.beta_coeffs = None
             self.n_classes = None
-
+            self.class_means = None
             self._ncomps = ncomps
             self._x_scaler = xscaler
             self.cvParameters = None
@@ -139,9 +136,9 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 # provide a different binary labelled y vector to use it instead.
                 y_pls = self.y_scaler.fit_transform(y_pls)
             else:
+                if y.ndim == 1:
+                    y = y.reshape(-1, 1)
                 y_pls = self.y_scaler.fit_transform(y).squeeze()
-
-            # Secretly used here so we can call parent class methods for PLS scoring
 
             # The PLS algorithm either gets a single vector in binary classification or a
             # Dummy matrix for the multiple classification case:
@@ -168,6 +165,13 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                               self.scores_u)
             self.beta_coeffs = self.pls_algorithm.coef_
 
+            # Get the mean score per class to use in prediction
+            # To use im a simple rule on how to turn PLS prediction into a classifier for multiclass PLS-DA
+            self.class_means = np.zeros((n_classes, self.ncomps))
+            for curr_class in range(self.n_classes):
+                curr_class_idx = np.where(y == curr_class)
+                self.class_means[curr_class, :] = np.mean(self.scores_t[curr_class_idx])
+
             # Needs to come here for the method shortcuts down the line to work...
             self._isfitted = True
 
@@ -181,10 +185,10 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             # This will make it easier to average and compare multiple models, especially during cross-validation
             fpr_grid = np.array([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1])
             # Obtain the class score
-            class_score = self.logreg_algorithm.decision_function(self.scores_t)
+            class_score = ChemometricsPLS.predict(self, x=x)
 
             if n_classes == 2:
-                y_pred = self.logreg_algorithm.predict(self.scores_t)
+                y_pred = self.predict(x)
                 accuracy = metrics.accuracy_score(y, y_pred)
                 precision = metrics.precision_score(y, y_pred)
                 recall = metrics.recall_score(y, y_pred)
@@ -195,16 +199,16 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 matthews_mcc = metrics.matthews_corrcoef(y, y_pred)
 
                 # Interpolated ROC curve and AUC
-                roc_curve = metrics.roc_curve(y, class_score)
-                tpr = roc_curve[0]
-                fpr = roc_curve[1]
+                roc_curve = metrics.roc_curve(y, class_score.ravel())
+                tpr = roc_curve[1]
+                fpr = roc_curve[0]
                 interpolated_tpr = np.zeros_like(fpr_grid)
                 interpolated_tpr += interp(fpr_grid, fpr, tpr)
                 roc_curve = (fpr_grid, interpolated_tpr, roc_curve[2])
-                auc_area = metrics.auc(fpr, interpolated_tpr)
+                auc_area = metrics.auc(fpr_grid, interpolated_tpr)
 
             else:
-                y_pred = self.logreg_algorithm.predict(self.scores_t)
+                y_pred = self.predict(x)
                 accuracy = metrics.accuracy_score(y, y_pred)
                 precision = metrics.precision_score(y, y_pred, average='weighted')
                 recall = metrics.recall_score(y, y_pred, average='weighted')
@@ -221,8 +225,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                     roc_curve = metrics.roc_curve(y, class_score[:, predclass], pos_label=predclass)
                     # Interpolate all ROC curves to a finite grid
                     #  Makes it easier to average and compare multiple models - with CV in mind
-                    tpr = roc_curve[0]
-                    fpr = roc_curve[1]
+                    tpr = roc_curve[1]
+                    fpr = roc_curve[0]
 
                     interpolated_tpr = np.zeros_like(fpr_grid)
                     interpolated_tpr += interp(fpr_grid, fpr, tpr)
@@ -236,7 +240,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             # Assemble the dictionary for storing the model parameters
             self.modelParameters = {'PLS': {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
                                             'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']},
-                                    'Logistic': {'Accuracy': accuracy, 'AUC': auc_area,
+                                    'DA': {'Accuracy': accuracy, 'AUC': auc_area,
                                                  'ConfusionMatrix': conf_matrix, 'ROC': roc_curve,
                                                  'MisclassifiedSamples': misclassified_samples,
                                                  'Precision': precision, 'Recall': recall,
@@ -301,6 +305,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                     #    raise TypeError('Please supply a dummy vector with integer as class membership')
                     # Previously fitted model will already have the number of classes
                     if self.n_classes <= 2:
+                        if y.ndim == 1:
+                            y = y.reshape(-1, 1)
                         y = self.y_scaler.transform(y)
                     else:
                         # The dummy matrix is created here manually because its possible for the model to be fitted to
@@ -421,10 +427,23 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         try:
             if self._isfitted is False:
                 raise AttributeError("Model is not fitted")
-            # project X onto T - so then the logistic can do its business
-            scores = self.transform(x=x)
 
-            return None
+            # based on original encoding as 0, 1, etc
+            if self.n_classes == 2:
+                y_pred = ChemometricsPLS.predict(self, x)
+                class_pred = np.argmin(np.abs(y_pred - np.array([0, 1])), axis=1)
+
+            else:
+                # euclidean distance to mean of class for multiclass PLS-DA
+                # probably better to use a Logistic/Multinomial or PLS-LDA anyway...
+                # project X onto T - so then we can get
+                pred_scores = self.transform(x=x)
+                # prediction rule - find the closest class mean (centroid) for each sample in the score space
+                closest_class_mean = lambda x: np.argmin(np.linalg.norm(x - self.class_means, axis=1))
+                class_pred = np.apply_along_axis(closest_class_mean, axis=1, arr=pred_scores)
+
+            return class_pred
+
         except ValueError as verr:
             raise verr
         except AttributeError as atter:
@@ -541,7 +560,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         """
         try:
             # ignore the value -
-            self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=False)
+            self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=True)
             return None
 
         except AttributeError as atre:
@@ -778,25 +797,25 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 cv_logisticcoefs[cvround] = cv_pipeline.logistic_coefs.T
 
                 # Training metrics
-                cv_trainaccuracy[cvround] = cv_pipeline.modelParameters['Logistic']['Accuracy']
-                cv_trainprecision[cvround] = cv_pipeline.modelParameters['Logistic']['Precision']
-                cv_trainrecall[cvround] = cv_pipeline.modelParameters['Logistic']['Recall']
-                # cv_trainauc[cvround, y_nvars] = cv_pipeline.modelParameters['Logistic']['AUC']
-                cv_trainf1[cvround] = cv_pipeline.modelParameters['Logistic']['F1']
-                cv_trainmatthews_mcc[cvround] = cv_pipeline.modelParameters['Logistic']['MatthewsMCC']
-                cv_trainzerooneloss[cvround] = cv_pipeline.modelParameters['Logistic']['0-1Loss']
+                cv_trainaccuracy[cvround] = cv_pipeline.modelParameters['DA']['Accuracy']
+                cv_trainprecision[cvround] = cv_pipeline.modelParameters['DA']['Precision']
+                cv_trainrecall[cvround] = cv_pipeline.modelParameters['DA']['Recall']
+                cv_trainauc[cvround, y_nvars] = cv_pipeline.modelParameters['DA']['AUC']
+                cv_trainf1[cvround] = cv_pipeline.modelParameters['DA']['F1']
+                cv_trainmatthews_mcc[cvround] = cv_pipeline.modelParameters['DA']['MatthewsMCC']
+                cv_trainzerooneloss[cvround] = cv_pipeline.modelParameters['DA']['0-1Loss']
 
                 # Check this indexes, same as CV scores
                 cv_trainmisclassifiedsamples.append(
-                    train[cv_pipeline.modelParameters['Logistic']['MisclassifiedSamples']])
+                    train[cv_pipeline.modelParameters['DA']['MisclassifiedSamples']])
                 cv_trainclasspredictions.append(
-                    [*zip(train, cv_pipeline.modelParameters['Logistic']['ClassPredictions'])])
+                    [*zip(train, cv_pipeline.modelParameters['DA']['ClassPredictions'])])
 
-                # TODO: add the roc curve interpolation in the fitting method
-                cv_trainroc_curve.append(cv_pipeline.modelParameters['Logistic']['ROC'])
+                # TODO check
+                cv_trainroc_curve.append(cv_pipeline.modelParameters['DA']['ROC'])
 
                 testscores = cv_pipeline.transform(x=xtest)
-                class_score = cv_pipeline.logreg_algorithm.decision_function(testscores)
+                class_score = ChemometricsPLS.predict(cv_pipeline, xtest)
 
                 y_pred = cv_pipeline.predict(xtest)
 
@@ -804,7 +823,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                     test_accuracy = metrics.accuracy_score(ytest, y_pred)
                     test_precision = metrics.precision_score(ytest, y_pred)
                     test_recall = metrics.recall_score(ytest, y_pred)
-                    test_auc_area = metrics.roc_auc_score(ytest, class_score)
+                    test_auc_area = metrics.roc_auc_score(ytest, class_score.ravel())
                     test_f1_score = metrics.f1_score(ytest, y_pred)
                     test_zero_oneloss = metrics.zero_one_loss(ytest, y_pred)
                     test_matthews_mcc = metrics.matthews_corrcoef(ytest, y_pred)
@@ -813,18 +832,18 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                     test_accuracy = metrics.accuracy_score(ytest, y_pred)
                     test_precision = metrics.precision_score(ytest, y_pred, average='weighted')
                     test_recall = metrics.recall_score(ytest, y_pred, average='weighted')
-                    # test_auc_area = metrics.roc_auc_score(ytest, class_score)
+                    test_auc_area = metrics.roc_auc_score(ytest, class_score)
                     test_f1_score = metrics.f1_score(ytest, y_pred, average='weighted')
                     test_zero_oneloss = metrics.zero_one_loss(ytest, y_pred)
                     test_matthews_mcc = np.nan
 
+                # TODO check the roc curve in train and test set
                 # Check the actual indexes in the original samples
                 test_misclassified_samples = test[np.where(ytest.ravel() != y_pred.ravel())[0]]
                 test_classpredictions = [*zip(test, y_pred)]
                 test_conf_matrix = metrics.confusion_matrix(ytest, y_pred)
 
-                # TODO: Apply the same ROC curve interpolation as the fit method
-                # test_roc_curve = metrics.roc_curve(ytest, class_score[:, 0], pos_label=0)
+                test_roc_curve = metrics.roc_curve(ytest, class_score[:, 0], pos_label=0)
                 test_roc_curve = 1
                 # Test metrics
                 cv_testaccuracy[cvround] = test_accuracy
@@ -840,6 +859,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 cv_testconfusionmatrix.append(test_conf_matrix)
                 cv_testclasspredictions.append(test_classpredictions)
 
+            # TODO proper investigation on how to get CV scores decently
             # Align model parameters to account for sign indeterminacy.
             # The criteria here used is to select the sign that gives a more similar profile (by L1 distance) to the loadings from
             # on the model fitted with the whole data. Any other parameter can be used, but since the loadings in X capture
@@ -913,7 +933,6 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             self.cvParameters['DA']['Stdev_f1'] = cv_testf1.std(0)
             self.cvParameters['DA']['Mean_0-1Loss'] = cv_testzerooneloss.mean(0)
             self.cvParameters['DA']['Stdev_0-1Loss'] = cv_testzerooneloss.std(0)
-
 
             # Save everything found during CV
             if outputdist is True:

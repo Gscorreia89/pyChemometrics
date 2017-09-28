@@ -419,8 +419,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 # Predict X from Y
                 elif y is not None:
                     # Comply with the sklearn scaler behaviour
-                    #if y.ndim == 1:
-                    #    y = y.reshape(-1, 1)
+                    if y.ndim == 1:
+                        y = y.reshape(-1, 1)
                     # Going through calculation of U and then X = Ub_uW'
                     u_scores = self.transform(x=None, y=y)
                     predicted = np.dot(np.dot(u_scores, self.b_u), self.weights_w.T)
@@ -718,12 +718,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             cv_loadings_q = np.zeros((ncvrounds, y_nvars, self.ncomps))
             cv_weights_w = np.zeros((ncvrounds, x_nvars, self.ncomps))
             cv_weights_c = np.zeros((ncvrounds, y_nvars, self.ncomps))
-            # cv_scores_t = np.zeros((ncvrounds, x.shape[0], self.ncomps))
-            # cv_scores_u = np.zeros((ncvrounds, y.shape[0], self.ncomps))
             cv_rotations_ws = np.zeros((ncvrounds, x_nvars, self.ncomps))
             cv_rotations_cs = np.zeros((ncvrounds, y_nvars, self.ncomps))
             cv_betacoefs = np.zeros((ncvrounds, x_nvars))
             cv_vipsw = np.zeros((ncvrounds, x_nvars))
+
+            cv_train_scores_t = list()
+            cv_train_scores_u = list()
+            cv_test_scores_t = list()
+            cv_test_scores_u = list()
 
             # Initialise predictive residual sum of squares variable (for whole CV routine)
             pressy = 0
@@ -803,8 +806,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 cv_loadings_q[cvround, :, :] = cv_pipeline.loadings_q
                 cv_weights_w[cvround, :, :] = cv_pipeline.weights_w
                 cv_weights_c[cvround, :, :] = cv_pipeline.weights_c
-                # cv_scores_t[cvround, :, :] = cv_pipeline.scores_t
-                # cv_scores_u[cvround, :, :] = cv_pipeline.scores_u
                 cv_rotations_ws[cvround, :, :] = cv_pipeline.rotations_ws
                 cv_rotations_cs[cvround, :, :] = cv_pipeline.rotations_cs
                 cv_betacoefs[cvround, :] = cv_pipeline.beta_coeffs.T
@@ -829,6 +830,17 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                         cv_weights_c[cvround, :, currload] = -1 * cv_weights_c[cvround, :, currload]
                         cv_rotations_ws[cvround, :, currload] = -1 * cv_rotations_ws[cvround, :, currload]
                         cv_rotations_cs[cvround, :, currload] = -1 * cv_rotations_cs[cvround, :, currload]
+                        cv_train_scores_t.append([*zip(train, -1 * cv_pipeline.scores_t)])
+                        cv_train_scores_u.append([*zip(train, -1 * cv_pipeline.scores_u)])
+                        cv_test_scores_t.append([*zip(test, -1 * cv_pipeline.scores_t)])
+                        cv_test_scores_u.append([*zip(test, -1 * cv_pipeline.scores_u)])
+                    else:
+                        cv_train_scores_t.append([*zip(train, cv_pipeline.scores_t)])
+                        cv_train_scores_u.append([*zip(train, cv_pipeline.scores_u)])
+                        cv_test_scores_t.append([*zip(test, cv_pipeline.scores_t)])
+                        cv_test_scores_u.append([*zip(test, cv_pipeline.scores_u)])
+
+
                         # cv_scores_t[cvround, currload, :] = -1 * cv_scores_t[cvround, currload, :]
                         # cv_scores_u[cvround, currload, :] = -1 * cv_scores_u[cvround, currload, :]
 
