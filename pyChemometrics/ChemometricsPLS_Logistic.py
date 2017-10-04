@@ -1049,7 +1049,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
 
             for permutation in range(0, nperms):
                 # Copy original column order, shuffle array in place...
-                perm_y = np.random.sample(y, len(y))
+                perm_y = np.random.permutation(y)
                 # ... Fit model and replace original data
                 permute_class.fit(x, perm_y, **permtest_kwargs)
                 permute_class.cross_validation(x, perm_y, cv_method=cv_method, **permtest_kwargs)
