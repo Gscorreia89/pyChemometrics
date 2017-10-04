@@ -894,12 +894,10 @@ class ChemometricsPLS_LDA(ChemometricsPLS, ClassifierMixin):
 
             for permutation in range(0, nperms):
                 # Copy original column order, shuffle array in place...
-                original_Y = np.copy(y)
-                np.random.shuffle(y)
+                perm_y = np.random.sample(y, len(y))
                 # ... Fit model and replace original data
-                permute_class.fit(x, y, **permtest_kwargs)
-                permute_class.cross_validation(x, y, cv_method=cv_method, **permtest_kwargs)
-                y = original_Y
+                permute_class.fit(x, perm_y, **permtest_kwargs)
+                permute_class.cross_validation(x, perm_y, cv_method=cv_method, **permtest_kwargs)
                 permuted_R2Y[permutation] = permute_class.modelParameters['R2Y']
                 permuted_R2X[permutation] = permute_class.modelParameters['R2X']
                 permuted_Q2Y[permutation] = permute_class.cvParameters['Q2Y']
