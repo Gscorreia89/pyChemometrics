@@ -128,7 +128,6 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         :rtype: numpy.ndarray, shape [n_samples, n_comps]
         :raise ValueError: If there are problems with the input or during model fitting.
         """
-
         try:
             self.fit(x, **fit_params)
             return self.transform(x)
