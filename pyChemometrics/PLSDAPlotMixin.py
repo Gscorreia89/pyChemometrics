@@ -4,6 +4,7 @@ import numpy as np
 from copy import deepcopy
 from pyChemometrics.ChemometricsPLSDA import ChemometricsPLSDA
 
+
 class PLSDAPlotMixin(ABCMeta):
     """
 
