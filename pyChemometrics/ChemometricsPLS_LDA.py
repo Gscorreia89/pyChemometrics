@@ -1029,10 +1029,9 @@ class ChemometricsPLS_LDA(ChemometricsPLS, ClassifierMixin):
 
             # These have to be recalculated from the rotations
             newmodel.beta_coeffs = np.dot(newmodel.rotations_ws, newmodel.loadings_q.T)
-            # Line also in the original sklearn method, but unnecessary when scaling = False - kept here for testing...
-            # newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
-            #                        newmodel.beta_coeffs * newmodel.y_scaler.scale_)
 
+            # NOTE: this "destroys" the internal state of the classifier apart from the PLS components,
+            # but this is only meant to be used inside the fit object and for the VIP calculation.
             return newmodel
         except ValueError as verr:
             raise verr

@@ -1086,9 +1086,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             # These have to be recalculated from the rotations
             newmodel.beta_coeffs = np.dot(newmodel.rotations_ws, newmodel.loadings_q.T)
-            # Line also in the original sklearn method, but unnecessary when scaling = False - kept here for testing...
-            # newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
-            #                        newmodel.beta_coeffs * newmodel.y_scaler.scale_)
 
             return newmodel
         except ValueError as verr:

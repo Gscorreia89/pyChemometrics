@@ -1148,7 +1148,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             rssx = np.sum((xscaled - xpred) ** 2)
             ssx_comp.append(rssx)
             ssy_comp.append(rssy)
-
+            
         cumulative_fit = {'SSX': SSX, 'SSY': SSY, 'SSXcomp': np.array(ssx_comp), 'SSYcomp': np.array(ssy_comp)}
 
         return cumulative_fit
@@ -1191,13 +1191,10 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             newmodel.beta_coeffs = np.dot(newmodel.rotations_ws, newmodel.loadings_q.T)
 
             newmodel.logreg_algorithm = None
-            # Line also in the original sklearn method, but unnecessary when scaling = False - kept here for testing...
-            # newmodel.beta_coeffs = (1. / newmodel.x_scaler.scale_.reshape((newmodel.x_scaler.scale_.shape[0], 1)) *
-            #                        newmodel.beta_coeffs * newmodel.y_scaler.scale_)
 
-            # What to do with the reffiting of the classification model?? - Easy way out - Mention
-            # That the predictor will be broken, since this is only to use during the crossvalidation anyway...
-            #newmodel.logreg_algorithm = log - What about this?
+            # NOTE: this "destroys" the internal state of the classifier apart from the PLS components,
+            # but this is only meant to be used inside the fit object and for the VIP calculation.
+
             return newmodel
         except ValueError as verr:
             raise verr
