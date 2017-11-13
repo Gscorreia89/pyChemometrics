@@ -30,18 +30,19 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
     """
 
     """
-    PLS-DA (y with dummy matrix), with the classifier using SIMCA.
-    The underlying PLS-DA model is exactly the same as standard PLS, and this objects inherits from ChemometricsPLS.
-    The PLS scores are then used to generate class densities and . 
-    # See: 
-    - Bylesjo et. al. OPLS discriminant analysis: Combining the strengths of PLS-DA and SIMCA classification 
-    - Indhal et. al., From dummy to 
-    - Barker et. al.,
-    Interpretation of the model is performed as follows:
-    1) Idenfitying the regression coefficients from the Logistic regression models which are relevant 
-    2) Analise the PLS vectors associated with the scores passed to the LogisticRegression model, 
-    without forgetting that the first "predictive" component is related  
-    3) Q2's are usual regression diagnostics are calculated as part of PLS, but...
+    PLS-DA (y with dummy matrix), where the predicted y from PLS response is converted into a class membership 
+    prediction using the scores and a simple rule (proximity to class centroid in score space, calculated in training).
+    
+    The underlying PLS model is exactly the same as standard PLS, and this objects inherits from ChemometricsPLS, the main 
+    difference in the PLS algorithm is the automated generation of dummy Y matrices. 
+    See:
+    - Indhal et. al., From dummy regression to prior probabilities in PLS-DA, Journal of Chemometrics, 2007
+    - Barker, Matthew, Rayens, William, Partial least squares for discrimination, Journal of Chemometrics, 2003
+    - Brereton, Richard G. Lloyd, Gavin R., Partial least squares discriminant analysis: Taking the magic away, 
+    Journal of Chemometrics, 2014
+    Model performance metrics employed are the Q2Y, Area under the curve and ROC curves, f1 measure, balanced accuracy,
+    precision, recall, confusion matrices and 0-1 loss. Although the Q2Y is seen, specific metrics for
+    classification problems are recommended.
     """
 
     def __init__(self, ncomps=2, pls_algorithm=PLSRegression,
@@ -142,10 +143,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
             # The PLS algorithm either gets a single vector in binary classification or a
             # Dummy matrix for the multiple classification case:
-            # See:
-            # - Indhal et. al., From dummy to ...
-            # - Bylesjo et. al., (O) PLS-DA trygg paper
-            # - Barker et. al.,
+
             self.pls_algorithm.fit(xscaled, y_pls, **fit_params)
 
             # Expose the model parameters - Same as in ChemometricsPLS
@@ -408,7 +406,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             return metrics.accuracy_score(y, self.predict(x), sample_weight=sample_weight)
         except ValueError as verr:
             raise verr
-
+        
     def predict(self, x):
         """
 
@@ -439,7 +437,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 # project X onto T - so then we can get
                 pred_scores = self.transform(x=x)
                 # prediction rule - find the closest class mean (centroid) for each sample in the score space
-                closest_class_mean = lambda x: np.argmin(np.linalg.norm(x - self.class_means, axis=1))
+                closest_class_mean = lambda x: np.argmin(np.linalg.norm((x - self.class_means)/self.modelParameters['PLS']['SSYcomp'], axis=1))
                 class_pred = np.apply_along_axis(closest_class_mean, axis=1, arr=pred_scores)
             return class_pred
 
