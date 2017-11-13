@@ -88,8 +88,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     This MLR approach to PLS has the advantage of exposing the PLS betas and PLS mechanism
     as a biased regression applying a degree of shrinkage, which decreases with the number of components
     all the way up to B(OLS), when Number of Components = number of variables/columns.
-    See Frank and Friedman, Jong and Kramer/Rosipal
-
+    
+    See:
+    Frank, Ildiko E. Friedman, Jerome H., A Statistical View of Some Chemometrics Regression Tools, 1993
+    de Jong, PLS shrinks, Journal of Chemometrics, 1995 
+    Nicole Kramer, An Overview on the Shrinkage Properties of Partial Least Squares Regression, 
+    Computational Statistics, 2007
     """
 
     def __init__(self, ncomps=2, pls_algorithm=PLSRegression, xscaler=ChemometricsScaler(), yscaler=None,
