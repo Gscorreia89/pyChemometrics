@@ -9,6 +9,13 @@ from sklearn.utils.sparsefuncs import (inplace_column_scale,
                                        mean_variance_axis, incr_mean_variance_axis)
 from sklearn.utils.validation import check_is_fitted, FLOAT_DTYPES
 
+"""
+
+Source code adapted from scikit-learn preprocessing object StandardScaler.
+"scikit-learn/sklearn/preprocessing/data.py" 
+
+"""
+
 
 class ChemometricsScaler(BaseEstimator, TransformerMixin):
     """

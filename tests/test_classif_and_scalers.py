@@ -1,8 +1,6 @@
 import unittest
 from numpy.testing import assert_array_equal, assert_allclose
-
 from sklearn.datasets import make_regression, make_classification
-
 from pyChemometrics import ChemometricsScaler, ChemometricsPLS, ChemometricsPCA
 
 """
@@ -23,7 +21,6 @@ class test_classif_and_scalers(unittest.TestCase):
         # Generate 2 fake classification datasets, one with 2 classes and another with 3
         self.twoclass_dataset = make_classification(40, n_features=100, n_informative=5, n_redundant=5, n_classes=2)
         self.regression_dataset_single_y = make_regression(40, 100, 5, 1)
-        #self.three_classdataset = make_classification(40, n_features=100, n_informative=5, n_redundant=5, n_classes=3)
 
         self.pls_mconly = ChemometricsPLS(xscaler=None)
         self.pls_uvscale = ChemometricsPLS(xscaler=ChemometricsScaler(1))

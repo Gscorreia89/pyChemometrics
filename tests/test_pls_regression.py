@@ -9,7 +9,6 @@ from pyChemometrics import ChemometricsScaler, ChemometricsPLS
 """
 
 Suite of tests to assess correctness of the PLS Regression object.
-Cross - checked with R's pls, ropls and mixOmics, and SIMCA P.
 
 """
 
