@@ -98,16 +98,17 @@ class PCAPlotMixin(ABCMeta):
         return None
 
     def dmodx_plot(self, x):
+        try:
+            plt.figure()
 
-        plt.figure()
-
-        plt.show()
-        return None
+            plt.show()
+            return None
+        except ValueError as verr:
+            raise verr
 
     def outlier(self, x, measure='T2'):
         if measure == 'T2':
             scores = self.transform(x)
-
             t2 = np.array(self.hotelling_T2())
 
             outlier_idx = np.where(((scores ** 2) / t2 **2).sum(axis=1) > 1)[0]

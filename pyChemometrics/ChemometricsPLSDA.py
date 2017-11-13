@@ -441,7 +441,6 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 # prediction rule - find the closest class mean (centroid) for each sample in the score space
                 closest_class_mean = lambda x: np.argmin(np.linalg.norm(x - self.class_means, axis=1))
                 class_pred = np.apply_along_axis(closest_class_mean, axis=1, arr=pred_scores)
-
             return class_pred
 
         except ValueError as verr:
@@ -572,7 +571,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         """
 
         Output the Variable importance for projection metric (VIP). With the default values it is calculated
-        using the x variable weights and the variance explained of y.
+        using the x variable weights and the variance explained of y. Default mode is recommended
+        (mode = 'w' and direction = 'y')
 
         :param mode: The type of model parameter to use in calculating the VIP. Default value is weights (w), and other acceptable arguments are p, ws, cs, c and q.
         :type mode: str
@@ -582,7 +582,6 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         :raise ValueError: If mode or direction is not a valid option.
         :raise AttributeError: Calling method without a fitted model.
         """
-        # TODO check with matlab and SIMCA
         try:
             # Code not really adequate for each Y variable in the multi-Y case - SSy should be changed so
             # that it is calculated for each y and not for the whole block
@@ -615,7 +614,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         except ValueError as verr:
             raise verr
 
-    def cross_validation(self, x, y, cv_method=KFold(7, True), outputdist=False, testset_scale=False,
+    def cross_validation(self, x, y, cv_method=KFold(7, True), outputdist=False,
                          **crossval_kwargs):
         """
 
@@ -748,7 +747,6 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
                 cv_pipeline.fit(xtrain, ytrain, **crossval_kwargs)
                 # Prepare the scaled X and Y test data
-                # If testset_scale is True, these are scaled individually...
 
                 # Comply with the sklearn scaler behaviour
                 if xtest.ndim == 1:
@@ -756,11 +754,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                     xtrain = xtrain.reshape(-1, 1)
                 # Fit the training data
 
-                if testset_scale is True:
-                    xtest_scaled = cv_pipeline.x_scaler.fit_transform(xtest)
-                # Otherwise (default), training set mean and scaling vectors are used
-                else:
-                    xtest_scaled = cv_pipeline.x_scaler.transform(xtest)
+
+                xtest_scaled = cv_pipeline.x_scaler.transform(xtest)
 
                 R2X_training[cvround] = ChemometricsPLS.score(cv_pipeline, xtrain, ytrain, 'x')
                 R2Y_training[cvround] = ChemometricsPLS.score(cv_pipeline, xtrain, ytrain, 'y')

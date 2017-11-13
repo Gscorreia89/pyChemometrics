@@ -99,6 +99,15 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                 self.modelParameters = {'R2X': 1 - (rss / ss), 'VarExp': self.pca_algorithm.explained_variance_,
                                         'VarExpRatio': self.pca_algorithm.explained_variance_ratio_}
 
+            # For "Normalised" DmodX calculation
+            # get residual SSX
+            pred_scores = self.transform(x)
+            x_reconstructed = self.scaler.transform(self.inverse_transform(pred_scores))
+            xscaled = self.scaler.transform(x)
+            resid_ssx = np.sum((xscaled - x_reconstructed) ** 2, axis=1)
+            # Denominator for normalised DmodX
+            s0 = np.sqrt(resid_ssx.sum()/((self.scores.shape[0] - self.ncomps - 1)*(x.shape[1] - self.ncomps)))
+            self.modelParameters['S0'] = s0
             # Kernel PCA and other non-linear methods might not have explicit loadings - safeguard against this
             if hasattr(self.pca_algorithm, 'components_'):
                 self.loadings = self.pca_algorithm.components_
@@ -220,7 +229,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         :raise ValueError: If there is any error during the imputation process.
         """
 
-        # TODO Check this section here as well as the transpose impute
+        # TODO Double check improved algorithms and methods for PRESS estimation for PCA in general
 
         try:
             # Scaling check for consistency
@@ -241,8 +250,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
     def _press_impute_transpose(self, x, var_to_pred):
         """
 
-        Single value imputation method, essential to use in the cross-validation
-        In theory can also be used to do missing data imputation.
+        Single element imputation method, essential to use in the cross-validation
         Based on the approximation described in amoeba's answer
         on CrossValidated: http://stats.stackexchange.com/a/115477
 
@@ -337,22 +345,43 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         except TypeError as typerr:
             raise typerr
 
-    def hotelling_T2(self, comps, alpha=0.05):
+    def hotelling_T2(self, comps=None, alpha=0.05):
         """
 
         Obtain the parameters for the Hotelling T2 ellipse at the desired significance level.
 
         :param list comps:
-        :return:
-        :rtype:
-        :raise ValueError: If the dimensions request
+        :param float alpha: Significance level
+        :return: The Hotelling T2 ellipsoid radii at vertex
+        :rtype: numpy.ndarray
+        :raise AtributeError: If the model is not fitted
+        :raise ValueError: If the components requested are higher than the number of components in the model
+        :raise TypeError: If comps is not None or list/numpy 1d array and alpha a float
         """
-        # TODO compare with Matlab and SIMCA on toy datasets
+
         try:
-            nsamples = self.scores_t.shape[0]
-            a = (nsamples-1)/nsamples*2*((nsamples**2) -1)/(nsamples*(nsamples -2))
-            #st.f.ppf(0.95, , dfd, loc=0, scale=1)
-            return None
+            if self._isfitted is False:
+                raise AttributeError("Model is not fitted")
+            nsamples = self.scores.shape[0]
+            if comps is None:
+                ncomps = self.ncomps
+                ellips = self.scores[:, range(self.ncomps)] ** 2
+                ellips = 1 / nsamples * (ellips.sum(0))
+            else:
+                ncomps = len(comps)
+                ellips = self.scores[:, comps] ** 2
+                ellips = 1 / nsamples * (ellips.sum(0))
+
+            # F stat
+            fs = (nsamples - 1) / nsamples * ncomps * (nsamples ** 2 - 1) / (nsamples * (nsamples - ncomps))
+            fs = fs * st.f.ppf(1-alpha, ncomps, nsamples - ncomps)
+
+            hoteling_t2 = list()
+            for comp in range(ncomps):
+                hoteling_t2.append(np.sqrt((fs * ellips[comp])))
+
+            return np.array(hoteling_t2)
+
         except AttributeError as atre:
             raise atre
         except ValueError as valerr:
@@ -360,22 +389,28 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         except TypeError as typerr:
             raise typerr
 
-    def dModX(self, x=None):
+    def dmodx(self, x):
         """
-        :return:
+
+        Normalised DmodX measure
+
+        :param x: data matrix [n samples, m variables]
+        :return: The Normalised DmodX measure for each sample
         """
-        # TODO add this, but we should check if it works well
-        return NotImplementedError
+        resids_ssx = self._residual_ssx(x)
+        s = np.sqrt(resids_ssx/(self.loadings.shape[1] - self.ncomps))
+        dmodx = np.sqrt((s/self.modelParameters['S0'])**2)
+        return dmodx
 
     def leverages(self):
         """
-        Calculate the leverages for each observation
-        :return:
-        :rtype:
-        """
-        # TODO: compare with matlab and simca on the toy datasets
 
-        return np.dot(self.scores, np.dot(np.linalg.inv(np.dot(self.scores.T, self.scores)), self.scores.T))
+        Calculate the leverages for each observation
+
+        :return: The leverage (H) for each observation
+        :rtype: numpy.ndarray
+        """
+        return np.diag(np.dot(self.scores, np.dot(np.linalg.inv(np.dot(self.scores.T, self.scores)), self.scores.T)))
 
     def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_impute=True, testset_scale=False):
         """
