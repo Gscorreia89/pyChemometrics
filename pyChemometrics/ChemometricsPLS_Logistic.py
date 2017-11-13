@@ -598,7 +598,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
         except ValueError as verr:
             raise verr
 
-    def cross_validation(self, x, y, cv_method=KFold(7, True), outputdist=False, testset_scale=False,
+    def cross_validation(self, x, y, cv_method=KFold(7, True), outputdist=False,
                          **crossval_kwargs):
         """
 
@@ -611,7 +611,6 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
         :param cv_method: An instance of a scikit-learn CrossValidator object.
         :type cv_method: BaseCrossValidator or BaseShuffleSplit
         :param bool outputdist: Output the whole distribution for. Useful when ShuffleSplit or CrossValidators other than KFold.
-        :param bool testset_scale: Scale the test sets using its own mean and standard deviation instead of the scaler fitted on training set.
         :param kwargs crossval_kwargs: Keyword arguments to be passed to the sklearn.Pipeline during cross-validation
         :return:
         :rtype: dict
@@ -739,11 +738,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
                     xtrain = xtrain.reshape(-1, 1)
                 # Fit the training data
 
-                if testset_scale is True:
-                    xtest_scaled = cv_pipeline.x_scaler.fit_transform(xtest)
-                # Otherwise (default), training set mean and scaling vectors are used
-                else:
-                    xtest_scaled = cv_pipeline.x_scaler.transform(xtest)
+                xtest_scaled = cv_pipeline.x_scaler.transform(xtest)
 
                 R2X_training[cvround] = ChemometricsPLS.score(cv_pipeline, xtrain, ytrain, 'x')
                 R2Y_training[cvround] = ChemometricsPLS.score(cv_pipeline, xtrain, ytrain, 'y')

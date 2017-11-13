@@ -349,7 +349,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :rtype: float
         :raise ValueError: If block to score argument is not acceptable or date mismatch issues with the provided data.
         """
-        # TODO: actually use sample_weight
+        # TODO: Check how to implement sample_weight, which is expected in scikit-learn methods, for PLS algorithms
         try:
             if block_to_score not in ['x', 'y']:
                 raise ValueError("x or y are the only accepted values for block_to_score")
@@ -477,7 +477,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             return None
         except AttributeError as atre:
             raise atre
-        
+
     @property
     def x_scaler(self):
         try:
@@ -579,6 +579,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         Output the Variable importance for projection metric (VIP). With the default values it is calculated
         using the x variable weights and the variance explained of y.
 
+        Note: Code not adequate to obtain a VIP for each individual variable in the multi-Y case, as SSY should be changed
+        so that it is calculated for each y and not for the whole Y matrix
+
         :param mode: The type of model parameter to use in calculating the VIP. Default value is weights (w), and other acceptable arguments are p, ws, cs, c and q.
         :type mode: str
         :param str direction: The data block to be used to calculated the model fit and regression sum of squares.
@@ -587,7 +590,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :raise ValueError: If mode or direction is not a valid option.
         :raise AttributeError: Calling method without a fitted model.
         """
-        # TODO Check with matlab and SIMCA
         try:
             # Code not really adequate for each Y variable in the multi-Y case - SSy should be changed so
             # that it is calculated for each y and not for the whole bloc
@@ -630,7 +632,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :rtype:
         :raise ValueError: If the dimensions request
         """
-        # TODO and compare with matlab and SIMCA
+        # TODO implement and test
         try:
             if self._isfitted is False:
                 raise AttributeError("Model is not fitted")
@@ -650,7 +652,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         """
         :return:
         """
-        # TODO and check with simca and matlab
+        # TODO implement and test
         return NotImplementedError
 
     def leverages(self, block='X'):
@@ -659,7 +661,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :return:
         :rtype:
         """
-        # TODO check with matlab and simca
+        # TODO test
         try:
             if block == 'X':
                 return np.dot(self.scores_t, np.dot(np.linalg.inv(np.dot(self.scores_t.T, self.scores_t), self.scores_t.T)))
@@ -670,7 +672,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except ValueError as verr:
             raise ValueError('block option must be either X or Y')
 
-    def cross_validation(self, x, y, cv_method=KFold(7, True), outputdist=False, testset_scale=False,
+    def cross_validation(self, x, y, cv_method=KFold(7, True), outputdist=False,
                          **crossval_kwargs):
         """
 
@@ -683,7 +685,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :param cv_method: An instance of a scikit-learn CrossValidator object.
         :type cv_method: BaseCrossValidator or BaseShuffleSplit
         :param bool outputdist: Output the whole distribution for. Useful when ShuffleSplit or CrossValidators other than KFold.
-        :param bool testset_scale: Scale the test sets using its own mean and standard deviation instead of the scaler fitted on training set.
         :param kwargs crossval_kwargs: Keyword arguments to be passed to the sklearn.Pipeline during cross-validation
         :return:
         :rtype: dict
@@ -777,13 +778,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                     xtrain = xtrain.reshape(-1, 1)
                 # Fit the training data
 
-                if testset_scale is True:
-                    xtest_scaled = cv_pipeline.x_scaler.fit_transform(xtest)
-                    ytest_scaled = cv_pipeline.y_scaler.fit_transform(ytest)
-                # Otherwise (default), training set mean and scaling vectors are used
-                else:
-                    xtest_scaled = cv_pipeline.x_scaler.transform(xtest)
-                    ytest_scaled = cv_pipeline.y_scaler.transform(ytest)
+                xtest_scaled = cv_pipeline.x_scaler.transform(xtest)
+                ytest_scaled = cv_pipeline.y_scaler.transform(ytest)
 
                 R2X_training[cvround] = cv_pipeline.score(xtrain, ytrain, 'x')
                 R2Y_training[cvround] = cv_pipeline.score(xtrain, ytrain, 'y')
@@ -862,7 +858,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                                  'Stdev_Rotations_cs': cv_rotations_cs.std(0), 'Mean_Beta': cv_betacoefs.mean(0),
                                  'Stdev_Beta': cv_betacoefs.std(0), 'Mean_VIP': cv_vipsw.mean(0),
                                  'Stdev_VIP': cv_vipsw.std(0)}
-            # TODO average this properly
+            # TODO Investigate a better way to average this properly
+            # Projection to a global "model"?
             # Means and standard deviations...
             # self.cvParameters['Mean_Scores_t'] = cv_scores_t.mean(0)
             # self.cvParameters['Stdev_Scores_t'] = cv_scores_t.std(0)

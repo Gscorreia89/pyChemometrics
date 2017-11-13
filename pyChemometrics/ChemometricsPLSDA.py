@@ -625,7 +625,6 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         :param cv_method: An instance of a scikit-learn CrossValidator object.
         :type cv_method: BaseCrossValidator or BaseShuffleSplit
         :param bool outputdist: Output the whole distribution for. Useful when ShuffleSplit or CrossValidators other than KFold.
-        :param bool testset_scale: Scale the test sets using its own mean and standard deviation instead of the scaler fitted on training set.
         :param kwargs crossval_kwargs: Keyword arguments to be passed to the sklearn.Pipeline during cross-validation
         :return:
         :rtype: dict
