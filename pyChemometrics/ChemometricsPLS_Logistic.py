@@ -1148,7 +1148,7 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             rssx = np.sum((xscaled - xpred) ** 2)
             ssx_comp.append(rssx)
             ssy_comp.append(rssy)
-            
+
         cumulative_fit = {'SSX': SSX, 'SSY': SSY, 'SSXcomp': np.array(ssx_comp), 'SSYcomp': np.array(ssy_comp)}
 
         return cumulative_fit
