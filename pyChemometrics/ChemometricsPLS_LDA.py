@@ -27,7 +27,7 @@ class ChemometricsPLS_LDA(ChemometricsPLS, ClassifierMixin):
     :param kwargs classifier_kwargs: Keyword arguments to be passed during initialization of pls_algorithm.
     :raise TypeError: If the pca_algorithm or scaler objects are not of the right class.
     """
-    def __init__(self, ncomps=2, pls_algorithm=PLSRegression, da_algorithm=LinearDiscriminantAnalysis, xscaler=ChemometricsScaler(), yscaler=None,
+    def __init__(self, ncomps=2, pls_algorithm=PLSRegression, da_algorithm=QuadraticDiscriminantAnalysis, xscaler=ChemometricsScaler(), yscaler=None,
                  **classifier_kwargs):
 
         try:
