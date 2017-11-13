@@ -11,8 +11,8 @@ from sklearn.utils.validation import check_is_fitted, FLOAT_DTYPES
 
 """
 
-Source code adapted from scikit-learn preprocessing object StandardScaler.
-"scikit-learn/sklearn/preprocessing/data.py" 
+Source code adapted from scikit-learn preprocessing object StandardScaler. 
+(Original unadapted code can be found in version 0.19.1, "scikit-learn/sklearn/preprocessing/data.py") 
 
 """
 
