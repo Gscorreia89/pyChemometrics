@@ -406,7 +406,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             return metrics.accuracy_score(y, self.predict(x), sample_weight=sample_weight)
         except ValueError as verr:
             raise verr
-        
+
     def predict(self, x):
         """
 
