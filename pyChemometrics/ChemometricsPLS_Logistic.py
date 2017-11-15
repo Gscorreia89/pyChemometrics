@@ -34,12 +34,15 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
     PLS - DA (y with dummy matrix) followed by Logistic Regression
     The underlying PLS-DA model is exactly the same as standard PLS, and this objects inherits from ChemometricsPLS.
     The PLS scores are then provided for a multivariate logistic regression model. Since PLS components have orthogonal 
-    scores, and this is a dimensionality reduction method, there is no need for regularization in the logistic model.
+    scores, and this is a dimensionality reduction method, there is no need for applying regularization 
+    in the logistic model.
     Interpretation of the model is performed as follows:
-    1) Idenfitying the regression coefficients from the Logistic regression models which are relevant 
-    2) Analise the PLS vectors associated with the scores passed to the LogisticRegression model, 
-    without forgetting that the first "predictive" component is related  
-    3) Q2's are usual regression diagnostics are calculated as part of PLS, but... 
+    1) Idenfitying the regression coefficients from the Logistic regression models which are relevant.
+    2) Analise the PLS weight and loading vectors associated with the scores passed to the LogisticRegression model.
+    
+    The same classification quality control metrics as employed for PLSDA are available, except that the LogisticRegression model
+    provides more formal class probabilities, compared to the simpler PLS-DA class assignments based on the predicted Y
+    and scores. 
     """
 
     def __init__(self, ncomps=2, pls_algorithm=PLSRegression, logreg_algorithm=LogisticRegression,
@@ -53,9 +56,11 @@ class ChemometricsPLS_Logistic(ChemometricsPLS, ClassifierMixin):
             if not (isinstance(xscaler, TransformerMixin) or xscaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
 
-            # Secretly declared here so calling methods from parent ChemometricsPLS class is possible
+            # Not important for this classifier, but "secretly" declared here so calling methods from parent
+            # ChemometricsPLS class is possible
             self._y_scaler = ChemometricsScaler(0, with_std=False, with_mean=False)
 
+            # Use the LogisticRegression algorithm from scikit-learn
             logreg_algorithm = logreg_algorithm()
             if not isinstance(logreg_algorithm, (BaseEstimator, LogisticRegression)):
                 raise TypeError("Scikit-learn LogisticRegression please")

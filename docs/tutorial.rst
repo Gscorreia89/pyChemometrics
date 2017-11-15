@@ -38,7 +38,6 @@ and Regressor Mixins, for example, .fit, .transform , .predict and .score.
 
 Principal Component Analysis
 ============================
-
 Principal Component Analysis is provided by the :py:class:`~pyChemometrics.ChemometricsPCA` object.
 
 :py:class:`~pyChemometrics.ChemometricsPCA` object. The scaler parameter expects a :py:class:`~pyChemometrics.ChemometricsScaler`
@@ -79,10 +78,25 @@ The pyChemometrics objects follow a similar logic Similarly to scikit-learn:
 
     ples.pca
 
-Partial Least Squares
-=====================
+Partial Least Squares Regression
+================================
+The standard Partial Least Squares object
 
 The scores and loadings obtained for each component upon calling the .fit method are set as atributes of the model.
+
+    - scores_t:
+    - scores_u:
+    - weights_w:
+    - weights_c:
+    - loadings_p:
+    - loadings_q:
+    - rotations_ws:
+    - rotations_cs:
+    - b_u:
+    - b_t:
+    - beta_coeffs:
+    - logistic_coefs:
+    - n_classes:
 
 The modelParameters dictionary contains the following keys:
     - R2Y: Total variance explained by the model, per component
@@ -115,6 +129,20 @@ The :py:class:`~pyChemometrics.ChemometricsPLSDA` object shares many features wi
 
 Calling the fit method will fill in these
 
+    - scores_t:
+    - scores_u:
+    - weights_w:
+    - weights_c:
+    - loadings_p:
+    - loadings_q:
+    - rotations_ws:
+    - rotations_cs:
+    - b_u:
+    - b_t:
+    - beta_coeffs:
+    - logistic_coefs:
+    - n_classes:
+
 However, this object expects either a singly Y vector containing, or a dummy matrix. The singly Y vector encoding class membership
 is re-coded as a dummy matrix of dimensions [n observations x m classes] as part of the algorithm.
 
@@ -129,14 +157,14 @@ The modelParameters dictionary attributes are contains the following keys:
     - SSXcomp: The variance explained by the model in the fitting/training set. Calculated using the model residuals.
     - SSYcomp: The denominator for calculation of the Normalised DmodX score.
     The 'DA' subdictionary contains the classification metrics obtained by scoring the class predictions with the known truth.
-    - Balanced accuracy
-    - F1 measure
-    - Precision
-    - Recall
-    - ROC curve
-    - AUC
-    - 01-Loss
-    - MCC
+    - Balanced accuracy:
+    - F1 measure:
+    - Precision:
+    - Recall:
+    - ROC curve:
+    - AUC:
+    - 01-Loss:
+    - MCC:
 
 Performing model cross_validation using the :py:class:`~pyChemometrics.ChemometricsPLS.cross_validation()` method
 generates another dictionary atribute, cvParameters. These contain the mean and standard deviation values obtained
@@ -155,3 +183,45 @@ Additionaly, the discriminant analysis also contains the mean and standard devia
 If the outputdist option is set to True when performing cross validation, cvParameters will contain extra keys with
 numpy.ndarrays containing all the model parameters (scores, loadings, goodness of fit metrics, etc) obtained for each model fitted
 during CV.
+
+Partial Least Squares - Logistic Regression
+===========================================
+
+The :py:class:`~pyChemometrics.ChemometricsPLS_Logistic` object shares many features with the :py:class:`ChemometricsPLS` object.
+
+    - scores_t:
+    - scores_u:
+    - weights_w:
+    - weights_c:
+    - loadings_p:
+    - loadings_q:
+    - rotations_ws:
+    - rotations_cs:
+    - b_u:
+    - b_t:
+    - beta_coeffs:
+    - logistic_coefs:
+    - n_classes:
+
+Calling the fit method will fill in these
+
+Partial Least Squares - Linear Discriminant Analysis
+====================================================
+
+The :py:class:`~pyChemometrics.ChemometricsPLS_LDA` object shares many features with the :py:class:`ChemometricsPLS_LDA` object.
+
+    - scores_t:
+    - scores_u:
+    - weights_w:
+    - weights_c:
+    - loadings_p:
+    - loadings_q:
+    - rotations_ws:
+    - rotations_cs:
+    - b_u:
+    - b_t:
+    - beta_coeffs:
+    - logistic_coefs:
+    - n_classes:
+
+Calling the fit method will fill in these
