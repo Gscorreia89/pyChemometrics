@@ -687,7 +687,6 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             cv_betacoefs = np.zeros((ncvrounds, y_nvars, x_nvars))
             cv_vipsw = np.zeros((ncvrounds, x_nvars))
 
-
             cv_trainprecision = np.zeros(ncvrounds)
             cv_trainrecall = np.zeros(ncvrounds)
             cv_trainaccuracy = np.zeros(ncvrounds)

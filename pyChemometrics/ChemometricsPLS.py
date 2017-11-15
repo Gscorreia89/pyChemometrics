@@ -997,7 +997,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             obs_q2y = self.cvParameters['Q2Y']
             pvals = dict()
             pvals['Q2Y'] = (len(np.where(permuted_Q2Y >= obs_q2y)) + 1) / (nperms + 1)
-
+            obs_r2y = self.cvParameters['R2Y_Test']
+            pvals['R2Y_Test'] = (len(np.where(permuted_R2Y_test >= obs_r2y)) + 1) / (nperms + 1)
             return permutationTest, pvals
 
         except ValueError as exp:
@@ -1025,9 +1026,6 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         xscaled = self.x_scaler.transform(x)
         yscaled = self.y_scaler.transform(y)
-
-        ssx_comp = list()
-        ssy_comp = list()
 
         # Obtain residual sum of squares for whole data set and per component
         SSX = np.sum(xscaled ** 2)
