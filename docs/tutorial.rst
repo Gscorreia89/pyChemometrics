@@ -1,9 +1,17 @@
 Using the pyChemometrics objects
 --------------------------------
+pyChemometrics is a python 3.5 library for multivariate chemometric data analysis.
 
-The methods provided by these objects
-The pyChemometrics objects follow a similar logic Similarly to scikit-learn:
+The main objects ChemometricsPCA, ChemometricsPLS and ChemometricsPLSDA consist of wrappers for scikit-learn
+Principal Component Analysis and Partial Least Squares Regression objects. They have been made to mimic as much as possible
+scikit-learn classifiers, from their internal properties, and therefore can be interfaced with other
+components of scikit-learn, such as the a klearn::`Pipeline`.
 
+These wrappers contain implementations of various routines and metrics commonly seen in the Chemometric and metabonomic literature.
+PRESS and Q2Y estimation, permutation testing, Hotelling T2 for outlier detection of scores, VIP scores for variable importance.
+Pareto and Unit-Variance scaling.
+
+Each of these objects uses ChemometricsScaler objects to automatically handle the scaling of the X and Y data matrices.
 
 Scaling
 =======
@@ -26,7 +34,6 @@ and Regressor Mixins, for example, .fit, .transform , .predict and .score.
     t_scores  = pca_model.transform(X)
     # Obtain the reconstructed dataset from the T scores.
     pca_model.inverse_transform(scores)
-
 
 
 Principal Component Analysis
@@ -71,7 +78,6 @@ The methods provided by these objects
 The pyChemometrics objects follow a similar logic Similarly to scikit-learn:
 
     ples.pca
-
 
 Partial Least Squares
 =====================
