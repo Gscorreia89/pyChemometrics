@@ -87,26 +87,17 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                 predicted = self.pca_algorithm.inverse_transform(self.scores)
                 rss = np.sum((xscaled - predicted) ** 2)
                 # variance explained from scikit-learn stored as well
-                self.modelParameters = {'R2X': 1 - (rss / ss),
-                                        'VarExpRatio': self.pca_algorithm.explained_variance_ratio_,
-                                        'VarExp': self.pca_algorithm.explained_variance_}
-
             else:
                 self.pca_algorithm.fit(x, **fit_params)
                 self.scores = self.pca_algorithm.transform(x)
                 ss = np.sum((x - np.mean(x, 0)) ** 2)
                 predicted = self.pca_algorithm.inverse_transform(self.scores)
                 rss = np.sum((x - predicted) ** 2)
-                self.modelParameters = {'R2X': 1 - (rss / ss), 'VarExp': self.pca_algorithm.explained_variance_,
-                                        'VarExpRatio': self.pca_algorithm.explained_variance_ratio_}
+            self.modelParameters = {'R2X': 1 - (rss / ss), 'VarExp': self.pca_algorithm.explained_variance_,
+                                    'VarExpRatio': self.pca_algorithm.explained_variance_ratio_}
 
             # For "Normalised" DmodX calculation
-            # get residual SSX
-            pred_scores = self.transform(x)
-            x_reconstructed = self.scaler.transform(self.inverse_transform(pred_scores))
-            xscaled = self.scaler.transform(x)
-            resid_ssx = np.sum((xscaled - x_reconstructed) ** 2, axis=1)
-            # Denominator for normalised DmodX
+            resid_ssx = self._residual_ssx(x)
             s0 = np.sqrt(resid_ssx.sum()/((self.scores.shape[0] - self.ncomps - 1)*(x.shape[1] - self.ncomps)))
             self.modelParameters['S0'] = s0
             # Kernel PCA and other non-linear methods might not have explicit loadings - safeguard against this
@@ -138,6 +129,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         :rtype: numpy.ndarray, shape [n_samples, n_comps]
         :raise ValueError: If there are problems with the input or during model fitting.
         """
+
         try:
             self.fit(x, **fit_params)
             return self.transform(x)
@@ -359,6 +351,36 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         except TypeError as typerr:
             raise typerr
 
+    def _residual_ssx(self, x):
+        """
+
+        :param x: Data matrix [n samples, m variables]
+        :return: The residual Sum of Squares per sample
+        """
+        pred_scores = self.transform(x)
+
+        x_reconstructed = self.scaler.transform(self.inverse_transform(pred_scores))
+        xscaled = self.scaler.transform(x)
+        residuals = np.sum((xscaled - x_reconstructed)**2, axis=1)
+        return residuals
+
+    def x_residuals(self, x, scale=True):
+        """
+
+        :param x: data matrix [n samples, m variables]
+        :param scale: Return the residuals in the scale the model is using or in the raw data scale
+        :return: X matrix model residuals
+        """
+        pred_scores = self.transform(x)
+        x_reconstructed = self.scaler.transform(self.inverse_transform(pred_scores))
+        xscaled = self.scaler.transform(x)
+
+        x_residuals = np.sum((xscaled - x_reconstructed)**2, axis=1)
+        if scale:
+            x_residuals = self.scaler.inverse_transform(x_residuals)
+
+        return x_residuals
+
     def dmodx(self, x):
         """
 
@@ -385,17 +407,18 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
     def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_impute=True):
         """
 
-        Cross-validation method for the model. Calculates Q2 and cross-validated estimates for all model parameters.
+        Cross-validation method for the model. Calculates cross-validated estimates for Q2X and other
+        model parameters using row-wise cross validation.
 
         :param x: Data matrix.
-        :type x: numpy.ndarray, shape [n_samples, n_feeatures]
+        :type x: numpy.ndarray, shape [n_samples, n_features]
         :param cv_method: An instance of a scikit-learn CrossValidator object.
         :type cv_method: BaseCrossValidator
         :param bool outputdist: Output the whole distribution for the cross validated parameters.
         Useful when using ShuffleSplit or CrossValidators other than KFold.
         :param bool press_impute: Use imputation of test set observations instead of row wise cross-validation.
         Slower but more reliable.
-        :return:
+        :return: Adds a dictionary cvParameters to the object, containing the cross validation results
         :rtype: dict
         :raise TypeError: If the cv_method passed is not a scikit-learn CrossValidator object.
         :raise ValueError: If the x data matrix is invalid.
@@ -438,7 +461,9 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                 cv_pipeline.fit(x[xtrain, :])
                 # Calculate R2/Variance Explained in test set
                 # To calculate an R2X in the test set
+
                 xtest_scaled = cv_pipeline.scaler.transform(x[xtest, :])
+
                 tss = np.sum((xtest_scaled) ** 2)
                 # Append the var explained in training set for this round and loadings for this round
                 cv_varexplained_training.append(cv_pipeline.pca_algorithm.explained_variance_ratio_)
@@ -501,13 +526,39 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                 self.cvParameters['Stdev_Loadings'] = [np.std(x, 0) for x in cv_loads]
                 if outputdist is True:
                     self.cvParameters['CV_Loadings'] = cv_loads
-
             return None
 
         except TypeError as terp:
             raise terp
         except ValueError as verr:
             raise verr
+
+    def outlier(self, x, comps=None, measure='T2', alpha=0.05):
+        """
+
+        Use the Hotelling T2 or DmodX measure and F statistic to screen for outlier candidates.
+
+        :param x: Data matrix [n samples, m variables]
+        :param comps: Which components to use (for Hotelling T2 only)
+        :param measure: Hotelling T2 or DmodX
+        :param alpha: Significance level
+        :return: List with row indices of X matrix
+        """
+        try:
+            if measure == 'T2':
+                scores = self.transform(x)
+                t2 = self.hotelling_T2(comps=comps)
+                outlier_idx = np.where(((scores ** 2) / t2 ** 2).sum(axis=1) > 1)[0]
+            elif measure == 'DmodX':
+                dmodx = self.dmodx(x)
+                dcrit = st.f.ppf(1 - alpha, x.shape[1] - self.ncomps,
+                                 (x.shape[0] - self.ncomps - 1) * (x.shape[1] - self.ncomps))
+                outlier_idx = np.where(dmodx > dcrit)[0]
+            else:
+                print("Select T2 (Hotelling T2) or DmodX as outlier exclusion criteria")
+            return outlier_idx
+        except Exception as exp:
+            raise exp
 
     def permutationtest_loadings(self, x, nperms=1000):
         """

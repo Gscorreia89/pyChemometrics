@@ -5,6 +5,8 @@ from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
 from .ChemometricsScaler import ChemometricsScaler
+import scipy.stats as st
+
 __author__ = 'gd2212'
 
 
@@ -38,16 +40,15 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     Y - Loadings Q - Vector/multivariate directions associated with U on Y are called q
     X - Weights W - Weights/directions of maximum covariance with Y of the X block are called W
     Y - Weights C - Weights/directions of maximum covariance with X of the Y block block are called C
-    These "y-weights" tend to be almost negligible (not in the calculation though... ) of PLS1/PLS Regression
-    but are necessary in multi-Y/SVD-PLS/PLS2
     X - Rotations W*/Ws/R - The rotation of X variables to LV space pinv(WP')W
     Y - Rotations C*/Cs - The rotation of Y variables to LV space pinv(CQ')C
     T = X W(P'W)^-1 = XW* (W* : p x k matrix)
     U = Y C(Q'C)^-1 = YC* (C* : q x k matrix)
     Loadings and weights after the first component do not represent
-    the original variables. The SIMPLS W*/Ws/R and C*/Cs act weight vectors
+    the original variables. The SIMPLS-style (similar interpretation but not the same Rotations that would be obtained from 
+    using the SIMPLS algorithm) W*/Ws and C*/Cs act as weight vectors
     which relate to the original X and Y variables, and not to their deflated versions.
-    See Sijmen de Jong, "SIMPLS: an alternative approach to partial least squares regression", Chemometrics
+    For more information see Sijmen de Jong, "SIMPLS: an alternative approach to partial least squares regression", Chemometrics
     and Intelligent Laboratory Systems 1992
     "Inner" relation regression coefficients of T b_t: U = Tb_t
     "Inner" relation regression coefficients of U b_U: T = Ub_u
@@ -55,19 +56,19 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     B = pinv(X'X)X'Y
     b_t = pinv(T'T)T'U
     b_u = pinv(U'U)U'T
-    or in a more familiar form: b_t are the betas from regressing T on U - t'u/u'u
+    or in a form usually seen in PLS NIPALS algorithms: b_t are the betas from regressing T on U - t'u/u'u
     and b_u are the betas from regressing U on T - u't/t't
 
     In summary, there are various ways to approach the model. Following a general nomenclature applicable
     for both single and block Y:
-    The predictive model, assuming the Latent variable formulation, uses an "inner relation"
+    For predictions, the model assumes the Latent variable formulation and uses an "inner relation"
     between the latent variable projections, where U = Tb_t and T = Ub_u.
-    Prediction using the so-called "mixed relations" (relate T with U and subsequently Y/relate
+    Therefore, prediction using the so-called "mixed relations" (relate T with U and subsequently Y/relate
     U with T and subsequently X), works through the following formulas
     Y = T*b_t*C' + G
     X = U*b_u*W' + H
     The b_u and b_s are effectively "regression coefficients" between the latent variable scores
-
+    
     In parallel, we can think in terms of "outer relations", data decompositions or linear approximations to
     the original data blocks, similar to PCA components
     Y = UQ' + F
@@ -75,17 +76,17 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     For PLS regression with single y, Y = UC' + F = Y = UQ' + F, due to Q = C, but not necessarily true for
     multi Y, so Q' is used here. Notice that this formula cannot be used directly to
     predict Y from X and vice-versa, the inner relation regression using latent variable scores is necessary.
-
+    
     Finally, assuming PLSRegression (single or multi Y, but asymmetric deflation):
     The PLS model can be approached from a multivariate regression/regularized regression point of view,
     where Y is related to the original X variables, through regression coefficients Beta,
     bypassing the latent variable definition and concepts.
-    Y = XBQ', Y = XB, where B are the regression coefficients and B = W*Q' (the W*/ws is the SIMPLS_R,
-    X rotation in sklearn default PLS).
-    These Betas (regression coefficients) are obtained in this manner directly relate the original X variables
+    Y = XBQ', Y = XB, where B are the regression coefficients and B = W*Q' (the W*/ws is the SIMPLS-like R rotation,
+    the x_rotation in sklearn default PLS algorithms).
+    The Betas (regression coefficients) obtained in this manner directly relate the original X variables
     to the prediction of Y.
-
-    This MLR approach to PLS has the advantage of exposing the PLS betas and PLS mechanism
+    
+    This MLR (multivariate linear regression) approach to PLS has the advantage of exposing the PLS betas and PLS mechanism
     as a biased regression applying a degree of shrinkage, which decreases with the number of components
     all the way up to B(OLS), when Number of Components = number of variables/columns.
     
@@ -622,24 +623,41 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except ValueError as verr:
             raise verr
 
-    def hotelling_T2(self, comps):
+    def hotelling_T2(self, comps=[0, 1], alpha=0.05):
         """
 
         Obtain the parameters for the Hotelling T2 ellipse at the desired significance level.
 
-        :param list comps:
-        :return:
-        :rtype:
+        :param list comps: List of components to calculate the Hotelling T2.
+        :param float alpha: Significant level for the F statistic.
+        :return: List with the Hotelling T2 ellipse radii
+        :rtype: list
         :raise ValueError: If the dimensions request
         """
-        # TODO implement and test
         try:
             if self._isfitted is False:
                 raise AttributeError("Model is not fitted")
-            for comp in comps:
-                self.scores_t[:, comp]
-            hoteling = 1
-            return hoteling
+
+            nsamples = self.scores_t.shape[0]
+
+            if comps is None:
+                ncomps = self.ncomps
+                ellips = self.scores_t[:, range(self.ncomps)] ** 2
+            else:
+                ncomps = len(comps)
+                ellips = self.scores_t[:, comps] ** 2
+
+            ellips = 1 / nsamples * (ellips.sum(0))
+
+            # F stat
+            a = (nsamples - 1) / nsamples * ncomps * (nsamples ** 2 - 1) / (nsamples * (nsamples - ncomps))
+            a = a * st.f.ppf(1-alpha, ncomps, nsamples - ncomps)
+
+            hoteling_t2 = list()
+            for comp in range(ncomps):
+                hoteling_t2.append(np.sqrt((a * ellips[comp])))
+
+            return hoteling_t2
 
         except AttributeError as atre:
             raise atre
