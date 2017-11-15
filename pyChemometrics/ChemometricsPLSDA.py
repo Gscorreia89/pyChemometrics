@@ -1146,6 +1146,19 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         except ValueError as exp:
             raise exp
 
+    def _residual_ssx(self, x):
+        """
+
+        :param x: Data matrix [n samples, m variables]
+        :return: The residual Sum of Squares per sample
+        """
+        pred_scores = self.transform(x)
+
+        x_reconstructed = self.scaler.transform(self.inverse_transform(pred_scores))
+        xscaled = self.scaler.transform(x)
+        residuals = np.sum((xscaled - x_reconstructed)**2, axis=1)
+        return residuals
+
     def _cummulativefit(self, x, y):
         """
 

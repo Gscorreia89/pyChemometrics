@@ -204,6 +204,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.modelParameters = {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
                                     'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']}
 
+            resid_ssx = self._residual_ssx(x)
+            s0 = np.sqrt(resid_ssx.sum() / ((self.scores_t.shape[0] - self.ncomps - 1) * (x.shape[1] - self.ncomps)))
+            self.modelParameters['S0X'] = s0
+
         except ValueError as verr:
             raise verr
 
@@ -666,12 +670,18 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as typerr:
             raise typerr
 
-    def dModX(self):
+    def dmodx(self, x):
         """
-        :return:
+
+        Normalised DmodX measure
+
+        :param x: data matrix [n samples, m variables]
+        :return: The Normalised DmodX measure for each sample
         """
-        # TODO implement and test
-        return NotImplementedError
+        resids_ssx = self._residual_ssx(x)
+        s = np.sqrt(resids_ssx/(self.loadings_p.shape[1] - self.ncomps))
+        dmodx = np.sqrt((s/self.modelParameters['S0X'])**2)
+        return dmodx
 
     def leverages(self, block='X'):
         """
@@ -679,16 +689,43 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :return:
         :rtype:
         """
-        # TODO test
+        # TODO check with matlab and simca
         try:
             if block == 'X':
                 return np.dot(self.scores_t, np.dot(np.linalg.inv(np.dot(self.scores_t.T, self.scores_t), self.scores_t.T)))
             elif block == 'Y':
-                return np.dot(self.scores_u,np.dot(np.linalg.inv(np.dot(self.scores_u.T, self.scores_u), self.scores_u.T)))
+                return np.dot(self.scores_u, np.dot(np.linalg.inv(np.dot(self.scores_u.T, self.scores_u), self.scores_u.T)))
             else:
                 raise ValueError
         except ValueError as verr:
             raise ValueError('block option must be either X or Y')
+
+    def outlier(self, x, comps=None, measure='T2', alpha=0.05):
+        """
+
+        Use the Hotelling T2 or DmodX measure and F statistic to screen for outlier candidates.
+
+        :param x: Data matrix [n samples, m variables]
+        :param comps: Which components to use (for Hotelling T2 only)
+        :param measure: Hotelling T2 or DmodX
+        :param alpha: Significance level
+        :return: List with row indices of X matrix
+        """
+        try:
+            if measure == 'T2':
+                scores = self.transform(x)
+                t2 = self.hotelling_T2(comps=comps)
+                outlier_idx = np.where(((scores ** 2) / t2 ** 2).sum(axis=1) > 1)[0]
+            elif measure == 'DmodX':
+                dmodx = self.dmodx(x)
+                dcrit = st.f.ppf(1 - alpha, x.shape[1] - self.ncomps,
+                                 (x.shape[0] - self.ncomps - 1) * (x.shape[1] - self.ncomps))
+                outlier_idx = np.where(dmodx > dcrit)[0]
+            else:
+                print("Select T2 (Hotelling T2) or DmodX as outlier exclusion criteria")
+            return outlier_idx
+        except Exception as exp:
+            raise exp
 
     def cross_validation(self, x, y, cv_method=KFold(7, True), outputdist=False,
                          **crossval_kwargs):
@@ -870,7 +907,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                                  'Stdev_Loadings_q': cv_loadings_q.std(0), 'Mean_Loadings_p': cv_loadings_p.mean(0),
                                  'Stdev_Loadings_p': cv_loadings_q.std(0), 'Mean_Weights_c': cv_weights_c.mean(0),
                                  'Stdev_Weights_c': cv_weights_c.std(0), 'Mean_Weights_w': cv_weights_w.mean(0),
-                                 'Stdev_Loadings_w': cv_weights_w.std(0), 'Mean_Rotations_ws': cv_rotations_ws.mean(0),
+                                 'Stdev_Weights_w': cv_weights_w.std(0), 'Mean_Rotations_ws': cv_rotations_ws.mean(0),
                                  'Stdev_Rotations_ws': cv_rotations_ws.std(0),
                                  'Mean_Rotations_cs': cv_rotations_cs.mean(0),
                                  'Stdev_Rotations_cs': cv_rotations_cs.std(0), 'Mean_Beta': cv_betacoefs.mean(0),
@@ -1021,6 +1058,19 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         except ValueError as exp:
             raise exp
+
+    def _residual_ssx(self, x):
+        """
+
+        :param x: Data matrix [n samples, m variables]
+        :return: The residual Sum of Squares per sample
+        """
+        pred_scores = self.transform(x)
+
+        x_reconstructed = self.scaler.transform(self.inverse_transform(pred_scores))
+        xscaled = self.scaler.transform(x)
+        residuals = np.sum((xscaled - x_reconstructed)**2, axis=1)
+        return residuals
 
     def _cummulativefit(self, x, y):
         """
