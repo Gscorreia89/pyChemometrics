@@ -174,7 +174,6 @@ with outputdist = True, also the whole distribution obtained by CV for each para
 The cvParameters dictionary contains these keys:
     - Mean_Loadings: Average loading vectors during cross-validation
     - Stdev_Loadings: Standard deviation of the loading vectors
-    -
 
 Additionaly, the discriminant analysis also contains the mean and standard deviation parameters for the DA component.
     - Mean_Accuracy:
