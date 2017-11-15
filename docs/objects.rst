@@ -1,10 +1,16 @@
 pyChemometrics objects
 ----------------------
-ChemometricsPCA and ChemometricsPLS are the main objects and are meant to be used directly. ChemometricsScaler objects are
-used inside the PCA and PLS objects, but its also made available to the user. The ChemometricsPCA and ChemometricsPLS objects
-wrap pre-existing scikit-learn implementations of these classifiers, but they provide extra methods for cross-validation,
-permutation testing, and calculation of Hotelling T2, VIP's metrics which are commonly used in the Chemometrics Literature.
-Since they also inherit from and mimic the scikit-learn model method convention, they can be used and chain within a sklearn::`Pipeline`.
+
+The main objects ChemometricsPCA, ChemometricsPLS and ChemometricsPLSDA consist of wrappers for scikit-learn
+Principal Component Analysis and Partial Least Squares Regression objects. They have been made to mimic as much as possible
+scikit-learn classifiers, from their internal properties, and therefore can be interfaced with other
+components of scikit-learn, such as the a klearn::`Pipeline`.
+
+These wrappers contain implementations of various routines and metrics commonly seen in the Chemometric and metabonomic literature.
+PRESS and Q2Y estimation, permutation testing, Hotelling T2 for outlier detection of scores, VIP scores for variable importance.
+Pareto and Unit-Variance scaling.
+
+Each of these objects uses ChemometricsScaler objects to automatically handle the scaling of the X and Y data matrices.
 
 .. automodule:: pyChemometrics
 
@@ -18,6 +24,12 @@ ChemometricsPLS
 ===============
 
 .. autoclass:: pyChemometrics.ChemometricsPLS
+  :members:
+
+ChemometricsPLS
+===============
+
+.. autoclass:: pyChemometrics.ChemometricsPLSDA
   :members:
 
 ChemometricsScaler

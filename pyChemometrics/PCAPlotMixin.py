@@ -1,5 +1,6 @@
 from abc import ABCMeta
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 
 class PCAPlotMixin(ABCMeta):
@@ -9,7 +10,7 @@ class PCAPlotMixin(ABCMeta):
 
     """
     def __init__(self):
-        pass
+        self = super(self)
 
     def plot_scores(self, comps=[0, 1], color=None):
 
