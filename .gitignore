@@ -1,0 +1,17 @@
+*.mat
+*.html
+*.png
+*.pdf
+*.DS_Store
+*.swp
+*.pyc
+.spyderproject
+.ipynb_checkpoints
+*Thumbs.db
+*.orig
+.coverage
+/docs/_build
+/.idea
+/dist/
+/*.egg-info
+/tests/htmlcov/
