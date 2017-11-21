@@ -131,20 +131,18 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             # multi-class setting
             # Only for PLS: the sklearn LogisticRegression still requires a single vector!
             if self.n_classes > 2:
-                create_dummy_mat = pds.get_dummies(y).values
-                y_pls = create_dummy_mat
-                # Remake the internal logistic regression - option One vs the rest is not used, the user can just
-                # provide a different binary labelled y vector to use it instead.
-                y_pls = self.y_scaler.fit_transform(y_pls)
+                dummy_mat = pds.get_dummies(y).values
+                # If the user wants OneVsRest, etc, provide a different binary labelled y vector to use it instead.
+                y_scaled = self.y_scaler.fit_transform(dummy_mat)
             else:
                 if y.ndim == 1:
                     y = y.reshape(-1, 1)
-                y_pls = self.y_scaler.fit_transform(y).squeeze()
+                y_scaled = self.y_scaler.fit_transform(y)
 
             # The PLS algorithm either gets a single vector in binary classification or a
             # Dummy matrix for the multiple classification case
 
-            self.pls_algorithm.fit(xscaled, y_pls, **fit_params)
+            self.pls_algorithm.fit(xscaled, y_scaled, **fit_params)
 
             # Expose the model parameters - Same as in ChemometricsPLS
             self.loadings_p = self.pls_algorithm.x_loadings_
@@ -175,8 +173,12 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
             # Calculate RSSy/RSSx, R2Y/R2X
             # Method inheritance from parent, as in this case we really want the "PLS" only metrics
-            R2Y = ChemometricsPLS.score(self, x=x, y=y_pls, block_to_score='y')
-            R2X = ChemometricsPLS.score(self, x=x, y=y_pls, block_to_score='x')
+            if self.n_classes > 2:
+                R2Y = ChemometricsPLS.score(self, x=x, y=dummy_mat, block_to_score='y')
+                R2X = ChemometricsPLS.score(self, x=x, y=dummy_mat, block_to_score='x')
+            else:
+                R2Y = ChemometricsPLS.score(self, x=x, y=y, block_to_score='y')
+                R2X = ChemometricsPLS.score(self, x=x, y=y, block_to_score='x')
 
             # Grid of False positive ratios to standardize the ROC curves
             # All ROC curves will be interpolated to a constant grid
@@ -221,20 +223,23 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
                 # Generate multiple ROC curves - one for each class the multiple class case
                 for predclass in range(self.n_classes):
-                    roc_curve = metrics.roc_curve(y, class_score[:, predclass], pos_label=predclass)
+                    current_roc = metrics.roc_curve(y, class_score[:, predclass], pos_label=predclass)
                     # Interpolate all ROC curves to a finite grid
                     #  Makes it easier to average and compare multiple models - with CV in mind
-                    tpr = roc_curve[1]
-                    fpr = roc_curve[0]
+                    tpr = current_roc[1]
+                    fpr = current_roc[0]
 
                     interpolated_tpr = np.zeros_like(fpr_grid)
                     interpolated_tpr += interp(fpr_grid, fpr, tpr)
-                    roc_curve.append(fpr_grid, interpolated_tpr, roc_curve[2])
+                    roc_curve.append([fpr_grid, interpolated_tpr, current_roc[2]])
                     auc_area.append(metrics.auc(fpr_grid, interpolated_tpr))
 
             # Obtain residual sum of squares for whole data set and per component
             # Same as Chemometrics PLS, this is so we can use VIP's and other metrics as usual
-            cm_fit = self._cummulativefit(x, y_pls)
+            if self.n_classes > 2:
+                cm_fit = self._cummulativefit(x, dummy_mat)
+            else:
+                cm_fit = self._cummulativefit(x, y)
 
             # Assemble the dictionary for storing the model parameters
             self.modelParameters = {'PLS': {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
@@ -281,6 +286,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         :type x: numpy.ndarray, shape [n_samples, n_features] or None
         :param y: Data matrix to fit the PLS model.
         :type y: numpy.ndarray, shape [n_samples, n_features] or None
+        :param boolean dummy_y:
         :return: Latent Variable scores (T) for the X matrix and for the Y vector/matrix (U).
         :rtype: tuple with 2 numpy.ndarray, shape [n_samples, n_comps]
         :raise ValueError: If dimensions of input data are mismatched.
@@ -300,23 +306,20 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 elif x is None:
                     # The y variable expected is a single vector with ints as class label - binary
                     # and multiclass classification are allowed but not multilabel so this will work.
-                    # if y.ndim != 1:
-                    #    raise TypeError('Please supply a dummy vector with integer as class membership')
+                    if y.ndim != 1:
+                        raise TypeError('Please supply a dummy vector with integer as class membership')
+
                     # Previously fitted model will already have the number of classes
-                    if self.n_classes <= 2:
+                    # The dummy matrix is created here manually because its possible for the model to be fitted to
+                    # a larger number of classes than what is being passed in transform
+                    # and other methods post-fitting
+                    # If matrix is not dummy, generate the dummy accordingly
+                    if self.n_classes > 2:
+                        y = self.y_scaler.transform(pds.get_dummies(y).values)
+                    else:
                         if y.ndim == 1:
                             y = y.reshape(-1, 1)
                         y = self.y_scaler.transform(y)
-                    else:
-                        # The dummy matrix is created here manually because its possible for the model to be fitted to
-                        # a larger number of classes than what is being passed in transform
-                        # and other methods post-fitting
-                        # If matrix is not dummy, generate the dummy accordingly
-                        if y.ndim == 1:
-                            dummy_matrix = np.zeros((len(y), self.n_classes))
-                            for col in range(self.n_classes):
-                                dummy_matrix[np.where(y == col), col] = 1
-                            y = self.y_scaler.transform(dummy_matrix)
                     # Taking advantage of rotations_y
                     # Otherwise this would be the full calculation U = Y*pinv(CQ')*C
                     U = np.dot(y, self.rotations_cs)
@@ -438,7 +441,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 # project X onto T - so then we can get
                 pred_scores = self.transform(x=x)
                 # prediction rule - find the closest class mean (centroid) for each sample in the score space
-                closest_class_mean = lambda x: np.argmin(np.linalg.norm((x - self.class_means)/self.modelParameters['PLS']['SSYcomp'], axis=1))
+                closest_class_mean = lambda x: np.argmin(np.linalg.norm((x - self.class_means), axis=1))
                 class_pred = np.apply_along_axis(closest_class_mean, axis=1, arr=pred_scores)
             return class_pred
 
@@ -716,8 +719,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             pressx = 0
 
             # Calculate Sum of Squares SS in whole dataset for future calculations
-            ssx = np.sum((cv_pipeline.x_scaler.fit_transform(x)) ** 2)
-            ssy = np.sum((cv_pipeline._y_scaler.fit_transform(y_pls.reshape(-1, 1))) ** 2)
+            ssx = np.sum(np.square(cv_pipeline.x_scaler.fit_transform(x)))
+            ssy = np.sum(np.square(cv_pipeline._y_scaler.fit_transform(y_pls.reshape(-1, 1))))
 
             # As assessed in the test set..., opposed to PRESS
             R2X_training = np.zeros(ncvrounds)
@@ -769,8 +772,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 xpred = cv_pipeline.x_scaler.transform(xpred).squeeze()
                 ypred = cv_pipeline._y_scaler.transform(ypred).squeeze()
 
-                curr_pressx = np.sum((xtest_scaled - xpred) ** 2)
-                curr_pressy = np.sum((cv_pipeline._y_scaler.transform(yplstest).squeeze() - ypred) ** 2)
+                curr_pressx = np.sum(np.square(xtest_scaled - xpred))
+                curr_pressy = np.sum(np.square(cv_pipeline._y_scaler.transform(yplstest).squeeze() - ypred))
 
                 R2X_test[cvround] = ChemometricsPLS.score(cv_pipeline, xtest, yplstest, 'x')
                 R2Y_test[cvround] = ChemometricsPLS.score(cv_pipeline, xtest, yplstest, 'y')
@@ -1156,100 +1159,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
         x_reconstructed = self.scaler.transform(self.inverse_transform(pred_scores))
         xscaled = self.scaler.transform(x)
-        residuals = np.sum((xscaled - x_reconstructed)**2, axis=1)
+        residuals = np.sum(np.square(xscaled - x_reconstructed), axis=1)
         return residuals
-
-    def _cummulativefit(self, x, y):
-        """
-
-        Measure the cumulative Regression sum of Squares for each individual component.
-        Meant to be used internally by the fit method and VIP calculation.
-
-        :param x: Data matrix to fit the PLS model.
-        :type x: numpy.ndarray, shape [n_samples, n_features]
-        :param y: Data matrix to fit the PLS model.
-        :type y: numpy.ndarray, shape [n_samples, n_features]
-        :return: dictionary object containing the total Regression Sum of Squares and the Sum of Squares
-        per components, for both the X and Y data blocks.
-        :rtype: dict
-        """
-        if y.ndim == 1:
-            y = y.reshape(-1, 1)
-        if x.ndim == 1:
-            x = x.reshape(-1, 1)
-        if self._isfitted is False:
-            raise AttributeError('Fit model first')
-
-        xscaled = self.x_scaler.transform(x)
-        yscaled = self.y_scaler.transform(y)
-
-        # Obtain residual sum of squares for whole data set and per component
-        SSX = np.sum(xscaled ** 2)
-        SSY = np.sum(yscaled ** 2)
-        ssx_comp = list()
-        ssy_comp = list()
-
-        for curr_comp in range(1, self.ncomps + 1):
-            model = self._reduce_ncomps(curr_comp)
-
-            ypred = model.y_scaler.transform(ChemometricsPLS.predict(model, x, y=None))
-            xpred = model.x_scaler.transform(ChemometricsPLS.predict(model, x=None, y=y))
-
-            rssy = np.sum((yscaled - ypred) ** 2)
-            rssx = np.sum((xscaled - xpred) ** 2)
-            ssx_comp.append(rssx)
-            ssy_comp.append(rssy)
-
-        cumulative_fit = {'SSX': SSX, 'SSY': SSY, 'SSXcomp': np.array(ssx_comp), 'SSYcomp': np.array(ssy_comp)}
-
-        return cumulative_fit
-
-    def _reduce_ncomps(self, ncomps):
-        """
-
-        Generate a new model with a smaller set of components.
-        Meant to be used internally by the fit method.
-
-        :param int ncomps: Number of ordered first N components from the original model to be kept.
-        Must be smaller than the ncomps value of the original model.
-        :return ChemometricsPLS object with reduced number of components.
-        :rtype: ChemometricsPLS
-        :raise ValueError: If number of components desired is larger than original number of components
-        :raise AttributeError: If model is not fitted.
-
-        """
-        try:
-            if ncomps > self.ncomps:
-                raise ValueError('Fit a new model with more components instead')
-            if self._isfitted is False:
-                raise AttributeError('Model not Fitted')
-
-            newmodel = deepcopy(self)
-            newmodel._ncomps = ncomps
-
-            newmodel.modelParameters = None
-            newmodel.cvParameters = None
-            newmodel.loadings_p = self.loadings_p[:, 0:ncomps]
-            newmodel.weights_w = self.weights_w[:, 0:ncomps]
-            newmodel.weights_c = self.weights_c[:, 0:ncomps]
-            newmodel.loadings_q = self.loadings_q[:, 0:ncomps]
-            newmodel.rotations_ws = self.rotations_ws[:, 0:ncomps]
-            newmodel.rotations_cs = self.rotations_cs[:, 0:ncomps]
-            newmodel.scores_t = None
-            newmodel.scores_u = None
-            newmodel.b_t = self.b_t[0:ncomps, 0:ncomps]
-            newmodel.b_u = self.b_u[0:ncomps, 0:ncomps]
-
-            # These have to be recalculated from the rotations
-            newmodel.beta_coeffs = np.dot(newmodel.rotations_ws, newmodel.loadings_q.T)
-
-            # NOTE: this "destroys" the internal state of the classifier apart from the PLS components,
-            # but this is only meant to be used inside the fit object and for the VIP calculation.
-            return newmodel
-        except ValueError as verr:
-            raise verr
-        except AttributeError as atter:
-            raise atter
 
     def __deepcopy__(self, memo):
         cls = self.__class__

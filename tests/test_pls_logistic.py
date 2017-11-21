@@ -12,6 +12,7 @@ provided we account for the differences in data input and vector to dummy matrix
 """
 
 
+# TODO: check this test the actual algorithm is fully tested
 class test_plslogistic(unittest.TestCase):
     """
     Verify agreement of PLS algorithms under different objects and conditions

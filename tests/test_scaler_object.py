@@ -5,10 +5,9 @@ import numpy as np
 from pyChemometrics import ChemometricsScaler
 
 """
-Suite of tests to ensure that all PLS objects are consistent among each other: 
-For example, the ChemometricsPLS object in Regression mode needs to give the same results (coefficients, 
-loadings, scores R2s, etc) as the PLS-Classifier ojects (ChemometricPLS_Logistic and ChemometricsPLS_QDA), 
-provided we account for the differences in data input and vector to dummy matrix conversion.
+
+Tests for the ChemometricsScaler object
+
 """
 
 
@@ -45,7 +44,5 @@ class test_ChemometricsScaler(unittest.TestCase):
         Check back_transformations of the scaler (inverse_transform)
         """
 
-
 if __name__ == '__main__':
     unittest.main()
-    

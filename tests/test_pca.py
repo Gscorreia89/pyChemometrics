@@ -1,48 +1,72 @@
 import unittest
-
+import os
+import pandas as pds
 import numpy as np
 from sklearn.datasets import make_classification
 
-from pyChemometrics import ChemometricsScaler, ChemometricsPLS, ChemometricsPLS_Logistic
+from pyChemometrics import ChemometricsScaler, ChemometricsPCA
 
 """
 Suite of tests to assess correctness of the PCA object.
 Cross - checked with R's pcamethods.
 """
 
-dataset = {'X': np.array([]), 'Y':np.array([])}
+dataset = {'X': np.array([]), 'Y': np.array([])}
 expected_scores = {'t': []}
 expect_R2 = {'X': []}
 expected_loadings = {'p': []}
 expected_prediction = {'x': []}
 
 
-class test_plsobjconsistency(unittest.TestCase):
+class test_pcamodel(unittest.TestCase):
     """
-    Verify agreement of PLS algorithms under different objects and conditions
+
+    Verify outputs of the ChemometricsPCA object
+
     """
 
     def setUp(self):
 
-        # Generate 2 fake classification datasets, one with 2 classes and another with 3
-        self.twoclass_dataset = make_classification(40, n_features=100, n_informative=5, n_redundant=5, n_classes=2)
-        self.three_classdataset = make_classification(40, n_features=100, n_informative=5, n_redundant=5, n_classes=3)
-        y_scaler = ChemometricsScaler(with_mean=False, with_std=False)
-        self.plsreg = ChemometricsPLS(n_comps=3, yscaler=y_scaler)
-        self.plslog = ChemometricsPLS_Logistic(n_comps=3)
+        try:
+            # Generate a fake classification dataset
+            t_dset = pds.read_csv('./test_data/classification_twoclass.csv')
+            self.xmat = t_dset.values
 
-    def test_single_y(self):
-        self.plsreg.fit(self.twoclass_dataset[0], self.twoclass_dataset([1]))
-        self.plslog.fit(self.twoclass_dataset[0], self.twoclass_dataset([1]))
-        self.assertEqual(self.plsreg.rotations_cs, self.plslog.rotations_cs)
+        except (IOError, OSError) as ioerr:
+            os.system('python gen_synthetic_datasets.py')
+            t_dset = pds.read_csv('./test_data/classification_twoclass.csv')
+            self.xmat = t_dset.values
 
-    def test_multi_y(self):
-        self.plsreg.fit(self.threeclass_dataset[0], self.threeclass_dataset([1]))
-        self.plslog.fit(self.threeclass_dataset[0], self.threeclass_dataset([1]))
-        self.assertEqual(self.data.noFeatures, self.noFeat)
+        self.x_scaler = ChemometricsScaler(1)
+        self.pcamodel = ChemometricsPCA(n_comps=3, xscaler=self.x_scaler)
 
-    def test_(self):
-        self.assertEqual()
+    def test_fit(self):
+        self.pcamodel.fit(self.xmat)
+        self.assertAlmostEqual(self.pcamodel.modelParameters['R2X'], expected)
+        self.assertAlmostEqual()
+
+    def test_transform(self):
+        self.assertAlmostEqual(self.pcammodel.transform(self.xmat), self.expected_scores)
+
+    def test_fit_transform(self):
+        self.assertAlmostEqual(self.pcammodel.fit_transform(self.xmat), self.expected_scores)
+
+    def test_cv(self):
+        self.pcamodel.cross_validation(self.xmat)
+        self.assertAlmostEqual(self.pcammodel.cvParameters, self.expectedcvParams)
+
+    def HotellingT2(self):
+        pass
+
+    def test_dmodx(self):
+        pass
+
+    def test_outliers(self):
+        outliers_t2 = self.pcamodel.outlier()
+        outliers_dmodx = self.pcamodel.outlier(self.xmat)
+        self.assertAlmostEqual(self.pcammodel.cvParameters, self.expectedcvParams)
+        return None
+
 
 if __name__ == '__main__':
     unittest.main()
