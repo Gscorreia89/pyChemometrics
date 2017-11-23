@@ -224,7 +224,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
 
         # TODO Double check improved algorithms and methods for PRESS estimation for PCA in general
         # TODO Implement Camacho et al, column - erfk to increase computational efficiency
-
+        # TODO check bi-cross validation
         try:
             # Scaling check for consistency
             if self.scaler is not None:

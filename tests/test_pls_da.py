@@ -40,13 +40,13 @@ class TestPLSDA(unittest.TestCase):
             self.expected_loadings_q = pds.read_csv('./test_data/pls_da_loadings_q.csv')
             self.expected_betacoefs = pds.read_csv('./test_data/pls_da_betacoefs.csv')
             self.expected_vipsw = pds.read_csv('./test_data/pls_da_vipsw.csv')
-            self.expected_cvParams = pds.read_csv('./test_data/pls_da_cvParams.csv')
+            self.expected_cvParams = pds.read_csv('./test_data/pls_da_cvoarams.csv')
 
             # Make a single file out of this
             self.expected_t2 = pds.read_csv('./test_data/pls_da_cvParams.csv')
             self.expected_dmodx = pds.read_csv('./test_data/pls_da_cvParams.csv')
             self.expected_outliers_dmodx = pds.read_csv('./test_data/pls_da_cvParams.csv')
-            self.expected_outliers_t2 = pds.read_csv('./test_data/pls_da_cvParams.csv')
+            self.expected_outliers_t2 = pds.read_csv('./test_data/pls_da_cvparams.csv')
 
             # Load expected values for a PLS da model with multiple classes
             self.expected_loadings_p_multiclass = pds.read_csv('./test_data/pls_da_multi_loadings_p.csv')
@@ -133,6 +133,7 @@ class TestPLSDA(unittest.TestCase):
     def test_permutation(self):
         # Fix the seed for the permutation test and cross_validation
         np.random.seed(0)
+        self.plsda.cross_validation(self.xmat, self.da)
         permutation_results = self.plsda.permutation_test(self.xmat, self.da, nperms=5)
         self.assertAlmostEqual()
 
