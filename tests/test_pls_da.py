@@ -70,8 +70,6 @@ class TestPLSDA(unittest.TestCase):
             self.xmat_multi = multiclass.iloc[:, 5::].values
             self.xmat = two_class.iloc[:, 1::].values
 
-        np.random.seed(0)
-
         x_scaler = ChemometricsScaler(1)
         y_scaler = ChemometricsScaler(1, with_mean=True, with_std=False)
         self.plsda = ChemometricsPLSDA(n_comps=3, xscaler=x_scaler, y_scaler=y_scaler)
@@ -101,9 +99,9 @@ class TestPLSDA(unittest.TestCase):
 
     def test_scalers(self):
         x_scaler_par = ChemometricsScaler(1/2)
-        y_scaler_par = ChemometricsScaler(1/2)
+        y_scaler_par = ChemometricsScaler(1/2, with_std=False)
         x_scaler_mc = ChemometricsScaler(0)
-        y_scaler_mc = ChemometricsScaler(0)
+        y_scaler_mc = ChemometricsScaler(0, with_std=False)
 
         pareto_model = ChemometricsPLSDA(n_comps=3, xscaler=x_scaler_par, y_scaler=y_scaler_par)
         pareto_model_multiy = ChemometricsPLSDA(n_comps=3, xscaler=x_scaler_par, y_scaler=y_scaler_par)
