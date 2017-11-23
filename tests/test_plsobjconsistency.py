@@ -16,7 +16,7 @@ provided that we account for the differences in data input and class vector do d
 """
 
 
-class test_plsobjconsistency(unittest.TestCase):
+class TestPLSObjectConsistency(unittest.TestCase):
     """
 
     Verify agreement of the PLS regression component between ChemometricsPLS and Discriminant analysis versions.

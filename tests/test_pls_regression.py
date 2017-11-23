@@ -7,12 +7,12 @@ from pyChemometrics import ChemometricsScaler, ChemometricsPLS
 
 """
 
-Suite of tests to assess correctness of the PLS Regression object.
+Suite of tests to assess coherence and functionality of the PLS regression object.
 
 """
 
 
-class test_pls_regression(unittest.TestCase):
+class TestPLS(unittest.TestCase):
     """
 
     Verify agreement of PLS algorithms under different objects and conditions

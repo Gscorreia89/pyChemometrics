@@ -2,23 +2,16 @@ import unittest
 import os
 import pandas as pds
 import numpy as np
-from sklearn.datasets import make_classification
 
 from pyChemometrics import ChemometricsScaler, ChemometricsPCA
 
 """
-Suite of tests to assess correctness of the PCA object.
-Cross - checked with R's pcamethods.
+Suite of tests to assess coherence and functionality of the PCA object.
+
 """
 
-dataset = {'X': np.array([]), 'Y': np.array([])}
-expected_scores = {'t': []}
-expect_R2 = {'X': []}
-expected_loadings = {'p': []}
-expected_prediction = {'x': []}
 
-
-class test_pcamodel(unittest.TestCase):
+class TestPCA(unittest.TestCase):
     """
 
     Verify outputs of the ChemometricsPCA object
@@ -64,7 +57,7 @@ class test_pcamodel(unittest.TestCase):
     def test_outliers(self):
         outliers_t2 = self.pcamodel.outlier()
         outliers_dmodx = self.pcamodel.outlier(self.xmat)
-        self.assertAlmostEqual(self.pcammodel.cvParameters, self.expectedcvParams)
+        self.assertAlmostEqual(self.pcammodel.cvParameters, self.outliers)
         return None
 
 

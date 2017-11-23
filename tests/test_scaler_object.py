@@ -11,7 +11,7 @@ Tests for the ChemometricsScaler object
 """
 
 
-class test_ChemometricsScaler(unittest.TestCase):
+class TestScalerObject(unittest.TestCase):
     """
 
     Use a made up dataset on the fly...
