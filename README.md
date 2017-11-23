@@ -8,10 +8,10 @@ Some of the common validation metrics and procedures seen in the chemometric and
 are provided, including different matrix scaling options (mean centring, Pareto and Unit-Variance), 
 Leave-one-out-cross-validation (LOOCV), K-Fold cross validation and Monte Carlo CV, calculation of the 
 Q2Y and Q2X measures from LOOCV and K-Fold CV, permutation tests and the variable importance for prediction 
-(VIP) metric.
+(VIP) metric. 
 
 ## Table of contents
-The functionality in this package is provided by a set of objects
+The main objects in the package are:
 
  - ChemometricsScaler: Handles the scaling of the data matrices
  - ChemometricsPCA: Principal Component analysis
@@ -20,8 +20,10 @@ The functionality in this package is provided by a set of objects
  - ChemometricsPLS_Logistic: Partial Least Squares - Logistic regression using the PLS scores as predictors
  - ChemometricsPLS_LDA: Partial Least Squares - Quadratic discriminant analysis, using the PLS scores as predictors
  
-These objects wrap pre-existing [scikit-learn](http://scikit-learn.org/stable/documentation.html) Principal Component Analysis 
-(PCA) and Partial Least Squares (PLS) algorithms, and make use of the cross-validation and model selection functionality from [scikit-learn](http://scikit-learn.org/stable/documentation.html).
+The main objects in this package wrap pre-existing scikit-learn [Principal Component Analysis 
+(PCA)](http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html) 
+and [Partial Least Squares (PLS) algorithms](http://scikit-learn.org/stable/modules/generated/sklearn.cross_decomposition.PLSRegression.html), 
+and make use of the [cross-validation and model selection functionality from scikit-learn](http://scikit-learn.org/stable/modules/cross_validation.html#cross-validation).
 
 ### Instalation
 To install, simply navigate to the main package folder and run
