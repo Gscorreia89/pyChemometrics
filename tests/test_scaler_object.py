@@ -44,5 +44,6 @@ class TestScalerObject(unittest.TestCase):
         Check back_transformations of the scaler (inverse_transform)
         """
 
+
 if __name__ == '__main__':
     unittest.main()

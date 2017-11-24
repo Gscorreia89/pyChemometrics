@@ -286,7 +286,6 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         :type x: numpy.ndarray, shape [n_samples, n_features] or None
         :param y: Data matrix to fit the PLS model.
         :type y: numpy.ndarray, shape [n_samples, n_features] or None
-        :param boolean dummy_y:
         :return: Latent Variable scores (T) for the X matrix and for the Y vector/matrix (U).
         :rtype: tuple with 2 numpy.ndarray, shape [n_samples, n_comps]
         :raise ValueError: If dimensions of input data are mismatched.

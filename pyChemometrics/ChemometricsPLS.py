@@ -656,7 +656,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             for comp in range(ncomps):
                 hoteling_t2.append(np.sqrt((a * ellips[comp])))
 
-            return hoteling_t2
+            return np.array(hoteling_t2)
 
         except AttributeError as atre:
             raise atre

@@ -23,20 +23,21 @@ class TestPCA(unittest.TestCase):
         try:
             # Generate a fake classification dataset
             t_dset = pds.read_csv('./test_data/classification_twoclass.csv')
-            self.xmat = t_dset.values
+            self.xmat = t_dset.iloc[:, 1::].values
 
         except (IOError, OSError) as ioerr:
             os.system('python gen_synthetic_datasets.py')
             t_dset = pds.read_csv('./test_data/classification_twoclass.csv')
-            self.xmat = t_dset.values
+            self.xmat = t_dset.iloc[:, 1::].values
 
         self.x_scaler = ChemometricsScaler(1)
         self.pcamodel = ChemometricsPCA(n_comps=3, xscaler=self.x_scaler)
 
     def test_fit(self):
         self.pcamodel.fit(self.xmat)
-        self.assertAlmostEqual(self.pcamodel.modelParameters['R2X'], expected)
-        self.assertAlmostEqual()
+        self.assertAlmostEqual(self.pcamodel.modelParameters, self.expected_modelParameters)
+        self.assertAlmostEqual(self.pcamodel.scores, self.expected_scores)
+        self.assertAlmostEqual(self.pcamodel.loadings, self.expected_loadings)
 
     def test_transform(self):
         self.assertAlmostEqual(self.pcammodel.transform(self.xmat), self.expected_scores)
@@ -52,6 +53,9 @@ class TestPCA(unittest.TestCase):
         pass
 
     def test_dmodx(self):
+        pass
+
+    def test_scalers(self):
         pass
 
     def test_outliers(self):

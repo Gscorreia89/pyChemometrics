@@ -52,6 +52,8 @@ class TestPLS(unittest.TestCase):
             self.expected_betacoefs_yblock = pds.read_csv('./test_data/pls_reg_betacoefs.csv')
             self.expected_vipsw_yblock = pds.read_csv('./test_data/pls_reg_vipsw.csv')
 
+            self.expected_scores_t_par
+
             # check this
             self.y = regression_problem.values
             self.ymat = multiblock_regression_problem.values
@@ -64,15 +66,18 @@ class TestPLS(unittest.TestCase):
         self.plsreg_multiblock = ChemometricsPLS(n_comps=3, xscaler=x_scaler, y_scaler=y_scaler)
 
     def test_single_y(self):
+
         self.plsreg.fit(self.xmat, self.y)
-        self.assertAlmostEqual(self.plsreg.loadings_p, self.expected_loadings_p_yblock)
-        self.assertAlmostEqual(self.plsreg.loadings_q, self.expected_loadings_q_yblock)
-        self.assertAlmostEqual(self.plsreg.weights_w, self.expected_weights_w_yblock)
-        self.assertAlmostEqual(self.plsreg.weights_c, self.expected_weights_c_yblock)
-        self.assertAlmostEqual(self.plsreg.scores_t, self.expected_scores_t_yblock)
-        self.assertAlmostEqual(self.plsreg.scores_u, self.expected_scores_u_yblock)
-        self.assertAlmostEqual(self.plsreg_mul.beta_coeffs, self.expected_betacoefs_yblock)
-        self.assertAlmostEqual(self.plsreg_multiblock.VIP(), self.expected_vipsw_yblock)
+
+        # Test model coefficients , scores and goodness of fit
+        self.assertAlmostEqual(self.plsreg.loadings_p, self.expected_loadings_p)
+        self.assertAlmostEqual(self.plsreg.loadings_q, self.expected_loadings_q)
+        self.assertAlmostEqual(self.plsreg.weights_w, self.expected_weights_w)
+        self.assertAlmostEqual(self.plsreg.weights_c, self.expected_weights_c)
+        self.assertAlmostEqual(self.plsreg.scores_t, self.expected_scores_t)
+        self.assertAlmostEqual(self.plsreg.scores_u, self.expected_scores_u)
+        self.assertAlmostEqual(self.plsreg.beta_coeffs, self.expected_betacoefs)
+        self.assertAlmostEqual(self.plsreg.modelParameters, self.expected_modelParameters)
 
     def test_multi_y(self):
         self.plsreg_multiblock.fit(self.xmat_multiy, self.ymat)
@@ -85,9 +90,10 @@ class TestPLS(unittest.TestCase):
         self.assertAlmostEqual(self.plsreg_multiblock.scores_u, self.expected_scores_u_yblock)
         self.assertAlmostEqual(self.plsreg_multiblock.beta_coeffs, self.expected_betacoefs_yblock)
         self.assertAlmostEqual(self.plsreg_multiblock.VIP(), self.expected_vipsw_yblock)
-        self.assertAlmostEqual(self.plsreg_multiblock.VIP(), self.expected_vipsw_yblock)
+        self.assertAlmostEqual(self.plsreg.modelParameters, self.expected_modelParameters)
 
     def test_scalers(self):
+
         x_scaler_par = ChemometricsScaler(1 / 2)
         y_scaler_par = ChemometricsScaler(1 / 2)
         x_scaler_mc = ChemometricsScaler(0)
@@ -98,19 +104,46 @@ class TestPLS(unittest.TestCase):
         mc_model = ChemometricsPLS(n_comps=3, xscaler=x_scaler_mc, yscaler=y_scaler_mc)
         mc_model_multiy = ChemometricsPLS(n_comps=3, xscaler=x_scaler_mc, yscaler=y_scaler_mc)
 
-        pareto_model.fit(self.xmat, self.da)
-        pareto_model_multiy.fit(self.xmat_multi, self.da_mat)
-        mc_model.fit(self.xmat, self.da)
-        mc_model_multiy.fit(self.xmat_multi, self.da_mat)
+        pareto_model.fit(self.xmat, self.y)
+        pareto_model_multiy.fit(self.xmat_multi, self.ymat)
+        mc_model.fit(self.xmat, self.y)
+        mc_model_multiy.fit(self.xmat_multi, self.ymat)
 
-        self.assertAlmostEqual(self.plsreg_loadings_p, self.expected_loadings_p_yblock)
-        self.assertAlmostEqual(self.plsreg_multiy.loadings_q, self.expected_loadings_q_yblock)
-        self.assertAlmostEqual(self.plsreg_weights_w, self.expected_weights_w_yblock)
-        self.assertAlmostEqual(self.plsreg_multiy.weights_c, self.expected_weights_c_yblock)
-        self.assertAlmostEqual(self.plsreg_multiy.scores_t, self.expected_scores_t_yblock)
-        self.assertAlmostEqual(self.plsreg_multiy.scores_u, self.expected_scores_u_yblock)
-        self.assertAlmostEqual(self.plsreg_multiy.beta_coeffs, self.expected_betacoefs_yblock)
-        self.assertAlmostEqual(self.plsreg_multiy.VIP(), self.expected_vipsw_yblock)
+        self.assertAlmostEqual(pareto_model.loadings_p, self.expected_loadings_p_par)
+        self.assertAlmostEqual(pareto_model.loadings_q, self.expected_loadings_q_par)
+        self.assertAlmostEqual(pareto_model.weights_w, self.expected_weights_w_par)
+        self.assertAlmostEqual(pareto_model.weights_c, self.expected_weights_c_par)
+        self.assertAlmostEqual(pareto_model.scores_t, self.expected_scores_t_par)
+        self.assertAlmostEqual(pareto_model.scores_u, self.expected_scores_u_par)
+        self.assertAlmostEqual(pareto_model.beta_coeffs, self.expected_betacoefs_par)
+        self.assertAlmostEqual(pareto_model.VIP(), self.expected_vipsw_par)
+
+        self.assertAlmostEqual(pareto_model_multiy.loadings_p, self.expected_loadings_p_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.loadings_q, self.expected_loadings_q_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.weights_w, self.expected_weights_w_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.weights_c, self.expected_weights_c_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.scores_t, self.expected_scores_t_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.scores_u, self.expected_scores_u_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.beta_coeffs, self.expected_betacoefs_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.VIP(), self.expected_vipsw_yblock_par)
+
+        self.assertAlmostEqual(mc_model.loadings_p, self.expected_loadings_p_mc)
+        self.assertAlmostEqual(mc_model.loadings_q, self.expected_loadings_q_mc)
+        self.assertAlmostEqual(mc_model.weights_w, self.expected_weights_w_mc)
+        self.assertAlmostEqual(mc_model.weights_c, self.expected_weights_c_mc)
+        self.assertAlmostEqual(mc_model.scores_t, self.expected_scores_t_mc)
+        self.assertAlmostEqual(mc_model.scores_u, self.expected_scores_mc)
+        self.assertAlmostEqual(mc_model.beta_coeffs, self.expected_betacoefs_mc)
+        self.assertAlmostEqual(mc_model.VIP(), self.expected_vipsw_mc)
+
+        self.assertAlmostEqual(mc_model_multiy.loadings_p, self.expected_loadings_p_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.loadings_q, self.expected_loadings_q_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.weights_w, self.expected_weights_w_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.weights_c, self.expected_weights_c_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.scores_t, self.expected_scores_t_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.scores_u, self.expected_scores_u_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.beta_coeffs, self.expected_betacoefs_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.VIP(), self.expected_vipsw_yblock_mc)
 
     def test_cv(self):
         # Fix the seed for the permutation test and cross_validation
@@ -127,13 +160,17 @@ class TestPLS(unittest.TestCase):
         permutation_results = self.plsreg.permutation_test(self.xmat, self.da, nperms=5)
         self.assertAlmostEqual(permutation_results[0], self.permutation_results)
 
-    def hotellingt2(self):
+    def test_VIP(self):
+
+        pass
+
+    def test_hotellingt2(self):
         t2 = self.plsda.hotelling_T2(comps=None)
         t2_multi = self.plsda_multiy.hotelling_T2(comps=None)
         self.assertAlmostEqual(t2, self.expected_t2)
         self.assertAlmostEqual(t2_multi, self.expected_t2_multi)
 
-    def Dmodx(self):
+    def test_dmodx(self):
         dmodx = self.plsda.dmodx(self.xmat)
         dmodx_multi = self.plsda_multiy.dmodx(self.xmat_multi)
         self.assertAlmostEqual(dmodx, self.expected_dmodx)

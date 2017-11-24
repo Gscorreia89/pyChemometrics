@@ -5,6 +5,8 @@ import numpy as np
 from copy import deepcopy
 from pyChemometrics.ChemometricsPLS import ChemometricsPLS
 
+# TODO Unfinished do not use
+
 
 class PLSPlotMixin(ABCMeta):
     """

@@ -98,10 +98,10 @@ class TestPLSDA(unittest.TestCase):
         self.assertAlmostEqual(self.plsda_multiy.VIP(), self.expected_vipsw_yblock)
 
     def test_scalers(self):
-        x_scaler_par = ChemometricsScaler(1/2)
-        y_scaler_par = ChemometricsScaler(1/2, with_std=False)
+        x_scaler_par = ChemometricsScaler(1 / 2)
+        y_scaler_par = ChemometricsScaler(1 / 2)
         x_scaler_mc = ChemometricsScaler(0)
-        y_scaler_mc = ChemometricsScaler(0, with_std=False)
+        y_scaler_mc = ChemometricsScaler(0)
 
         pareto_model = ChemometricsPLSDA(n_comps=3, xscaler=x_scaler_par, y_scaler=y_scaler_par)
         pareto_model_multiy = ChemometricsPLSDA(n_comps=3, xscaler=x_scaler_par, y_scaler=y_scaler_par)
@@ -113,14 +113,41 @@ class TestPLSDA(unittest.TestCase):
         mc_model.fit(self.xmat, self.da)
         mc_model_multiy.fit(self.xmat_multi, self.da_mat)
 
-        self.assertAlmostEqual(self.plsda_multiy.loadings_p, self.expected_loadings_p_yblock)
-        self.assertAlmostEqual(self.plsda_multiy.loadings_q, self.expected_loadings_q_yblock)
-        self.assertAlmostEqual(self.plsda_multiy.weights_w, self.expected_weights_w_yblock)
-        self.assertAlmostEqual(self.plsda_multiy.weights_c, self.expected_weights_c_yblock)
-        self.assertAlmostEqual(self.plsda_multiy.scores_t, self.expected_scores_t_yblock)
-        self.assertAlmostEqual(self.plsda_multiy.scores_u, self.expected_scores_u_yblock)
-        self.assertAlmostEqual(self.plsda_multiy.beta_coeffs, self.expected_betacoefs_yblock)
-        self.assertAlmostEqual(self.plsda_multiy.VIP(), self.expected_vipsw_yblock)
+        self.assertAlmostEqual(pareto_model.loadings_p, self.expected_loadings_p_par)
+        self.assertAlmostEqual(pareto_model.loadings_q, self.expected_loadings_q_par)
+        self.assertAlmostEqual(pareto_model.weights_w, self.expected_weights_w_par)
+        self.assertAlmostEqual(pareto_model.weights_c, self.expected_weights_c_par)
+        self.assertAlmostEqual(pareto_model.scores_t, self.expected_scores_t_par)
+        self.assertAlmostEqual(pareto_model.scores_u, self.expected_scores_u_par)
+        self.assertAlmostEqual(pareto_model.beta_coeffs, self.expected_betacoefs_par)
+        self.assertAlmostEqual(pareto_model.VIP(), self.expected_vipsw_par)
+
+        self.assertAlmostEqual(pareto_model_multiy.loadings_p, self.expected_loadings_p_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.loadings_q, self.expected_loadings_q_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.weights_w, self.expected_weights_w_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.weights_c, self.expected_weights_c_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.scores_t, self.expected_scores_t_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.scores_u, self.expected_scores_u_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.beta_coeffs, self.expected_betacoefs_yblock_par)
+        self.assertAlmostEqual(pareto_model_multiy.VIP(), self.expected_vipsw_yblock_par)
+
+        self.assertAlmostEqual(mc_model.loadings_p, self.expected_loadings_p_mc)
+        self.assertAlmostEqual(mc_model.loadings_q, self.expected_loadings_q_mc)
+        self.assertAlmostEqual(mc_model.weights_w, self.expected_weights_w_mc)
+        self.assertAlmostEqual(mc_model.weights_c, self.expected_weights_c_mc)
+        self.assertAlmostEqual(mc_model.scores_t, self.expected_scores_t_mc)
+        self.assertAlmostEqual(mc_model.scores_u, self.expected_scores_mc)
+        self.assertAlmostEqual(mc_model.beta_coeffs, self.expected_betacoefs_mc)
+        self.assertAlmostEqual(mc_model.VIP(), self.expected_vipsw_mc)
+
+        self.assertAlmostEqual(mc_model_multiy.loadings_p, self.expected_loadings_p_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.loadings_q, self.expected_loadings_q_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.weights_w, self.expected_weights_w_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.weights_c, self.expected_weights_c_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.scores_t, self.expected_scores_t_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.scores_u, self.expected_scores_u_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.beta_coeffs, self.expected_betacoefs_yblock_mc)
+        self.assertAlmostEqual(mc_model_multiy.VIP(), self.expected_vipsw_yblock_mc)
 
     def test_cv(self):
         # Fix the seed for the permutation test and cross_validation
