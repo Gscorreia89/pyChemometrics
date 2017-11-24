@@ -13,8 +13,8 @@ Contents:
 
 Using the pyChemometrics Models
 ===============================
-Each of the
-The :doc:`tutorial <tutorial>` introduces the main objects, and typical use cases.
+
+The :doc:`tutorial <tutorial>` introduces the main objects, exemplified with typical use cases.
 
 
 The pyChemometrics object classes
@@ -22,8 +22,8 @@ The pyChemometrics object classes
 
 .. automodule:: pyChemometrics
 
-There are 3 main classes wtv
-See :doc:`objects` for details.
+A detailed description of the main classes and their methods included in
+the package is available in :doc:`objects`.
 
 Indices and tables
 ==================

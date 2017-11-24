@@ -17,10 +17,16 @@ ChemometricsPLS
 .. autoclass:: pyChemometrics.ChemometricsPLS
   :members:
 
-ChemometricsPLS
-===============
+ChemometricsPLSDA
+=================
 
 .. autoclass:: pyChemometrics.ChemometricsPLSDA
+  :members:
+
+ChemometricsPLS_Logistic
+========================
+
+.. autoclass:: pyChemometrics.ChemometricsPLS_Logistic
   :members:
 
 ChemometricsScaler
