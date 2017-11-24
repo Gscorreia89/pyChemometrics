@@ -31,4 +31,4 @@ To install, simply navigate to the main package folder and run
     python setup.py install
     
 ### License
-All code is provided under a BSD 3-clause license.
+All code is provided under a BSD 3-clause license. See LICENSE file for more information.
