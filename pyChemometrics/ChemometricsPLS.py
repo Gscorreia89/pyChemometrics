@@ -674,7 +674,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :return: The Normalised DmodX measure for each sample
         """
         resids_ssx = self._residual_ssx(x)
-        s = np.sqrt(resids_ssx/(self.loadings_p.shape[1] - self.ncomps))
+        s = np.sqrt(resids_ssx/(self.loadings_p.shape[0] - self.ncomps))
         dmodx = np.sqrt((s/self.modelParameters['S0X'])**2)
         return dmodx
 
@@ -896,7 +896,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             # Store everything...
             self.cvParameters = {'Q2X': q_squaredx, 'Q2Y': q_squaredy, 'MeanR2X_Training': np.mean(R2X_training),
                                  'MeanR2Y_Training': np.mean(R2Y_training), 'StdevR2X_Training': np.std(R2X_training),
-                                 'StdevR2Y_Training': np.std(R2X_training), 'MeanR2X_Test': np.mean(R2X_test),
+                                 'StdevR2Y_Training': np.std(R2Y_training), 'MeanR2X_Test': np.mean(R2X_test),
                                  'MeanR2Y_Test': np.mean(R2Y_test), 'StdevR2X_Test': np.std(R2X_test),
                                  'StdevR2Y_Test': np.std(R2Y_test), 'Mean_Loadings_q': cv_loadings_q.mean(0),
                                  'Stdev_Loadings_q': cv_loadings_q.std(0), 'Mean_Loadings_p': cv_loadings_p.mean(0),

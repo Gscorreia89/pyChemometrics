@@ -512,7 +512,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
             # Assemble the dictionary and data matrices
 
             self.cvParameters = {'Mean_VarExpRatio_Training': np.array(cv_varexplained_training).mean(axis=0),
-                                 'Stdev_VarExpRatio_Training': np.array(cv_varexplained_training).mean(axis=0),
+                                 'Stdev_VarExpRatio_Training': np.array(cv_varexplained_training).std(axis=0),
                                  'Mean_VarExp_Test': np.mean(cv_varexplained_test),
                                  'Stdev_VarExp_Test': np.std(cv_varexplained_test),
                                  'Q2': q_squared}
