@@ -474,14 +474,14 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                     press_testset = 0
                     for column in range(0, x[xtest, :].shape[1]):
                         xpred = cv_pipeline.scaler.transform(cv_pipeline._press_impute_pinv(x[xtest, :], column))
-                        press_testset += np.sum((xtest_scaled[:, column] - xpred[:, column]) ** 2)
+                        press_testset += np.sum(np.square(xtest_scaled[:, column] - xpred[:, column]))
                     cv_varexplained_test.append(1 - (press_testset / tss))
                     total_press += press_testset
                 else:
                     # RSS for row wise cross-validation
                     pred_scores = cv_pipeline.transform(x[xtest, :])
                     pred_x = cv_pipeline.scaler.transform(cv_pipeline.inverse_transform(pred_scores))
-                    rss = np.sum((xtest_scaled - pred_x) ** 2)
+                    rss = np.sum(np.square(xtest_scaled - pred_x))
                     total_press += rss
                     cv_varexplained_test.append(1 - (rss / tss))
 
