@@ -10,7 +10,10 @@ Leave-one-out-cross-validation (LOOCV), K-Fold cross validation and Monte Carlo 
 Q2Y and Q2X measures from LOOCV and K-Fold CV, permutation tests and the variable importance for prediction 
 (VIP) metric. 
 
-## Table of contents
+### Documentation and Tutorials
+Documentation and information on running the tutorials (Still in progress) can be found in [readthedocs](http://pychemometrics.readthedocs.io/en/stable/).
+
+### Table of contents
 The main objects in the package are:
 
  - ChemometricsScaler: Handles the scaling of the data matrices
