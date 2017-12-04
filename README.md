@@ -1,5 +1,7 @@
 # pyChemometrics
 
+[![DOI](https://zenodo.org/badge/61749327.svg)](https://zenodo.org/badge/latestdoi/61749327)
+
 ### Description
 The pyChemometrics package provides implementations of PCA, PLS regression and PLS discriminant 
 analysis (PLS-DA) tailored for the analysis of spectroscopy and metabonomic datasets
