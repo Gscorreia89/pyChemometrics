@@ -1,12 +1,14 @@
 from copy import deepcopy
+
 import numpy as np
 import pandas as pds
 from scipy import interp
+from sklearn import metrics
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
 from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
-from sklearn import metrics
+
 from .ChemometricsPLS import ChemometricsPLS
 from .ChemometricsScaler import ChemometricsScaler
 

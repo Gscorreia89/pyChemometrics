@@ -1,16 +1,20 @@
 from copy import deepcopy
+
 import numpy as np
+import scipy.stats as st
 from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition.base import _BasePCA
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
+
 from .ChemometricsScaler import ChemometricsScaler
-import scipy.stats as st
+from .PCAPlotMixin import PCAPlotMixin
+
 __author__ = 'gd2212'
 
 
-class ChemometricsPCA(_BasePCA, BaseEstimator):
+class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
     """
 
     ChemometricsPCA object - Wrapper for sklearn.decomposition PCA algorithms, with tailored methods
