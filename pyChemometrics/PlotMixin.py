@@ -1,9 +1,9 @@
-from abc import ABCMeta
+from abc import ABC
 
 import matplotlib.pyplot as plt
 
 
-class PlotMixin(ABCMeta):
+class PlotMixin(ABC):
     """
 
     Mixin Class containing general plotting methods.

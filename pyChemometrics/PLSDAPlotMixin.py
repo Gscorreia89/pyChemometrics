@@ -1,4 +1,4 @@
-from abc import ABCMeta
+from abc import ABC
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,15 +9,13 @@ from pyChemometrics.PLSPlotMixin import PLSPlotMixin
 # TODO Unfinished do not use
 
 
-class PLSDAPlotMixin(ABCMeta, PLSPlotMixin):
+class PLSDAPlotMixin(ABC, PLSPlotMixin):
     """
 
     Mixin Class to add plotting methods to ChemometricsPLS objects if desired.
 
     """
 
-    def __init__(self):
-        pass
 
     def plot_cv_ROC(self):
         plt.figure()
