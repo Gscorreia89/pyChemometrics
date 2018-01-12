@@ -10,7 +10,7 @@ from copy import deepcopy
 from pyChemometrics.PlotMixin import PlotMixin
 
 
-class PCAPlotMixin(metaclass=ABCMeta, PlotMixin):
+class PCAPlotMixin(ABCMeta, PlotMixin):
     """
 
     Mixin Class to add plotting methods to ChemometricsPCA objects if desired.

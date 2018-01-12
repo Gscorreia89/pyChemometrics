@@ -13,7 +13,7 @@ from pyChemometrics.PlotMixin import PlotMixin
 # TODO Unfinished do not use
 
 
-class PLSPlotMixin(metaclass=ABCMeta, PlotMixin):
+class PLSPlotMixin(ABCMeta, PlotMixin):
     """
 
     Mixin Class to add plotting methods to ChemometricsPLS objects if desired.

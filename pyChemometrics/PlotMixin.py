@@ -3,7 +3,7 @@ from abc import ABCMeta
 import matplotlib.pyplot as plt
 
 
-class PlotMixin(metaclass=ABCMeta):
+class PlotMixin(ABCMeta):
     """
 
     Mixin Class containing general plotting methods.
