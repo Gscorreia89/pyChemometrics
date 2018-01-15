@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABCMeta
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -10,7 +10,7 @@ from copy import deepcopy
 from pyChemometrics.PlotMixin import PlotMixin
 
 
-class PCAPlotMixin(ABC, PlotMixin):
+class PCAPlotMixin(PlotMixin, metaclass=ABCMeta):
     """
 
     Mixin Class to add plotting methods to ChemometricsPCA objects if desired.
