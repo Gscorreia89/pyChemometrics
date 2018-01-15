@@ -514,13 +514,18 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
             # Q^2X
             q_squared = 1 - (total_press / ss)
             # Assemble the dictionary and data matrices
-
-            self.cvParameters = {'Mean_VarExpRatio_Training': np.array(cv_varexplained_training).mean(axis=0),
-                                 'Stdev_VarExpRatio_Training': np.array(cv_varexplained_training).std(axis=0),
-                                 'Mean_VarExp_Test': np.mean(cv_varexplained_test),
-                                 'Stdev_VarExp_Test': np.std(cv_varexplained_test),
-                                 'Q2': q_squared}
-
+            if hasattr(self, 'cvParameters'):
+                self.cvParameters['Mean_VarExpRatio_Training'] = np.array(cv_varexplained_training).mean(axis=0)
+                self.cvParameters['Stdev_VarExpRatio_Training'] = np.array(cv_varexplained_training).std(axis=0)
+                self.cvParameters['Mean_VarExp_Test'] = np.mean(cv_varexplained_test)
+                self.cvParameters['Stdev_VarExp_Test'] = np.std(cv_varexplained_test)
+                self.cvParameters['Q2X'] = q_squared
+            else:
+                self.cvParameters = {'Mean_VarExpRatio_Training': np.array(cv_varexplained_training).mean(axis=0),
+                                     'Stdev_VarExpRatio_Training': np.array(cv_varexplained_training).std(axis=0),
+                                     'Mean_VarExp_Test': np.mean(cv_varexplained_test),
+                                     'Stdev_VarExp_Test': np.std(cv_varexplained_test),
+                                      'Q2X': q_squared}
             if outputdist is True:
                 self.cvParameters['CV_VarExpRatio_Training'] = cv_varexplained_training
                 self.cvParameters['CV_VarExp_Test'] = cv_varexplained_test
@@ -536,6 +541,65 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
             raise terp
         except ValueError as verr:
             raise verr
+
+
+    #@staticmethod
+    #def stop_cond(model, x):
+    #    stop_check = getattr(model, modelParameters)
+    #    if stop_check > 0:
+    #        return True
+    #    else:
+    #        return False
+
+    def _screecv_optimize_ncomps(self, x, total_comps=5, cv_method=KFold(7, True), stopping_condition=None):
+        """
+        Routine to optimize number of components quickly using Cross validation and stabilization of Q2X.
+
+        :param numpy.ndarray x: Data
+        :param int total_comps:
+        :param sklearn.BaseCrossValidator cv_method:
+        :param None or float stopping_condition:
+        :return:
+        """
+        models = list()
+
+        for ncomps in range(1, total_comps + 1):
+
+            currmodel = deepcopy(self)
+            currmodel.ncomps = ncomps
+            currmodel.fit(x)
+            currmodel.cross_validation(x, outputdist=False, cv_method=cv_method)
+            models.append(currmodel)
+
+            # Stopping condition on Q2, assuming stopping_condition is a float encoding percentage of increase from
+            # previous Q2X
+            # Exclude first component since there is nothing to compare with...
+            if isinstance(stopping_condition, float) and ncomps > 1:
+                previous_q2 = models[ncomps - 2].cvParameters['Q2X']
+                current_q2 = models[ncomps - 1].cvParameters['Q2X']
+
+                if (current_q2 - previous_q2)/previous_q2 < stopping_condition:
+                    # Stop the loop
+                    models.pop()
+                    break
+            # Flexible case to be implemented, to allow many other stopping conditions
+            elif isinstance(stopping_condition, callable):
+                pass
+
+        q2 = np.array([x.cvParameters['Q2X'] for x in models])
+        r2 = np.array([x.modelParameters['R2X'] for x in models])
+
+        results_dict = {'R2X_Scree': r2, 'Q2X_Scree': q2, 'Scree_N_components': len(r2)}
+        # If cross-validation has been called
+        if hasattr(self, 'cvParameters'):
+            self.cvParameters['R2X_Scree'] = r2
+            self.cvParameters['Q2X_Scree'] = q2
+            self.cvParameters['Scree_N_components'] = len(r2)
+        # In case cross_validation wasn't called before.
+        else:
+            self.cvParameters = {'R2X_Scree': r2, 'Q2X_Scree': q2, 'Scree_N_components': len(r2)}
+
+        return results_dict
 
     def outlier(self, x, comps=None, measure='T2', alpha=0.05):
         """

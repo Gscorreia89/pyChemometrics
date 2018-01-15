@@ -123,7 +123,7 @@ class PCAPlotMixin(PlotMixin, metaclass=ABCMeta):
             currmodel.cross_validation(x, outputdist=False, cv_method=cv_method)
             models.append(currmodel)
 
-        q2 = np.array([x.cvParameters['Q2'] for x in models])
+        q2 = np.array([x.cvParameters['Q2X'] for x in models])
         r2 = np.array([x.modelParameters['R2X'] for x in models])
 
         plt.bar([x - 0.1 for x in range(1, total_comps + 1)], height=r2, width=0.2)
@@ -169,7 +169,7 @@ class PCAPlotMixin(PlotMixin, metaclass=ABCMeta):
                 currmodel.ncomps = ncomps
                 currmodel.fit(x)
                 currmodel.cross_validation(x, cv_method=cv_method, outputdist=False)
-                q2x[ncomps - 1, rep] = currmodel.cvParameters['Q2']
+                q2x[ncomps - 1, rep] = currmodel.cvParameters['Q2X']
 
         plt.figure()
         ax = sns.violinplot(data=q2x.T, palette="Set1")
