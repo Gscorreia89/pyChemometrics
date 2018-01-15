@@ -514,7 +514,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
             # Q^2X
             q_squared = 1 - (total_press / ss)
             # Assemble the dictionary and data matrices
-            if hasattr(self, 'cvParameters'):
+            if self.cvParameters is not None:
                 self.cvParameters['Mean_VarExpRatio_Training'] = np.array(cv_varexplained_training).mean(axis=0)
                 self.cvParameters['Stdev_VarExpRatio_Training'] = np.array(cv_varexplained_training).std(axis=0)
                 self.cvParameters['Mean_VarExp_Test'] = np.mean(cv_varexplained_test)
@@ -578,12 +578,12 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
                 previous_q2 = models[ncomps - 2].cvParameters['Q2X']
                 current_q2 = models[ncomps - 1].cvParameters['Q2X']
 
-                if (current_q2 - previous_q2)/previous_q2 < stopping_condition:
+                if (current_q2 - previous_q2)/abs(previous_q2) < stopping_condition:
                     # Stop the loop
                     models.pop()
                     break
             # Flexible case to be implemented, to allow many other stopping conditions
-            elif isinstance(stopping_condition, callable):
+            elif callable(stopping_condition):
                 pass
 
         q2 = np.array([x.cvParameters['Q2X'] for x in models])
@@ -591,7 +591,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
 
         results_dict = {'R2X_Scree': r2, 'Q2X_Scree': q2, 'Scree_N_components': len(r2)}
         # If cross-validation has been called
-        if hasattr(self, 'cvParameters'):
+        if self.cvParameters is not None:
             self.cvParameters['R2X_Scree'] = r2
             self.cvParameters['Q2X_Scree'] = q2
             self.cvParameters['Scree_N_components'] = len(r2)
@@ -600,6 +600,21 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
             self.cvParameters = {'R2X_Scree': r2, 'Q2X_Scree': q2, 'Scree_N_components': len(r2)}
 
         return results_dict
+
+    def _dmodx_fcrit(self, x, alpha=0.05):
+        """
+
+        :param alpha:
+        :return:
+        """
+
+        # Degrees of freedom for the PCA model (denominator in F-stat) calculated as suggested in
+        # Faber, Nicolaas (Klaas) M., Degrees of freedom for the residuals of a
+        # principal component analysis - A clarification, Chemometrics and Intelligent Laboratory Systems 2008
+        dmodx_fcrit = st.f.ppf(1 - alpha, x.shape[1] - self.ncomps - 1,
+                         (x.shape[0] - self.ncomps - 1) * (x.shape[1] - self.ncomps))
+
+        return dmodx_fcrit
 
     def outlier(self, x, comps=None, measure='T2', alpha=0.05):
         """
@@ -619,8 +634,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
                 outlier_idx = np.where(((scores ** 2) / t2 ** 2).sum(axis=1) > 1)[0]
             elif measure == 'DmodX':
                 dmodx = self.dmodx(x)
-                dcrit = st.f.ppf(1 - alpha, x.shape[1] - self.ncomps,
-                                 (x.shape[0] - self.ncomps - 1) * (x.shape[1] - self.ncomps))
+                dcrit = self._dmodx_crit(x, alpha)
                 outlier_idx = np.where(dmodx > dcrit)[0]
             else:
                 print("Select T2 (Hotelling T2) or DmodX as outlier exclusion criteria")

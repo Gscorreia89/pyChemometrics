@@ -193,10 +193,8 @@ class PCAPlotMixin(PlotMixin, metaclass=ABCMeta):
 
         try:
             dmodx = self.dmodx(x)
-            # Degrees of freedom for the PCA model (denominator in F-stat) calculated as suggested in
-            # Faber, Nicolaas (Klaas) M., Degrees of freedom for the residuals of a
-            # principal component analysis - A clarification, Chemometrics and Intelligent Laboratory Systems 2008
-            dcrit = st.f.ppf(1-alpha, x.shape[1] - self.ncomps - 1, (x.shape[0] - self.ncomps - 1)*(x.shape[1] - self.ncomps))
+
+            dcrit = self._dmodx_fcrit(alpha)
             outlier_idx = self.outlier(x, measure='DmodX')
             plt.figure()
             x_axis = np.array([x for x in range(x.shape[0])])
