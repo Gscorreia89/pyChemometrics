@@ -22,17 +22,17 @@ class TestPLSDA(unittest.TestCase):
     def setUp(self):
 
         try:
-            two_class = pds.read_csv('./test_data/classification_twoclass.csv')
-            multiclass = pds.read_csv('./test_data/classification_multiclass.csv')
+            two_class = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
+            multiclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_multiclass.csv'))
 
         except OSError as exp:
             os.system("python gen_synthetic_datasets.py")
-            two_class = pds.read_csv('./test_data/classification_twoclass.csv')
-            multiclass = pds.read_csv('./test_data/classification_multiclass.csv')
+            two_class = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
+            multiclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_multiclass.csv'))
 
         finally:
             # Load expected values for a PLS da with 2 classes
-            self.expected_cvParams = pds.read_csv('./test_data/pls_da_cvoarams.csv')
+            self.expected_cvParams = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/pls_da_cvoarams.csv'))
 
             # check this
             self.da_mat = multiclass['Class_Vector'].values

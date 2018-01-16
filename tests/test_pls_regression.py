@@ -23,24 +23,24 @@ class TestPLS(unittest.TestCase):
     def setUp(self):
 
         try:
-            regression_problem = pds.read_csv('./test_data/regression.csv')
-            multiblock_regression_problem = pds.read_csv('./test_data/regression_multiblock.csv')
+            regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression.csv'))
+            multiblock_regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression_multiblock.csv'))
 
         except (IOError, OSError) as ioerr:
             os.system("python gen_synthetic_datasets.py")
-            regression_problem = pds.read_csv('./test_data/regression.csv')
-            multiblock_regression_problem = pds.read_csv('./test_data/regression_multiblock.csv')
+            regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression.csv'))
+            multiblock_regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression_multiblock.csv'))
         finally:
             # Load expected values for a PLS regression against a Y vector
-            self.expected_loadings_p = np.loadtxt('./test_data/pls_loadings_p.csv', delimiter=',')
-            self.expected_loadings_q = np.loadtxt('./test_data/pls_loadings_q.csv', delimiter=',')[np.newaxis, :]
-            self.expected_weights_w = np.loadtxt('./test_data/pls_weights_w.csv', delimiter=',')
-            self.expected_weights_c = np.loadtxt('./test_data/pls_weights_c.csv', delimiter=',')[np.newaxis, :]
-            self.expected_scores_t = np.loadtxt('./test_data/pls_scores_t.csv', delimiter=',')
-            self.expected_scores_u = np.loadtxt('./test_data/pls_scores_u.csv', delimiter=',')
-            self.expected_betacoefs = np.loadtxt('./test_data/pls_betas.csv', delimiter=',')[:, np.newaxis]
-            self.expected_vips = np.loadtxt('./test_data/pls_vip.csv', delimiter=',')
-            self.expected_dmodx = np.loadtxt('./test_data/pls_dmodx.csv', delimiter=',')
+            self.expected_loadings_p = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_loadings_p.csv'), delimiter=',')
+            self.expected_loadings_q = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_loadings_q.csv'), delimiter=',')[np.newaxis, :]
+            self.expected_weights_w = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_weights_w.csv'), delimiter=',')
+            self.expected_weights_c = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_weights_c.csv'), delimiter=',')[np.newaxis, :]
+            self.expected_scores_t = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_scores_t.csv'), delimiter=',')
+            self.expected_scores_u = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_scores_u.csv'), delimiter=',')
+            self.expected_betacoefs = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_betas.csv'), delimiter=',')[:, np.newaxis]
+            self.expected_vips = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_vip.csv'), delimiter=',')
+            self.expected_dmodx = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_dmodx.csv'), delimiter=',')
 
             # Load expected values for a PLS regression model against a Y matrix
             #self.expected_loadings_p_yblock = np.loadtxt('./test_data/pls_reg_yblock_loadings_p.csv', delimiter=',')
@@ -69,13 +69,13 @@ class TestPLS(unittest.TestCase):
             self.expected_outliers_t2 = np.array([5, 33])
             self.expected_outliers_dmodx = np.array([])
 
-            self.expected_scores_t_par = np.loadtxt('./test_data/pls_scores_t_par.csv', delimiter=',')
-            self.expected_betas_par = np.loadtxt('./test_data/pls_betas_par.csv', delimiter=',')[:, np.newaxis]
-            self.expected_scores_t_mc = np.loadtxt('./test_data/pls_scores_t_mc.csv', delimiter=',')
-            self.expected_betas_mc = np.loadtxt('./test_data/pls_betas_mc.csv', delimiter=',')[:, np.newaxis]
+            self.expected_scores_t_par = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_scores_t_par.csv'), delimiter=',')
+            self.expected_betas_par = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_betas_par.csv'), delimiter=',')[:, np.newaxis]
+            self.expected_scores_t_mc = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_scores_t_mc.csv'), delimiter=',')
+            self.expected_betas_mc = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_betas_mc.csv'), delimiter=',')[:, np.newaxis]
 
-            self.expected_vip_mc = np.loadtxt('./test_data/pls_vip_mc.csv', delimiter=',')
-            self.expected_vip_par = np.loadtxt('./test_data/pls_vip_par.csv', delimiter=',')
+            self.expected_vip_mc = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_vip_mc.csv'), delimiter=',')
+            self.expected_vip_par = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_vip_par.csv'), delimiter=',')
 
             # check this
             self.y = regression_problem.iloc[:, 0].values

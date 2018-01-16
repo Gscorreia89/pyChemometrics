@@ -26,12 +26,12 @@ class TestPLSObjectConsistency(unittest.TestCase):
     def setUp(self):
 
         try:
-            multiclass = pds.read_csv('./test_data/classification_multiclass.csv')
-            twoclass = pds.read_csv('./test_data/classification_twoclass.csv')
+            multiclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_multiclass.csv'))
+            twoclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
         except OSError as exp:
             os.system("python gen_synthetic_datasets.py")
-            multiclass = pds.read_csv('./test_data/classification_multiclass.csv')
-            twoclass = pds.read_csv('./test_data/classification_twoclass.csv')
+            multiclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_multiclass.csv'))
+            twoclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
         finally:
             # check this
             self.da_mat = multiclass['Class_Vector'].values

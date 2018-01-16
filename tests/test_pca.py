@@ -26,12 +26,12 @@ class TestPCA(unittest.TestCase):
 
         try:
             # Generate a fake classification dataset
-            t_dset = pds.read_csv('./test_data/classification_twoclass.csv')
+            t_dset = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
             self.xmat = t_dset.iloc[:, 1::].values
 
         except (IOError, OSError) as ioerr:
             os.system('python gen_synthetic_datasets.py')
-            t_dset = pds.read_csv('./test_data/classification_twoclass.csv')
+            t_dset = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
             self.xmat = t_dset.iloc[:, 1::].values
 
         self.expected_modelParameters = {'R2X': 0.12913056143673818,
@@ -43,17 +43,17 @@ class TestPCA(unittest.TestCase):
                                       'Mean_VarExpRatio_Training': np.array([0.05108043,  0.04669199,  0.04380617]),
                                       'Stdev_VarExpRatio_Training': np.array([0.00130025,  0.00094489,  0.00044059])}
 
-        self.expected_scores = np.loadtxt('./test_data/pca_scores.csv', delimiter=',')
-        self.expected_loadings = np.loadtxt('./test_data/pca_loadings.csv', delimiter=',')
+        self.expected_scores = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pca_scores.csv'), delimiter=',')
+        self.expected_loadings = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pca_loadings.csv'), delimiter=',')
 
-        self.expected_scores_mc = np.loadtxt('./test_data/pca_scores_mc.csv', delimiter=',')
-        self.expected_loadings_mc = np.loadtxt('./test_data/pca_loadings_mc.csv', delimiter=',')
+        self.expected_scores_mc = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pca_scores_mc.csv'), delimiter=',')
+        self.expected_loadings_mc = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pca_loadings_mc.csv'), delimiter=',')
 
-        self.expected_scores_par = np.loadtxt('./test_data/pca_scores_par.csv', delimiter=',')
-        self.expected_loadings_par = np.loadtxt('./test_data/pca_loadings_par.csv', delimiter=',')
+        self.expected_scores_par = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pca_scores_par.csv'), delimiter=',')
+        self.expected_loadings_par = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pca_loadings_par.csv'), delimiter=',')
 
-        self.expected_dmodx = np.loadtxt('./test_data/pca_dmodx.csv', delimiter=',')
-        cvloadings = np.loadtxt('./test_data/pca_cvloads.csv', delimiter=',')
+        self.expected_dmodx = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pca_dmodx.csv'), delimiter=',')
+        cvloadings = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pca_cvloads.csv'), delimiter=',')
         self.expected_cv_meanloadings = cvloadings[0:3, :]
         self.expected_cv_stdevloadings = cvloadings[3::, :]
 
