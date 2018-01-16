@@ -6,6 +6,9 @@ from numpy.testing import assert_allclose
 from sklearn.model_selection import KFold
 from pyChemometrics import ChemometricsScaler, ChemometricsPCA
 
+import sys
+sys
+
 """
 Suite of tests to assess coherence and functionality of the PCA object.
 

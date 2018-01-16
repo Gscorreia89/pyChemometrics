@@ -3,7 +3,7 @@ import numpy as np
 
 
 import pandas as pds
-
+# Use the standard datasets
 t_dset = pds.read_csv('./tests/test_data/regression.csv')
 xmat = t_dset.iloc[:, 1::].values
 y = t_dset.iloc[:, 0].values
