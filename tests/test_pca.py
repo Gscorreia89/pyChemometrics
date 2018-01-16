@@ -35,7 +35,7 @@ class TestPCA(unittest.TestCase):
                                           'S0': 0.9803124001345157,
                                          'VarExp': np.array([9.44045066, 8.79710591, 8.11561924]),
                                           'VarExpRatio': np.array([0.04625821, 0.04310582, 0.03976653])}
-        self.expected_cvParameters = {'Q2': -0.10571035538454221, 'Mean_VarExp_Test': -0.0090083829247783621,
+        self.expected_cvParameters = {'Q2X': -0.10571035538454221, 'Mean_VarExp_Test': -0.0090083829247783621,
                                       'Stdev_VarExp_Test': 0.0037778709253728452,
                                       'Mean_VarExpRatio_Training': np.array([0.05108043,  0.04669199,  0.04380617]),
                                       'Stdev_VarExpRatio_Training': np.array([0.00130025,  0.00094489,  0.00044059])}
@@ -83,7 +83,7 @@ class TestPCA(unittest.TestCase):
         np.random.seed(0)
         self.pcamodel.cross_validation(self.xmat, cv_method=KFold(7, True))
 
-        assert_allclose(self.pcamodel.cvParameters['Q2'], self.expected_cvParameters['Q2'], rtol=1e-5)
+        assert_allclose(self.pcamodel.cvParameters['Q2X'], self.expected_cvParameters['Q2X'], rtol=1e-5)
         assert_allclose(self.pcamodel.cvParameters['Mean_VarExpRatio_Training'], self.expected_cvParameters['Mean_VarExpRatio_Training'], rtol=1e-5)
         assert_allclose(self.pcamodel.cvParameters['Stdev_VarExpRatio_Training'], self.expected_cvParameters['Stdev_VarExpRatio_Training'], rtol=1e-5)
         assert_allclose(self.pcamodel.cvParameters['Mean_VarExp_Test'], self.expected_cvParameters['Mean_VarExp_Test'], rtol=1e-5)
