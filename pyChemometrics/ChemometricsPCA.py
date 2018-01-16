@@ -634,7 +634,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
                 outlier_idx = np.where(((scores ** 2) / t2 ** 2).sum(axis=1) > 1)[0]
             elif measure == 'DmodX':
                 dmodx = self.dmodx(x)
-                dcrit = self._dmodx_crit(x, alpha)
+                dcrit = self._dmodx_fcrit(x, alpha)
                 outlier_idx = np.where(dmodx > dcrit)[0]
             else:
                 print("Select T2 (Hotelling T2) or DmodX as outlier exclusion criteria")
