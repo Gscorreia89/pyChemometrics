@@ -553,6 +553,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
 
     def _screecv_optimize_ncomps(self, x, total_comps=5, cv_method=KFold(7, True), stopping_condition=None):
         """
+
         Routine to optimize number of components quickly using Cross validation and stabilization of Q2X.
 
         :param numpy.ndarray x: Data
@@ -589,15 +590,15 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
         q2 = np.array([x.cvParameters['Q2X'] for x in models])
         r2 = np.array([x.modelParameters['R2X'] for x in models])
 
-        results_dict = {'R2X_Scree': r2, 'Q2X_Scree': q2, 'Scree_N_components': len(r2)}
+        results_dict = {'R2X_Scree': r2, 'Q2X_Scree': q2, 'Scree_n_components': len(r2)}
         # If cross-validation has been called
         if self.cvParameters is not None:
             self.cvParameters['R2X_Scree'] = r2
             self.cvParameters['Q2X_Scree'] = q2
-            self.cvParameters['Scree_N_components'] = len(r2)
+            self.cvParameters['Scree_n_components'] = len(r2)
         # In case cross_validation wasn't called before.
         else:
-            self.cvParameters = {'R2X_Scree': r2, 'Q2X_Scree': q2, 'Scree_N_components': len(r2)}
+            self.cvParameters = {'R2X_Scree': r2, 'Q2X_Scree': q2, 'Scree_n_components': len(r2)}
 
         return results_dict
 
