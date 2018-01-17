@@ -253,7 +253,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
             raise atre
 
     @ncomps.setter
-    def ncomps(self, ncomps=1):
+    def ncomps(self, ncomps):
         """
 
         Setter for number of components.
@@ -569,7 +569,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
             currmodel = deepcopy(self)
             currmodel.ncomps = ncomps
             currmodel.fit(x)
-            currmodel.cross_validation(x, outputdist=False, cv_method=cv_method)
+            currmodel.cross_validation(x, outputdist=False, cv_method=cv_method, press_impute=False)
             models.append(currmodel)
 
             # Stopping condition on Q2, assuming stopping_condition is a float encoding percentage of increase from
