@@ -29,8 +29,9 @@ class TestPCA(unittest.TestCase):
             t_dset = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
             self.xmat = t_dset.iloc[:, 1::].values
 
-        except (IOError, OSError) as ioerr:
-            os.system('python gen_synthetic_datasets.py')
+        except (IOError, OSError, FileNotFoundError) as ioerr:
+            import gen_synthetic_datasets
+            #os.system('python gen_synthetic_datasets.py')
             t_dset = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
             self.xmat = t_dset.iloc[:, 1::].values
 

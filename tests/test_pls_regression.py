@@ -27,7 +27,8 @@ class TestPLS(unittest.TestCase):
             multiblock_regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression_multiblock.csv'))
 
         except (IOError, OSError) as ioerr:
-            os.system("python gen_synthetic_datasets.py")
+            #os.system("python gen_synthetic_datasets.py")
+            import tests.gen_synthetic_datasets
             regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression.csv'))
             multiblock_regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression_multiblock.csv'))
         finally:
