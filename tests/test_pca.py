@@ -6,8 +6,6 @@ from numpy.testing import assert_allclose
 from sklearn.model_selection import KFold
 from pyChemometrics import ChemometricsScaler, ChemometricsPCA
 
-import sys
-sys
 
 """
 Suite of tests to assess coherence and functionality of the PCA object.
@@ -30,7 +28,7 @@ class TestPCA(unittest.TestCase):
             self.xmat = t_dset.iloc[:, 1::].values
 
         except (IOError, OSError, FileNotFoundError) as ioerr:
-            import gen_synthetic_datasets
+            import tests.gen_synthetic_datasets
             #os.system('python gen_synthetic_datasets.py')
             t_dset = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
             self.xmat = t_dset.iloc[:, 1::].values

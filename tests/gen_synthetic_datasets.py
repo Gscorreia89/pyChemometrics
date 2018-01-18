@@ -35,7 +35,7 @@ col_names = ['Class']
 col_names.extend(['Var_' + x for x in map(str, range(class_dataset[0].shape[1]))])
 class_dataset_frame = pds.DataFrame(data=np.c_[class_dataset[1], class_dataset[0]], columns=col_names)
 save_path = os.path.dirname(os.path.abspath("__file__"))
-class_dataset_frame.to_csv(os.path.join(save_path, './test_data/classification_twoclass.csv'), index=False)
+class_dataset_frame.to_csv(os.path.join(save_path, 'tests/test_data/classification_twoclass.csv'), index=False)
 
 # Save the multiclass classification dataset
 multiclass_dummy_mat = pds.get_dummies(multiclass_dataset[1]).values
@@ -45,7 +45,7 @@ col_names.extend(['Var_' + x for x in map(str, range(multiclass_dataset[0].shape
 multiclass_dataset_frame = pds.DataFrame(data=np.c_[multiclass_dataset[1], multiclass_dummy_mat,
                                                     multiclass_dataset[0]], columns=col_names)
 save_path = os.path.dirname(os.path.abspath("__file__"))
-multiclass_dataset_frame.to_csv(os.path.join(save_path, './test_data/classification_multiclass.csv'), index=False)
+multiclass_dataset_frame.to_csv(os.path.join(save_path, 'tests/test_data/classification_multiclass.csv'), index=False)
 
 # Save the 1 Y variable regression dataset
 col_names = ['Y']
@@ -53,7 +53,7 @@ col_names.extend(['Var_' + x for x in map(str, range(regression_dataset[0].shape
 regression_dataset_frame = pds.DataFrame(data=np.c_[regression_dataset[1], regression_dataset[0]],
                                          columns=col_names)
 save_path = os.path.dirname(os.path.abspath("__file__"))
-regression_dataset_frame.to_csv(os.path.join(save_path, './test_data/regression.csv'), index=False)
+regression_dataset_frame.to_csv(os.path.join(save_path, 'tests/test_data/regression.csv'), index=False)
 
 # Save the multi Y regression dataset
 col_names = (['Y_' + x for x in map(str, range(np.atleast_2d(regression_block_dataset[1]).shape[1]))])
@@ -61,4 +61,7 @@ col_names.extend(['Var_' + x for x in map(str, range(regression_block_dataset[0]
 regression_block_dataframe = pds.DataFrame(data=np.c_[regression_block_dataset[1], multiclass_dataset[0]],
                                            columns=col_names)
 save_path = os.path.dirname(os.path.abspath("__file__"))
-regression_block_dataframe.to_csv(os.path.join(save_path, './test_data/regression_multiblock.csv'), index=False)
+regression_block_dataframe.to_csv(os.path.join(save_path, 'tests/test_data/regression_multiblock.csv'), index=False)
+
+if __name__ == 'main':
+    pass
