@@ -20,7 +20,10 @@ class TestPLSDA(unittest.TestCase):
     """
 
     def setUp(self):
+        """
 
+        :return:
+        """
         try:
             two_class = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
             multiclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_multiclass.csv'))
@@ -48,6 +51,10 @@ class TestPLSDA(unittest.TestCase):
         self.plsda_multiy = ChemometricsPLSDA(n_comps=3, xscaler=x_scaler, y_scaler=y_scaler)
 
     def test_single_y(self):
+        """
+
+        :return:
+        """
         self.plsda.fit(self.xmat, self.da)
         self.assertAlmostEqual(self.plsda.loadings_p, self.expected_loadings_p)
         self.assertAlmostEqual(self.plsda.loadings_q, self.expected_loadings_q)
@@ -59,6 +66,10 @@ class TestPLSDA(unittest.TestCase):
         self.assertAlmostEqual(self.plsda.VIP(), self.expected_vipsw)
 
     def test_multi_y(self):
+        """
+
+        :return:
+        """
         self.plsda_multiy.fit(self.xmat_multi, self.da_mat)
         self.assertAlmostEqual(self.plsda_multiy.loadings_p, self.expected_loadings_p_yblock)
         self.assertAlmostEqual(self.plsda_multiy.loadings_q, self.expected_loadings_q_yblock)
@@ -70,6 +81,10 @@ class TestPLSDA(unittest.TestCase):
         self.assertAlmostEqual(self.plsda_multiy.VIP(), self.expected_vipsw_yblock)
 
     def test_cv(self):
+        """
+
+        :return:
+        """
         # Fix the seed for the permutation test and cross_validation
         np.random.seed(0)
         self.plsda.cross_validation(self.xmat, self.da)
@@ -78,6 +93,10 @@ class TestPLSDA(unittest.TestCase):
         self.assertAlmostEqual(self.plsda_multiy.cvParameters, self.expected_cvParams_multi)
 
     def test_permutation(self):
+        """
+
+        :return:
+        """
         # Fix the seed for the permutation test and cross_validation
         np.random.seed(0)
         self.plsda.cross_validation(self.xmat, self.da)

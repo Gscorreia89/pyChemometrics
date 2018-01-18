@@ -24,7 +24,10 @@ class TestPLSObjectConsistency(unittest.TestCase):
     """
 
     def setUp(self):
+        """
 
+        :return:
+        """
         try:
             multiclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_multiclass.csv'))
             twoclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
@@ -51,7 +54,10 @@ class TestPLSObjectConsistency(unittest.TestCase):
         self.dummy_y = pds.get_dummies(self.da_mat).values
 
     def test_single_y(self):
+        """
 
+        :return:
+        """
         self.plsreg.fit(self.xmat, self.da)
         self.plsda.fit(self.xmat, self.da)
 
@@ -72,7 +78,10 @@ class TestPLSObjectConsistency(unittest.TestCase):
         assert_allclose(self.plsreg.modelParameters['SSYcomp'], self.plsda.modelParameters['PLS']['SSYcomp'])
 
     def test_multi_y(self):
+        """
 
+        :return:
+        """
         self.plsreg.fit(self.xmat_multi, self.dummy_y)
         self.plsda.fit(self.xmat_multi, self.da_mat)
         

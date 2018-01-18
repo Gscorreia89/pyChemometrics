@@ -31,6 +31,7 @@ class TestPLS(unittest.TestCase):
             import tests.gen_synthetic_datasets
             regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression.csv'))
             multiblock_regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression_multiblock.csv'))
+
         finally:
             # Load expected values for a PLS regression against a Y vector
             self.expected_loadings_p = np.loadtxt(os.path.join(os.path.dirname(__file__), './test_data/pls_loadings_p.csv'), delimiter=',')
@@ -92,7 +93,10 @@ class TestPLS(unittest.TestCase):
         self.plsreg_multiblock = ChemometricsPLS(ncomps=3, xscaler=x_scaler, yscaler=y_scaler)
 
     def test_single_y(self):
+        """
 
+        :return:
+        """
         self.plsreg.fit(self.xmat, self.y)
 
         # Test model coefficients , scores and goodness of fit
@@ -109,21 +113,24 @@ class TestPLS(unittest.TestCase):
         assert_allclose(self.plsreg.modelParameters['SSYcomp'], self.expected_modelParameters['SSYcomp'])
         assert_allclose(self.plsreg.VIP(), self.expected_vips)
 
-    def test_multi_y(self):
-        self.plsreg_multiblock.fit(self.xmat_multiy, self.ymat)
-        # Assert equality of main model parameters
-        assert_allclose(self.plsreg_multiblock.loadings_p, self.expected_loadings_p_yblock)
-        assert_allclose(self.plsreg_multiblock.loadings_q, self.expected_loadings_q_yblock)
-        assert_allclose(self.plsreg_multiblock.weights_w, self.expected_weights_w_yblock)
-        assert_allclose(self.plsreg_multiblock.weights_c, self.expected_weights_c_yblock)
-        assert_allclose(self.plsreg_multiblock.scores_t, self.expected_scores_t_yblock)
-        assert_allclose(self.plsreg_multiblock.scores_u, self.expected_scores_u_yblock)
-        assert_allclose(self.plsreg_multiblock.beta_coeffs, self.expected_betacoefs_yblock)
-        assert_allclose(self.plsreg_multiblock.VIP(), self.expected_vipsw_yblock)
-        assert_allclose(self.plsreg.modelParameters, self.expected_modelParameters)
+    #def test_multi_y(self):
+    #    self.plsreg_multiblock.fit(self.xmat_multiy, self.ymat)
+    #    # Assert equality of main model parameters
+    #    assert_allclose(self.plsreg_multiblock.loadings_p, self.expected_loadings_p_yblock)
+    #    assert_allclose(self.plsreg_multiblock.loadings_q, self.expected_loadings_q_yblock)
+    #    assert_allclose(self.plsreg_multiblock.weights_w, self.expected_weights_w_yblock)
+    #    assert_allclose(self.plsreg_multiblock.weights_c, self.expected_weights_c_yblock)
+    #    assert_allclose(self.plsreg_multiblock.scores_t, self.expected_scores_t_yblock)
+    #    assert_allclose(self.plsreg_multiblock.scores_u, self.expected_scores_u_yblock)
+    #    assert_allclose(self.plsreg_multiblock.beta_coeffs, self.expected_betacoefs_yblock)
+    #    assert_allclose(self.plsreg_multiblock.VIP(), self.expected_vipsw_yblock)
+    #    assert_allclose(self.plsreg.modelParameters, self.expected_modelParameters)
 
     def test_scalers(self):
+        """
 
+        :return:
+        """
         x_scaler_par = ChemometricsScaler(1 / 2)
         y_scaler_par = ChemometricsScaler(1 / 2)
         x_scaler_mc = ChemometricsScaler(0)
@@ -154,6 +161,10 @@ class TestPLS(unittest.TestCase):
         #assert_allclose(mc_model_multiy.beta_coeffs, self.expected_betacoefs_yblock_mc)
 
     def test_cv_single_y(self):
+        """
+
+        :return:
+        """
         # Fix the seed for the permutation test and cross_validation
         np.random.seed(0)
         self.plsreg.cross_validation(self.xmat, self.y)
@@ -169,13 +180,17 @@ class TestPLS(unittest.TestCase):
         assert_allclose(self.plsreg.cvParameters['StdevR2X_Test'], self.expected_cvParameters['StdevR2X_Test'])
         assert_allclose(self.plsreg.cvParameters['StdevR2Y_Test'], self.expected_cvParameters['StdevR2Y_Test'])
 
-    def test_cv_multi_y(self):
-        # Fix the seed for the permutation test and cross_validation
-        np.random.seed(0)
-        self.plsreg_multiy.cross_validation(self.xmat_multi, self.da_mat)
-        assert_allclose(self.plsreg_multiblock.cvParameters, self.expected_cvParams_multi)
+    #def test_cv_multi_y(self):
+    #    # Fix the seed for the permutation test and cross_validation
+    #    np.random.seed(0)
+    #    self.plsreg_multiy.cross_validation(self.xmat_multi, self.da_mat)
+    #    assert_allclose(self.plsreg_multiblock.cvParameters, self.expected_cvParams_multi)
 
     def test_permutation(self):
+        """
+
+        :return:
+        """
         self.plsreg.fit(self.xmat, self.y)
         # Fix the seed for the permutation test and cross_validation
         np.random.seed(0)
@@ -184,16 +199,28 @@ class TestPLS(unittest.TestCase):
         assert_allclose(permutation_results[0], self.permutation_results)
 
     def test_hotellingt2(self):
+        """
+
+        :return:
+        """
         self.plsreg.fit(self.xmat, self.y)
         t2 = self.plsreg.hotelling_T2(comps=None)
         assert_allclose(t2, self.expected_t2)
 
     def test_dmodx(self):
+        """
+
+        :return:
+        """
         self.plsreg.fit(self.xmat, self.y)
         dmodx = self.plsreg.dmodx(self.xmat)
         assert_allclose(dmodx, self.expected_dmodx)
 
     def test_outliers(self):
+        """
+
+        :return:
+        """
         self.plsreg.fit(self.xmat, self.y)
         outliers_t2 = self.plsreg.outlier(self.xmat)
         outliers_dmodx = self.plsreg.outlier(self.xmat, measure='DmodX')

@@ -21,7 +21,10 @@ class TestPCA(unittest.TestCase):
     """
 
     def setUp(self):
+        """
 
+        :return:
+        """
         try:
             # Generate a fake classification dataset
             t_dset = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
@@ -63,7 +66,10 @@ class TestPCA(unittest.TestCase):
         self.pcamodel = ChemometricsPCA(ncomps=3, scaler=self.x_scaler)
 
     def test_fit(self):
+        """
 
+        :return:
+        """
         self.pcamodel.fit(self.xmat)
 
         for key, item in self.expected_modelParameters.items():
@@ -73,14 +79,25 @@ class TestPCA(unittest.TestCase):
         assert_allclose(self.pcamodel.loadings, self.expected_loadings)
 
     def test_transform(self):
+        """
 
+        :return:
+        """
         self.pcamodel.fit(self.xmat)
         assert_allclose(self.pcamodel.transform(self.xmat), self.expected_scores)
 
     def test_fit_transform(self):
+        """
+
+        :return:
+        """
         assert_allclose(self.pcamodel.fit_transform(self.xmat), self.expected_scores)
 
     def test_cv(self):
+        """
+
+        :return:
+        """
         # Restart the seed and perform cross validation
         np.random.seed(0)
         self.pcamodel.cross_validation(self.xmat, cv_method=KFold(7, True))
@@ -95,14 +112,26 @@ class TestPCA(unittest.TestCase):
         assert_allclose(np.array(self.pcamodel.cvParameters['Stdev_Loadings']), self.expected_cv_stdevloadings)
 
     def test_hotellingT2(self):
+        """
+
+        :return:
+        """
         self.pcamodel.fit(self.xmat)
         assert_allclose(self.pcamodel.hotelling_T2(None, 0.05), self.expected_t2, rtol=1e-05)
 
     def test_dmodx(self):
+        """
+
+        :return:
+        """
         self.pcamodel.fit(self.xmat)
         assert_allclose(self.pcamodel.dmodx(self.xmat), self.expected_dmodx)
 
     def test_scalers(self):
+        """
+
+        :return:
+        """
         x_scaler_par = ChemometricsScaler(1 / 2)
         x_scaler_mc = ChemometricsScaler(0)
 
@@ -119,6 +148,10 @@ class TestPCA(unittest.TestCase):
         assert_allclose(mc_model.scores, self.expected_scores_mc)
 
     def test_outliers(self):
+        """
+
+        :return:
+        """
         self.pcamodel.fit(self.xmat)
         outliers_t2 = self.pcamodel.outlier(self.xmat)
         outliers_dmodx = self.pcamodel.outlier(self.xmat, measure='DmodX')

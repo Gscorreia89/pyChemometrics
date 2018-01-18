@@ -1,7 +1,12 @@
 # Not an automated test, just keeping this here for
 # comparison with other algorithms
 
+# Other libraries
 library("pls")
+library("ropls")
+library("chemometrics")
+library("pcaMethods")
+library("mixOmics")
 
 #script.dir <- getSrcDirectory(function(x) {x})
 #setwd(script.dir)

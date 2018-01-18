@@ -1,7 +1,8 @@
 import unittest
-
 from numpy.testing import assert_allclose
 import numpy as np
+import pandas as pds
+import os
 from pyChemometrics import ChemometricsScaler
 
 """
@@ -19,7 +20,12 @@ class TestScalerObject(unittest.TestCase):
     """
 
     def setUp(self):
-        self.scaler = ChemometricsScaler()
+        try:
+            regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression.csv'))
+            multiblock_regression_problem = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/regression_multiblock.csv'))
+        except (IOError, OSError) as ioerr:
+            #os.system("python gen_synthetic_datasets.py")
+            import tests.gen_synthetic_datasets
 
     def test_scaleVector(self):
         """
@@ -39,7 +45,12 @@ class TestScalerObject(unittest.TestCase):
 
         assert_allclose()
 
-    def scale_back(self):
+    def scale_back_vector(self):
+        """
+        Check back_transformations of the scaler (inverse_transform)
+        """
+
+    def scale_back_matrix(self):
         """
         Check back_transformations of the scaler (inverse_transform)
         """
