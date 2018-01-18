@@ -26,7 +26,9 @@ class TestPLSDA(unittest.TestCase):
             multiclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_multiclass.csv'))
 
         except OSError as exp:
-            os.system("python gen_synthetic_datasets.py")
+            #os.system("python gen_synthetic_datasets.py")
+            import tests.gen_synthetic_datasets
+
             two_class = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_twoclass.csv'))
             multiclass = pds.read_csv(os.path.join(os.path.dirname(__file__), './test_data/classification_multiclass.csv'))
 
