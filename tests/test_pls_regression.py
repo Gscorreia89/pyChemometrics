@@ -16,7 +16,7 @@ Suite of tests to assess coherence and functionality of the PLS regression objec
 class TestPLS(unittest.TestCase):
     """
 
-    Verify agreement of PLS algorithms under different objects and conditions
+    Test the ChemometricsPLS object functionality, in single Y and multiple Y case.
 
     """
 

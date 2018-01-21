@@ -5,17 +5,12 @@ import numpy as np
 
 from pyChemometrics import ChemometricsScaler, ChemometricsPLSDA
 
-"""
-
-Suite of tests to assess coherence and functionality of the PLS-DA object.
-
-"""
-
 
 class TestPLSDA(unittest.TestCase):
     """
 
-    Verify agreement of PLS algorithms under different objects and conditions
+    Test the functionality of the PLSDA code. Most of the tests focus on the DA model specifics and classification metrics.
+    The underlying PLS regression functionality is tested in the 'test_plsobjconsistency' suite of tests.
 
     """
 
