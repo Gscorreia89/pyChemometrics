@@ -194,7 +194,7 @@ class PCAPlotMixin(PlotMixin, metaclass=ABCMeta):
         try:
             dmodx = self.dmodx(x)
 
-            dcrit = self._dmodx_fcrit(alpha)
+            dcrit = self._dmodx_fcrit(x, alpha)
             outlier_idx = self.outlier(x, measure='DmodX')
             plt.figure()
             x_axis = np.array([x for x in range(x.shape[0])])
