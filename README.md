@@ -34,6 +34,14 @@ and make use of the [cross-validation and model selection functionality from sci
 To install, simply navigate to the main package folder and run
 
     python setup.py install
+
+Alternatively, using pip:
+
+    pip install /pyChemometricsDirectory/
+
+Installation with pip allows the usage of the uninstall command
+
+    pip uninstall pyChemometrics
     
 ### License
 All code is provided under a BSD 3-clause license. See LICENSE file for more information.
