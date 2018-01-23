@@ -31,13 +31,18 @@ and [Partial Least Squares (PLS) algorithms](http://scikit-learn.org/stable/modu
 and make use of the [cross-validation and model selection functionality from scikit-learn](http://scikit-learn.org/stable/modules/cross_validation.html#cross-validation).
 
 ### Instalation
-To install, simply navigate to the main package folder and run
+To install, simply navigate to the main package folder and run:
 
     python setup.py install
 
-Alternatively, using pip:
+Alternatively, using pip (from source):
 
     pip install /pyChemometricsDirectory/
+
+Or from Pypi:
+
+    pip install pyChemometrics
+
 
 Installation with pip allows the usage of the uninstall command
 
