@@ -5,6 +5,7 @@ setup(
     version='0.1',
     packages=['pyChemometrics'],
     url='https://github.com/Gscorreia89/pyChemometrics/',
+    documentation='http://pychemometrics.readthedocs.io/en/stable/',
     license='BSD 3-Clause License',
     author='Gonçalo Correia',
     author_email='gscorreia89@gmail.com',
