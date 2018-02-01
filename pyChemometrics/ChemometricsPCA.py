@@ -3,6 +3,7 @@ from copy import deepcopy
 import numpy as np
 import scipy.stats as st
 from sklearn.base import BaseEstimator, TransformerMixin, clone
+from sklearn.exceptions import DataConversionWarning
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition.base import _BasePCA
 from sklearn.model_selection import BaseCrossValidator, KFold
@@ -408,7 +409,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
         """
         return np.diag(np.dot(self.scores, np.dot(np.linalg.inv(np.dot(self.scores.T, self.scores)), self.scores.T)))
 
-    def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_impute=True):
+    def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_impute=False):
         """
 
         Cross-validation method for the model. Calculates cross-validated estimates for Q2X and other
