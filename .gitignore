@@ -16,3 +16,4 @@
 /*.egg-info
 /tests/htmlcov/
 .cache/
+.ipynb_checkpoints
