@@ -8,11 +8,11 @@ from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
 
 from .ChemometricsScaler import ChemometricsScaler
-
+from .PLSPlotMixin import PLSPlotMixin
 __author__ = 'gd2212'
 
 
-class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
+class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin, PLSPlotMixin):
     """
 
     ChemometricsPLS object - Wrapper for sklearn.cross_decomposition PLS algorithms, with tailored methods

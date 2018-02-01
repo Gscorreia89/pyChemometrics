@@ -123,8 +123,8 @@ class PLSPlotMixin(PlotMixin, metaclass=ABCMeta):
                 currmodel.cross_validation(x, y)
                 models.append(currmodel)
 
-        q2 = np.array([x.cvParameters['PLS']['Q2Y'] for x in models])
-        r2 = np.array([x.modelParameters['PLS']['R2Y'] for x in models])
+        q2 = np.array([x.cvParameters['Q2Y'] for x in models])
+        r2 = np.array([x.modelParameters['R2Y'] for x in models])
 
         plt.bar([x - 0.1 for x in range(1, total_comps + 1)], height=r2, width=0.2)
         plt.bar([x + 0.1 for x in range(1, total_comps + 1)], height=q2, width=0.2)
