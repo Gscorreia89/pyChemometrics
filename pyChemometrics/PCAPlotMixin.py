@@ -4,6 +4,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
+from sklearn.exceptions import DataConversionWarning
 import seaborn as sns
 import scipy.stats as st
 from sklearn.model_selection import KFold
