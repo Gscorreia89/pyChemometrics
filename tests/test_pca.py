@@ -40,8 +40,8 @@ class TestPCA(unittest.TestCase):
                                           'S0': 0.9803124001345157,
                                          'VarExp': np.array([9.44045066, 8.79710591, 8.11561924]),
                                           'VarExpRatio': np.array([0.04625821, 0.04310582, 0.03976653])}
-        self.expected_cvParameters = {'Q2X': -0.10571035538454221, 'Mean_VarExp_Test': -0.0090083829247783621,
-                                      'Stdev_VarExp_Test': 0.0037778709253728452,
+        self.expected_cvParameters = {'Q2X': -0.072690971894129319, 'Mean_VarExp_Test':  0.021122690260650993,
+                                      'Stdev_VarExp_Test': 0.0037883724987337847,
                                       'Mean_VarExpRatio_Training': np.array([0.05108043,  0.04669199,  0.04380617]),
                                       'Stdev_VarExpRatio_Training': np.array([0.00130025,  0.00094489,  0.00044059])}
 
