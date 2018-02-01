@@ -1,11 +1,16 @@
 from abc import ABCMeta
 from copy import deepcopy
 
+from sklearn.exceptions import DataConversionWarning
 import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import Normalize
+from sklearn.model_selection import BaseCrossValidator, KFold
+
+import seaborn as sns
+import warnings
 
 from pyChemometrics.PlotMixin import PlotMixin
 
@@ -108,14 +113,18 @@ class PLSPlotMixin(PlotMixin, metaclass=ABCMeta):
 
         plt.figure()
         models = list()
-        for ncomps in range(1, total_comps + 1):
-            currmodel = deepcopy(self)
-            currmodel.ncomps = ncomps
-            currmodel.fit(x, y)
-            currmodel.cross_validation(x, y)
-            models.append(currmodel)
-            q2 = np.array([x.cvParameters['PLS']['Q2Y'] for x in models])
-            r2 = np.array([x.modelParameters['PLS']['R2Y'] for x in models])
+
+        with warnings.catch_warnings():
+            warnings.simplefilter(action='ignore', category=DataConversionWarning)
+            for ncomps in range(1, total_comps + 1):
+                currmodel = deepcopy(self)
+                currmodel.ncomps = ncomps
+                currmodel.fit(x, y)
+                currmodel.cross_validation(x, y)
+                models.append(currmodel)
+
+        q2 = np.array([x.cvParameters['PLS']['Q2Y'] for x in models])
+        r2 = np.array([x.modelParameters['PLS']['R2Y'] for x in models])
 
         plt.bar([x - 0.1 for x in range(1, total_comps + 1)], height=r2, width=0.2)
         plt.bar([x + 0.1 for x in range(1, total_comps + 1)], height=q2, width=0.2)
@@ -129,7 +138,7 @@ class PLSPlotMixin(PlotMixin, metaclass=ABCMeta):
             if plateau_index.size == 0:
                 print("Consider exploring a higher level of components")
             else:
-                plateau = np.min(np.where(np.diff(q2) / q2[0] < 0.05)[0])
+                plateau = np.min(np.where(np.diff(q2)/q2[0] < 0.05)[0])
                 plt.vlines(x=(plateau + 1), ymin=0, ymax=1, colors='red', linestyles='dashed')
                 print("Q2X measure stabilizes (increase of less than 5% of previous value or decrease) "
                       "at component {0}".format(plateau + 1))
@@ -143,17 +152,65 @@ class PLSPlotMixin(PlotMixin, metaclass=ABCMeta):
                 plt.vlines(x=(plateau + 1), ymin=0, ymax=1, colors='red', linestyles='dashed')
                 print("Q2X measure stabilizes (increase of less than 5% of previous value or decrease) "
                       "at component {0}".format(plateau + 1))
+
+        plt.show()
+        return None
+
+    def repeated_cv(self, x, y, total_comps=7, repeats=15, cv_method=KFold(7, True)):
+        """
+
+        Perform repeated cross-validation and plot Q2X values and their distribution (violin plot) per component
+        number to help select the appropriate number of components.
+
+        :param x: Data matrix [n samples, m variables]
+        :param total_comps: Maximum number of components to fit
+        :param repeats: Number of CV procedure repeats
+        :param cv_method: scikit-learn Base Cross-Validator to use
+        :return: Violin plot with Q2X values and distribution per component number.
+        """
+
+        q2y = np.zeros((total_comps, repeats))
+
+        with warnings.catch_warnings():
+            warnings.simplefilter(action='ignore', category=DataConversionWarning)
+            for ncomps in range(1, total_comps + 1):
+                for rep in range(repeats):
+                    currmodel = deepcopy(self)
+                    currmodel.ncomps = ncomps
+                    currmodel.fit(x, y)
+                    currmodel.cross_validation(x, y, cv_method=cv_method, outputdist=False)
+                    q2y[ncomps - 1, rep] = currmodel.cvParameters['Q2Y']
+
+        plt.figure()
+        ax = sns.violinplot(data=q2y.T, palette="Set1")
+        ax2 = sns.swarmplot(data=q2y.T, edgecolor="black", color='black')
+        ax2.set_xticklabels(range(1, total_comps + 1))
+        plt.xlabel("Number of components")
+        plt.ylabel("Q2Y")
         plt.show()
 
-        return None
+        return q2y
+
+    def plot_permutation_test(self, permt_res, metric='Q2Y'):
+        try:
+            plt.figure()
+            hst = plt.hist(permt_res[0][metric], 100)
+            if metric == 'Q2Y':
+                plt.vlines(x=self.cvParameters['Q2Y'], ymin=0, ymax=max(hst[0]))
+            return None
+
+        except KeyError:
+            print("Run cross-validation before calling the plotting function")
+        except Exception as exp:
+            raise exp
 
     def plot_model_parameters(self, parameter='w', component=1, cross_val=False, sigma=2, bar=False, xaxis=None):
 
         choices = {'w': self.weights_w, 'c': self.weights_c, 'p': self.loadings_p, 'q': self.loadings_q,
                    'beta': self.beta_coeffs, 'ws': self.rotations_ws, 'cs': self.rotations_cs,
                    'VIP': self.VIP(), 'bu': self.b_u, 'bt': self.b_u}
-        choices_cv = {'w': 'Weights_w', 'c': 'Weights_c', 'cs': 'Rotations_cs', 'ws': 'Rotations_ws',
-                      'q': 'Loadings_q', 'p': 'Loadings_p', 'beta': 'Beta', 'VIP': 'VIP'}
+        choices_cv = {'w': 'Weights_w', 'c': 'Weights_c', 'cs': 'Rotations_cs', 'ws':'Rotations_ws',
+                      'q': 'Loadings_q', 'p': 'Loadings_p', 'beta': 'Beta', 'VIP':'VIP'}
 
         # decrement component to adjust for python indexing
         component -= 1
@@ -172,7 +229,7 @@ class PLSPlotMixin(PlotMixin, metaclass=ABCMeta):
             else:
                 mean = choices[parameter][:, component]
         if bar is False:
-            self._lineplots(mean, error=error, xaxis=xaxis)
+           self._lineplots(mean, error=error, xaxis=xaxis)
         # To use with barplots for other types of data
         else:
             self._barplots(mean, error=error, xaxis=xaxis)
@@ -186,24 +243,17 @@ class PLSPlotMixin(PlotMixin, metaclass=ABCMeta):
 
         return None
 
-    def plot_permutation_test(self, permt_res, metric='Q2Y'):
-        try:
-            plt.figure()
-            hst = plt.hist(permt_res[0][metric], 100)
-            if metric == 'Q2Y':
-                plt.vlines(x=self.cvParameters['Q2Y'], ymin=0, ymax=max(hst[0]))
-            plt.show()
-            return None
+    def external_validation_set(self, x):
+        """
 
-        except KeyError:
-            print("Run cross-validation before calling the plotting function")
-        except Exception as exp:
-            raise exp
+        Interface to score classification using an external hold-out dataset
 
-    def external_validation_set(self, x, y):
-
+        :param x:
+        :return:
+        """
         y_pred = self.predict(x)
-
+        self.score
         validation_set_results = dict()
 
         return validation_set_results
+
