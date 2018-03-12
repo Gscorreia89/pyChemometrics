@@ -1,8 +1,5 @@
 from abc import ABCMeta
-
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from matplotlib.colors import Normalize
+import plotly
 
 
 class PlotMixin(metaclass=ABCMeta):
@@ -14,7 +11,7 @@ class PlotMixin(metaclass=ABCMeta):
     """
 
     @staticmethod
-    def _lineplots(mean, error=None, xaxis=None):
+    def _plotly_lineplots(mean, error=None, xaxis=None):
         fig, ax = plt.subplots()
         if xaxis is None:
             ax.plot(mean)
@@ -26,7 +23,7 @@ class PlotMixin(metaclass=ABCMeta):
         return fig, ax
 
     @staticmethod
-    def _barplots(mean, error=None, xaxis=None):
+    def _plotly_barplots(mean, error=None, xaxis=None):
         fig, ax = plt.subplots()
         if xaxis is None:
             xaxis = range(mean.size)
@@ -38,7 +35,7 @@ class PlotMixin(metaclass=ABCMeta):
         return fig, ax
 
     @staticmethod
-    def _scatterplot(x, y, colour=None, colourmap=cm, discrete_colour=False):
+    def _plotly_scatterplot(x, y, colour=None, colourmap=cm, discrete_colour=False):
         fig, ax = plt.subplots()
         # Assemble C Map
         if discrete_colour:
@@ -50,7 +47,7 @@ class PlotMixin(metaclass=ABCMeta):
         return fig, ax
 
     @staticmethod
-    def _draw_ellipse(fig, ax, x, y):
+    def _plotly_draw_ellipse(fig, ax, x, y):
         # Update a scatterplot?
         fig.canvas.redraw()
         return fig, ax

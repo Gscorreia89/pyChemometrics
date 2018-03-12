@@ -12,6 +12,7 @@ from copy import deepcopy
 from pyChemometrics.PlotMixin import PlotMixin
 import warnings
 
+
 class PCAPlotMixin(PlotMixin, metaclass=ABCMeta):
     """
 
