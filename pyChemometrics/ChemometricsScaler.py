@@ -88,7 +88,7 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
         """
 
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-                        warn_on_dtype=True, estimator=self, dtype=FLOAT_DTYPES)
+                        estimator=self, dtype=FLOAT_DTYPES)
 
         # Even in the case of `with_mean=False`, we update the mean anyway
         # This is needed for the incremental computation of the var
@@ -151,7 +151,7 @@ class ChemometricsScaler(BaseEstimator, TransformerMixin):
 
         copy = copy if copy is not None else self.copy
 
-        X = check_array(X, accept_sparse='csr', copy=copy, warn_on_dtype=True,
+        X = check_array(X, accept_sparse='csr', copy=copy,
                         estimator=self, dtype=FLOAT_DTYPES)
 
         if sparse.issparse(X):
