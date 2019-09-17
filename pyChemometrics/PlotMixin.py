@@ -1,6 +1,8 @@
 from abc import ABCMeta
 
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from matplotlib.colors import Normalize
 
 
 class PlotMixin(metaclass=ABCMeta):
@@ -33,4 +35,22 @@ class PlotMixin(metaclass=ABCMeta):
             ax.bar(xaxis, height=mean)
         else:
             ax.bar(xaxis, height=mean, yerr=error)
+        return fig, ax
+
+    @staticmethod
+    def _scatterplot(x, y, colour=None, colourmap=cm, discrete_colour=False):
+        fig, ax = plt.subplots()
+        # Assemble C Map
+        if discrete_colour:
+            colour = Normalize(colour)
+        else:
+            colour = cm(colour)
+        ax.scatter(x, y, c=colour, cm=colourmap)
+
+        return fig, ax
+
+    @staticmethod
+    def _draw_ellipse(fig, ax, x, y):
+        # Update a scatterplot?
+        fig.canvas.redraw()
         return fig, ax

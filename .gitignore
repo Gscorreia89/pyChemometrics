@@ -10,6 +10,7 @@
 *Thumbs.db
 *.orig
 .coverage
+.pyprc
 /docs/_build
 /.idea
 /dist/
