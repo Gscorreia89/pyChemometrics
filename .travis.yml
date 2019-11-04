@@ -1,6 +1,9 @@
 language: python
 python:
   - "3.6"
+  - "3.7"
+  - "3.7-dev"
+  - "3.8"
 os:
   - linux
 # command to install dependencies
@@ -9,3 +12,14 @@ install:
   - pip install -r requirements.txt
 # command to run tests
 script: python -m unittest discover
+
+deploy:
+  provider: pypi
+  user: "gscorreia89"
+  password:
+    secure: pypi-AgEIcHlwaS5vcmcCJDRmNjNlODJkLTM4OWQtNGEyYi05OGViLWNhZGE5Y2RkMjAxOQACP3sicGVybWlzc2lvbnMiOiB7InByb2plY3RzIjogWyJweWNoZW1vbWV0cmljcyJdfSwgInZlcnNpb24iOiAxfQAABiD0DklfKkXlV6-864409vHRY3TUTJpKF1_1iwyyIuGHMA
+  distributions: "sdist bdist_wheel"
+  on:
+    branch: master
+    tags: true
+    python: 3.6
