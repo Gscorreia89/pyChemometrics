@@ -3,19 +3,34 @@ python:
   - "3.6"
   - "3.7"
   - "3.7-dev"
- # - "3.8"
+  - "3.8"
 os:
   - linux
   
 allow_failures:
-    - python: "3.8"
+  - python: "3.8"
+    
+branches:
+  only:
+  - master
+  - develop
+  - /^v\d+\.\d+(\.\d+)?(-\S*)?$/ # Build releases tagged in the form `v1.2.3`
     
 # command to install dependencies
 install:
   - pip install .
   - pip install -r requirements.txt
+  - pip install xlrd
+  - pip install coverage
+  - pip install codecov
+  
 # command to run tests
-script: python -m unittest discover
+script:  
+  - coverage run -m unittest discover
+
+after_success:
+  - coverage combine
+  - codecov
 
 deploy:
   provider: pypi
