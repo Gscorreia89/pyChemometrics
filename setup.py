@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='pyChemometrics',
-    version='0.1',
+    version='0.14',
     packages=['pyChemometrics'],
     url='https://github.com/Gscorreia89/pyChemometrics/',
     documentation='http://pychemometrics.readthedocs.io/en/stable/',
