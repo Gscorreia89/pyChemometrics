@@ -243,17 +243,3 @@ class PLSPlotMixin(PlotMixin, metaclass=ABCMeta):
 
         return None
 
-    def external_validation_set(self, x):
-        """
-
-        Interface to score classification using an external hold-out dataset
-
-        :param x:
-        :return:
-        """
-        y_pred = self.predict(x)
-        self.score
-        validation_set_results = dict()
-
-        return validation_set_results
-
