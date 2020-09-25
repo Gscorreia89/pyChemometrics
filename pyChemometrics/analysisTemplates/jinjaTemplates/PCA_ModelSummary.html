@@ -1,0 +1,93 @@
+{% extends "base_QC.html" %}
+
+{% block title %}Feature Summary Report For: {{ item.Name}}{% endblock %}
+
+{% block content %}
+
+<!--Figure 1: Histogram of log mean abundance in SP samples-->
+<div class='figure'>
+	<p class="caption"><span class="heading">Figure&nbsp;1.</span> Histogram of log of mean abundance of {{ item['No Features'] }} features in {{ item.SPcount }} study reference samples.</p>
+	<img src="{{ item.FeatureIntensityFigure }}" alt="Histogram of log of mean abundance of {{ item['No Features'] }} features in {{ item.SPcount }} study reference samples.">
+</div>
+
+<!--Figure 2: Sample intensity TIC and distribution by sample type-->
+<p class="caption"><span class="heading">Figure&nbsp;2.</span> Sample TIC and distribution (coloured by sample type).</p>
+{% if 'SampleIntensityFigure' in item %}
+	<div class='figure'>
+		<img src="{{ item.SampleIntensityFigure }}" alt="Sample TIC and distribution (coloured by sample type).">
+	</div>
+{% else %}
+	<p>Acquisition Time/Run Order data not available to plot.</p>
+{% endif %}
+
+<p class="caption"><span class="heading">Figure&nbsp;3.</span> Acquisition structure (coloured by detector voltage).</p>
+{% if 'AcquisitionStructureFigure' in item %}
+	<div class='figure'>
+		<img src="{{ item.AcquisitionStructureFigure }}" alt="Acquisition structure (coloured by detector voltage).">
+	</div>
+{% else %}
+	<p>Acquisition Time/Run Order data not available to plot.</p>
+{% endif %}
+
+<!--Figure 4: Histogram of Spearman correlation to dilution, segmented by abundance percentiles-->
+<p class="caption"><span class="heading">Figure&nbsp;4.</span> Histogram of {{ item.corrMethod }} correlation of features to serial dilution, segmented by percentile.</p>
+{% if 'CorrelationByPercFigure' in item %}
+	<div class='figure'>
+		<img src="{{ item.CorrelationByPercFigure }}" alt="Histogram of {{ item.corrMethod }} correlation of features to serial dilution, segmented by percentile.">
+</div>
+{% else %}
+	<p>Unable to calculate (no serial dilution samples present in dataset).</p>
+{% endif %}
+
+
+<!--Figure 5: TIC of linearity reference (LR) samples coloured by sample dilution-->
+<p class="caption"><span class="heading">Figure&nbsp;5.</span> Total Ion Count (TIC) of serial dilution (SRD) samples coloured by sample dilution.</p>
+{% if 'TICinLRfigure' in item %}
+	<div class='figure'>
+		<img src="{{ item.TICinLRfigure}}" alt="TIC of serial dilution (SRD) samples coloured by sample dilution.">
+	</div>
+{% else %}
+	<p>Unable to calculate (no serial dilution samples present in dataset).</p>
+{% endif %}
+
+<!--Figure 6: Histogram of RSD in SP samples, segmented by abundance percentiles-->
+<div class='figure'>
+	<p class="caption"><span class="heading">Figure&nbsp;6.</span> Histogram of Residual Standard Deviation (RSD) in {{ item.SPcount }} study reference (SR) samples, segmented by percentile.</p>
+	<img src="{{ item.RsdByPercFigure }}" alt="Histogram of RSD in {{ item.SPcount }} study reference (SR) samples, segmented by percentile.">
+</div>
+
+<!--Figure 7: Scatterplot of RSD vs correlation to dilution-->
+<p class="caption"><span class="heading">Figure&nbsp;7.</span> Scatterplot of RSD vs. correlation to dilution.</p>
+{% if 'RsdVsCorrelationFigure' in item %}
+	<div class='figure'>
+		<img src="{{ item.RsdVsCorrelationFigure}}" alt="Scatterplot of RSD vs. correlation to dilution.">
+	</div>
+{% else %}
+	<p>Unable to calculate (no serial dilution samples present in dataset).</p>
+{% endif %}
+
+<!--Figure 8: Histogram of chromatographic peak width.-->
+<div class='figure'>
+	<p class="caption"><span class="heading">Figure&nbsp;8.</span> Histogram of chromatographic peak width.</p>
+	{% if 'PeakWidthFigure' in item %}
+		<img src="{{ item.PeakWidthFigure}}" alt="Histogram of Chromatographic Peak Width.">
+	{% else %}
+		<p>No peak width data to plot.</p>
+	{% endif %}
+</div>
+
+<!--Figure 9: Residual Standard Deviation (RSD) distribution for all samples and all features in dataset (by sample type)-->
+<div class='figure'>
+	<p class="caption"><span class="heading">Figure&nbsp;9.</span> RSD distribution for all samples and all features in dataset (by sample type).</p>
+	<img src="{{ item.RSDdistributionFigure}}" alt="Residual Standard Deviation (RSD) distribution for all samples and all features in dataset (by sample type).">
+</div>
+
+
+<!--Figure 10: Ion map of all features (coloured by log median intensity)-->
+<div class='figure'>
+	<p class="caption"><span class="heading">Figure&nbsp;10.</span> Ion map of all features (coloured by log median intensity).</p>
+	<img src="{{ item.IonMap}}" alt="Ion map of all features (coloured by log median intensity).">
+</div>
+
+
+{% endblock %}
