@@ -9,7 +9,7 @@ import seaborn as sns
 import scipy.stats as st
 from sklearn.model_selection import KFold
 from copy import deepcopy
-from pyChemometrics.PlotMixin import PlotMixin
+from pyChemometrics.plottingUtils.PlotMixin import PlotMixin
 import warnings
 
 

@@ -7,12 +7,12 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import Normalize
-from sklearn.model_selection import BaseCrossValidator, KFold
+from sklearn.model_selection import KFold
 
 import seaborn as sns
 import warnings
 
-from pyChemometrics.PlotMixin import PlotMixin
+from pyChemometrics.plottingUtils.PlotMixin import PlotMixin
 
 
 # TODO Unfinished do not use

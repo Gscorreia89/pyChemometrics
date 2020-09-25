@@ -1,7 +1,13 @@
-def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_impute=False):
+from sklearn.model_selection import KFold, BaseCrossValidator
+from sklearn.model_selection._split import BaseShuffleSplit
+
+
+def PCA_CV(PCA_model, x, cv_method=KFold(7, shuffle=True), store_distribution=False, press_impute=False,
+           which_params=list()):
+
     """
 
-    Cross-validation method for the model. Calculates cross-validated estimates for Q2X and other
+    Cross-validation method for the PCA. Calculates cross-validated estimates for Q2X and other
     model parameters using row-wise cross validation.
 
     :param x: Data matrix.
@@ -24,8 +30,8 @@ def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_
             raise TypeError("Scikit-learn cross-validation object please")
 
         # Check if global model is fitted... and if not, fit it using all of X
-        if self._isfitted is False or self.loadings is None:
-            self.fit(x)
+        if PCA_model.isfitted is False:
+            PCA_model.fit(x)
         # Make a copy of the object, to ensure the internal state doesn't come out differently from the
         # cross validation method call...
         cv_pipeline = deepcopy(self)
@@ -133,61 +139,128 @@ def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_
         raise verr
 
 
-# @staticmethod
-# def stop_cond(model, x):
-#    stop_check = getattr(model, modelParameters)
-#    if stop_check > 0:
-#        return True
-#    else:
-#        return False
 
-def _screecv_optimize_ncomps(self, x, total_comps=5, cv_method=KFold(7, True), stopping_condition=None):
+
+
+
+def permutationtest_loadings(self, x, nperms=1000):
     """
 
-    Routine to optimize number of components quickly using Cross validation and stabilization of Q2X.
+    Permutation test to assess significance of magnitude of value for variable in component loading vector.
+    Can be used to test importance of variable to the loading vector.
 
-    :param numpy.ndarray x: Data
-    :param int total_comps:
-    :param sklearn.BaseCrossValidator cv_method:
-    :param None or float stopping_condition:
-    :return:
+    :param x: Data matrix.
+    :type x: numpy.ndarray, shape [n_samples, n_features]
+    :param int nperms: Number of permutations.
+    :return: Permuted null distribution for loading vector values.
+    :rtype: numpy.ndarray, shape [ncomps, n_perms, n_features]
+    :raise ValueError: If there is a problem with the input x data or during the procedure.
     """
-    models = list()
+    # TODO: Work in progress, more as a curiosity
+    try:
+        # Check if global model is fitted... and if not, fit it using all of X
+        if self._isfitted is False or self.loadings is None:
+            self.fit(x)
+        # Make a copy of the object, to ensure the internal state doesn't come out differently from the
+        # cross validation method call...
+        permute_class = deepcopy(self)
+        # Initalise list for loading distribution
+        permuted_loads = [np.zeros((nperms, x.shape[1]))] * permute_class.ncomps
+        for permutation in range(0, nperms):
+            for var in range(0, x.shape[1]):
+                # Copy original column order, shuffle array in place...
+                orig = np.copy(x[:, var])
+                np.random.shuffle(x[:, var])
+                # ... Fit model and replace original data
+                permute_class.fit(x)
+                x[:, var] = orig
+                # Store the loadings for each permutation component-wise
+                for loading in range(0, permute_class.ncomps):
+                    permuted_loads[loading][permutation, var] = permute_class.loadings[loading][var]
 
-    for ncomps in range(1, total_comps + 1):
+        # Align loadings due to sign indeterminacy.
+        # Solution provided is to select the sign that gives a more similar profile to the
+        # Loadings calculated with the whole data.
+        for perm_n in range(0, nperms):
+            for currload in range(0, permute_class.ncomps):
+                choice = np.argmin(np.array([np.sum(np.abs(self.loadings - permuted_loads[currload][perm_n, :])),
+                                             np.sum(np.abs(
+                                                 self.loadings - permuted_loads[currload][perm_n, :] * -1))]))
+                if choice == 1:
+                    permuted_loads[currload][perm_n, :] = -1 * permuted_loads[currload][perm_n, :]
+        return permuted_loads
+    except ValueError as verr:
+        raise verr
 
-        currmodel = deepcopy(self)
-        currmodel.ncomps = ncomps
-        currmodel.fit(x)
-        currmodel.cross_validation(x, outputdist=False, cv_method=cv_method, press_impute=False)
-        models.append(currmodel)
 
-        # Stopping condition on Q2, assuming stopping_condition is a float encoding percentage of increase from
-        # previous Q2X
-        # Exclude first component since there is nothing to compare with...
-        if isinstance(stopping_condition, float) and ncomps > 1:
-            previous_q2 = models[ncomps - 2].cvParameters['Q2X']
-            current_q2 = models[ncomps - 1].cvParameters['Q2X']
+def permutationtest_components(self, x, nperms=1000):
+    """
+    Unfinished
+    Permutation test for a whole component. Also outputs permuted null distributions for the loadings.
 
-            if (current_q2 - previous_q2) / abs(previous_q2) < stopping_condition:
-                # Stop the loop
-                models.pop()
-                break
-        # Flexible case to be implemented, to allow many other stopping conditions
-        elif callable(stopping_condition):
-            pass
+    :param x: Data matrix.
+    :type x: numpy.ndarray, shape [n_samples, n_features]
+    :param int nperms: Number of permutations.
+    :return: Permuted null distribution for the component metrics (VarianceExplained and R2).
+    :rtype: numpy.ndarray, shape [ncomps, n_perms, n_features]
+    :raise ValueError: If there is a problem with the input data.
+    """
+    # TODO: Work in progress, more out of curiosity
+    try:
+        # Check if global model is fitted... and if not, fit it using all of X
+        if self._isfitted is False:
+            self.fit(x)
+        # Make a copy of the object, to ensure the internal state doesn't come out differently from the
+        # cross validation method call...
+        permute_class = deepcopy(self)
+        # Initalise list for loading distribution
+        permuted_varExp = []
+        for permutation in range(0, nperms):
+            # Copy original column order, shuffle array in place...
+            orig = np.copy(x)
+            # np.random.shuffle(x.T)
+            # ... Fit model and replace original data
+            permute_class.fit(x)
+            x = orig
+            permuted_varExp.append(permute_class.ModelParameters['VarExpRatio'])
+        return permuted_varExp
 
-    q2 = np.array([x.cvParameters['Q2X'] for x in models])
-    r2 = np.array([x.modelParameters['R2X'] for x in models])
+    except ValueError as verr:
+        raise verr
 
-    results_dict = {'R2X_Scree': r2, 'Q2X_Scree': q2, 'Scree_n_components': len(r2)}
-    # If cross-validation has been called
-    if self.cvParameters is not None:
-        self.cvParameters['R2X_Scree'] = r2
-        self.cvParameters['Q2X_Scree'] = q2
-        self.cvParameters['Scree_n_components'] = len(r2)
-    # In case cross_validation wasn't called before.
-    else:
-        self.cvParameters = {'R2X_Scree': r2, 'Q2X_Scree': q2, 'Scree_n_components': len(r2)}
+def _press_impute_pinv(self, x, var_to_pred):
+    """
 
-    return results_dict
+    Single value imputation method, essential to use in the cross-validation.
+    In theory can also be used to do missing data imputation.
+    Based on the Eigenvector_PRESS calculation as described in:
+    1) Bro et al, Cross-validation of component models: A critical look at current methods,
+    Analytical and Bioanalytical Chemistry 2008 - doi: 10.1007/s00216-007-1790-1
+    2) amoeba's answer on CrossValidated: http://stats.stackexchange.com/a/115477
+
+    :param x: Data matrix in the original data space.
+    :type x: numpy.ndarray, shape [n_samples, n_comps]
+    :param int var_to_pred: which variable is to be imputed from the others.
+    :return: Imputed X matrix.
+    :rtype: numpy.ndarray, shape [n_samples, n_features]
+    :raise ValueError: If there is any error during the imputation process.
+    """
+
+    # TODO Double check improved algorithms and methods for PRESS estimation for PCA in general
+    # TODO Implement Camacho et al, column - erfk to increase computational efficiency
+    # TODO check bi-cross validation
+    try:
+        # Scaling check for consistency
+        if self.scaler is not None:
+            xscaled = self.scaler.transform(x)
+        else:
+            xscaled = x
+        # Following from reference 1
+        to_pred = np.delete(xscaled, var_to_pred, axis=1)
+        topred_loads = np.delete(self.loadings.T, var_to_pred, axis=0)
+        imputed_x = np.dot(np.dot(to_pred, np.linalg.pinv(topred_loads).T), self.loadings)
+        if self.scaler is not None:
+            imputed_x = self.scaler.inverse_transform(imputed_x)
+        return imputed_x
+    except ValueError as verr:
+        raise verr
