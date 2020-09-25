@@ -34,8 +34,7 @@ after_success:
 
 deploy:
   provider: pypi
-  user: "gscorreia89"
-  password:
+  username: "__token__"
     secure: pypi-AgEIcHlwaS5vcmcCJDRmNjNlODJkLTM4OWQtNGEyYi05OGViLWNhZGE5Y2RkMjAxOQACP3sicGVybWlzc2lvbnMiOiB7InByb2plY3RzIjogWyJweWNoZW1vbWV0cmljcyJdfSwgInZlcnNpb24iOiAxfQAABiD0DklfKkXlV6-864409vHRY3TUTJpKF1_1iwyyIuGHMA
   distributions: "sdist bdist_wheel"
   on:
