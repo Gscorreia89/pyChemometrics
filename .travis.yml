@@ -1,11 +1,42 @@
 language: python
 python:
-  - "3.6"
+  - "3.7"
+  - "3.8"
 os:
   - linux
+
+matrix:
+  allow_failures:
+    - python: "3.7"
+
+branches:
+  only:
+  - master
+  - develop
+  - /^v\d+\.\d+(\.\d+)?(-\S*)?$/ # Build releases tagged in the form `v1.2.3`
+
 # command to install dependencies
 install:
   - pip install .
   - pip install -r requirements.txt
+  - pip install xlrd
+  - pip install coverage
+  - pip install codecov
+
 # command to run tests
-script: python -m unittest discover
+script:
+  - coverage run -m unittest discover
+
+after_success:
+  - coverage combine
+  - codecov
+
+deploy:
+  provider: pypi
+  user: "gscorreia89"
+  password:
+    secure: pypi-AgEIcHlwaS5vcmcCJDRmNjNlODJkLTM4OWQtNGEyYi05OGViLWNhZGE5Y2RkMjAxOQACP3sicGVybWlzc2lvbnMiOiB7InByb2plY3RzIjogWyJweWNoZW1vbWV0cmljcyJdfSwgInZlcnNpb24iOiAxfQAABiD0DklfKkXlV6-864409vHRY3TUTJpKF1_1iwyyIuGHMA
+  distributions: "sdist bdist_wheel"
+  on:
+    branch: master
+    tags: true
