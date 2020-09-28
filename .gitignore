@@ -1,5 +1,6 @@
 *.mat
 *.html
+*.xml
 *.png
 *.pdf
 *.DS_Store
@@ -17,3 +18,8 @@
 /tests/htmlcov/
 .cache/
 .ipynb_checkpoints
+# Unittests files
+tests/test_data/classification_multiclass.csv
+tests/test_data/classification_twoclass.csv
+tests/test_data/regression.csv
+tests/test_data/regression_multiblock.csv
