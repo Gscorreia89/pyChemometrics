@@ -5,7 +5,7 @@ from pyChemometrics.ChemometricsPLS_Logistic import ChemometricsPLS_Logistic
 from pyChemometrics.ChemometricsPLSDA import ChemometricsPLSDA
 from pyChemometrics.ChemometricsPLS_LDA import ChemometricsPLS_LDA
 
-__version__ = '0.13.3'
+__version__ = '0.13.4'
 
 __all__ = ['ChemometricsScaler', 'ChemometricsPCA', 'ChemometricsPLS',
            'ChemometricsPLS_Logistic', 'ChemometricsPLSDA', 'ChemometricsPLS_LDA']
