@@ -17,7 +17,6 @@
 /*.egg-info
 /tests/htmlcov/
 .cache/
-.ipynb_checkpoints
 # Unittests files
 tests/test_data/classification_multiclass.csv
 tests/test_data/classification_twoclass.csv
