@@ -103,7 +103,7 @@ class PCAPlotMixin(PlotMixin, metaclass=ABCMeta):
 
         return None
 
-    def scree_plot(self, x, total_comps=5, cv_method=KFold(7, True)):
+    def scree_plot(self, x, total_comps=5, cv_method=KFold(7, shuffle=True)):
         """
 
         Plot of the R2X and Q2X per number of component to aid in the selection of the component number.
@@ -148,7 +148,7 @@ class PCAPlotMixin(PlotMixin, metaclass=ABCMeta):
 
         return None
 
-    def repeated_cv(self, x, total_comps=7, repeats=15, cv_method=KFold(7, True)):
+    def repeated_cv(self, x, total_comps=7, repeats=15, cv_method=KFold(7, shuffle=True)):
         """
 
         Perform repeated cross-validation and plot Q2X values and their distribution (violin plot) per component
