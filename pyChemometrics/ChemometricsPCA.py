@@ -407,7 +407,7 @@ class ChemometricsPCA(BaseEstimator, PCAPlotMixin):
         """
         return np.diag(np.dot(self.scores, np.dot(np.linalg.inv(np.dot(self.scores.T, self.scores)), self.scores.T)))
 
-    def cross_validation(self, x, cv_method=KFold(7, True), outputdist=False, press_impute=True):
+    def cross_validation(self, x, cv_method=KFold(7, shuffle=True), outputdist=False, press_impute=True):
         """
 
         Cross-validation method for the model. Calculates cross-validated estimates for Q2X and other
@@ -550,7 +550,7 @@ class ChemometricsPCA(BaseEstimator, PCAPlotMixin):
     #    else:
     #        return False
 
-    def _screecv_optimize_ncomps(self, x, total_comps=5, cv_method=KFold(7, True), stopping_condition=None):
+    def _screecv_optimize_ncomps(self, x, total_comps=5, cv_method=KFold(7, shuffle=True), stopping_condition=None):
         """
 
         Routine to optimize number of components quickly using Cross validation and stabilization of Q2X.

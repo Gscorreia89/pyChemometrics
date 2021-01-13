@@ -724,7 +724,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except Exception as exp:
             raise exp
 
-    def cross_validation(self, x, y, cv_method=KFold(7, True), outputdist=False,
+    def cross_validation(self, x, y, cv_method=KFold(7, shuffle=True), outputdist=False,
                          **crossval_kwargs):
         """
 
@@ -939,7 +939,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as terp:
             raise terp
 
-    def permutation_test(self, x, y, nperms=1000, cv_method=KFold(7, True), **permtest_kwargs):
+    def permutation_test(self, x, y, nperms=1000, cv_method=KFold(7, shuffle=True), **permtest_kwargs):
         """
 
         Permutation test for the classifier. Outputs permuted null distributions for model performance metrics (Q2X/Q2Y)
