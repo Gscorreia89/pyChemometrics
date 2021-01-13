@@ -3,7 +3,7 @@ from copy import deepcopy
 import numpy as np
 from sklearn import metrics
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
-from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
+from sklearn.cross_decomposition import PLSRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
@@ -36,7 +36,7 @@ class ChemometricsPLS_LDA(ChemometricsPLS, ClassifierMixin):
 
             # Perform the check with is instance but avoid abstract base class runs.
             pls_algorithm = pls_algorithm(ncomps, scale=False, **classifier_kwargs)
-            if not isinstance(pls_algorithm, (BaseEstimator, _PLS)):
+            if not isinstance(pls_algorithm, (BaseEstimator)):
                 raise TypeError("Scikit-learn model please")
             da_algorithm = da_algorithm(**classifier_kwargs)
             if not isinstance(da_algorithm, (LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis)):

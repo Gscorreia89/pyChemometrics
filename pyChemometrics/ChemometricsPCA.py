@@ -4,7 +4,6 @@ import numpy as np
 import scipy.stats as st
 from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.decomposition import PCA as skPCA
-from sklearn.decomposition.base import _BasePCA
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
 
@@ -14,7 +13,7 @@ from .PCAPlotMixin import PCAPlotMixin
 __author__ = 'gd2212'
 
 
-class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
+class ChemometricsPCA(BaseEstimator, PCAPlotMixin):
     """
 
     ChemometricsPCA object - Wrapper for sklearn.decomposition PCA algorithms, with tailored methods
@@ -36,7 +35,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator, PCAPlotMixin):
         try:
             # Perform the check with is instance but avoid abstract base class runs. PCA needs number of comps anyway!
             init_pca_algorithm = pca_algorithm(n_components=ncomps, **pca_type_kwargs)
-            if not isinstance(init_pca_algorithm, (_BasePCA, BaseEstimator, TransformerMixin)):
+            if not isinstance(init_pca_algorithm, (BaseEstimator, TransformerMixin)):
                 raise TypeError("Scikit-learn model please")
             if not (isinstance(scaler, TransformerMixin) or scaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")

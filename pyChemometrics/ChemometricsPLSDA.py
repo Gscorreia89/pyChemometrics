@@ -5,7 +5,7 @@ import pandas as pds
 from scipy import interp
 from sklearn import metrics
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
-from sklearn.cross_decomposition.pls_ import PLSRegression, _PLS
+from sklearn.cross_decomposition import PLSRegression
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
 
@@ -60,7 +60,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         try:
             # Perform the check with is instance but avoid abstract base class runs.
             pls_algorithm = pls_algorithm(ncomps, scale=False, **pls_type_kwargs)
-            if not isinstance(pls_algorithm, (BaseEstimator, _PLS)):
+            if not isinstance(pls_algorithm, (BaseEstimator)):
                 raise TypeError("Scikit-learn model please")
             if not (isinstance(xscaler, TransformerMixin) or xscaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
