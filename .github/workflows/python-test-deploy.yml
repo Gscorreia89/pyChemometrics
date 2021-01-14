@@ -46,12 +46,12 @@ jobs:
       run: |
           python setup.py sdist bdist_wheel --dist-dir dist/
     - name: Publish package
-      #uses: pypa/gh-action-pypi-publish@master
-      # if: startsWith(github.ref, 'refs/tags/v')
-      run:
+      uses: pypa/gh-action-pypi-publish@master
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
         echo $GITHUB_REF
-      #with:
-      #  runs-on: ubuntu-latest
-      #  user: __token__
-      #  password: ${{ secrets.PYPI_PYCHEMOMETRICS_GITHUBACTIONS }}
-      #  skip_existing: true
+      with:
+        runs-on: ubuntu-latest
+        user: __token__
+        password: ${{ secrets.PYPI_PYCHEMOMETRICS_GITHUBACTIONS }}
+        skip_existing: true
