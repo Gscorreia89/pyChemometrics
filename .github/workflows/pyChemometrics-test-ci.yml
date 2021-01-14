@@ -6,8 +6,6 @@ name: pyChemometrics
 on:
   push:
     branches: [ master, develop, "/^v\\d+\\.\\d+(\\.\\d+)?(-\\S*)?$/"]
-    tags:
-      - "v*"
   pull_request:
     branches: [ master, develop ]
 
@@ -41,16 +39,3 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: true
-    - name: Build dists
-      if: success()
-      run: |
-          python setup.py sdist bdist_wheel --dist-dir dist/
-    - name: Publish package
-    - name: Publish package
-      uses: pypa/gh-action-pypi-publish@master
-      if: startsWith(github.ref, 'refs/tags/v')
-      with:
-        runs-on: ubuntu-latest
-        user: __token__
-        password: ${{ secrets.PYPI_PYCHEMOMETRICS_GITHUBACTIONS }}
-        skip_existing: true
