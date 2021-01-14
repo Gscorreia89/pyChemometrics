@@ -4,7 +4,7 @@
 name: pyChemometrics
 
 on:
-  push:
+  release:
     branches: [ master, develop, "/^v\\d+\\.\\d+(\\.\\d+)?(-\\S*)?$/"]
     tags:
       - "v*"
