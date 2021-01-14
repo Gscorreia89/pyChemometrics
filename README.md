@@ -1,6 +1,6 @@
 # pyChemometrics
 
-[![DOI](https://zenodo.org/badge/61749327.svg)](https://zenodo.org/badge/latestdoi/61749327) ![build](https://github.com/Gscorreia89/pyChemometrics/workflows/pyChemometrics/badge.svg) ![Python38](https://img.shields.io/badge/python-3.8-blue.svg) [![codecov](https://codecov.io/gh/gscorreia89/pyChemometrics/branch/master/graph/badge.svg)](https://codecov.io/gh/gscorreia89/pyChemometrics)
+[![DOI](https://zenodo.org/badge/61749327.svg)](https://zenodo.org/badge/latestdoi/61749327) ![build](https://github.com/Gscorreia89/pyChemometrics/workflows/pyChemometrics/badge.svg?branch=master) ![Python38](https://img.shields.io/badge/python-3.8-blue.svg) [![codecov](https://codecov.io/gh/gscorreia89/pyChemometrics/branch/master/graph/badge.svg)](https://codecov.io/gh/gscorreia89/pyChemometrics)
 
 ### Description
 The pyChemometrics package provides implementations of PCA, PLS regression and PLS discriminant 
