@@ -6,7 +6,7 @@ name: pyChemometrics
 on:
   create:
     tags:
-      - "v*"
+    - "v*"
 
 jobs:
   build:
