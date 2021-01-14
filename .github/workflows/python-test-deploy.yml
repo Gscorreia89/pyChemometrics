@@ -48,7 +48,7 @@ jobs:
     - name: Publish package
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@master
-      if: startsWith(github.ref, 'refs/tags/v')
+      # if: startsWith(github.ref, 'refs/tags/v')
       with:
         runs-on: ubuntu-latest
         user: __token__
