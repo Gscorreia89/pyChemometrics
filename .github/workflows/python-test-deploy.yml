@@ -51,7 +51,6 @@ jobs:
       run: |
         echo $GITHUB_REF
       with:
-        runs-on: ubuntu-latest
         user: __token__
         password: ${{ secrets.PYPI_PYCHEMOMETRICS_GITHUBACTIONS }}
         skip_existing: true
