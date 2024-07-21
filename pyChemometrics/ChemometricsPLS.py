@@ -192,7 +192,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                               self.scores_t)
             self.b_t = np.dot(np.dot(np.linalg.pinv(np.dot(self.scores_t.T, self.scores_t)), self.scores_t.T),
                               self.scores_u)
-            self.beta_coeffs = self.pls_algorithm.coef_
+            self.beta_coeffs = self.pls_algorithm.coef_.T
+
             # Needs to come here for the method shortcuts down the line to work...
             self._isfitted = True
 
@@ -420,6 +421,10 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                     xscaled = self.x_scaler.transform(x)
 
                     # Using Betas to predict Y directly
+                    # try:
+                    #    predicted = np.dot(xscaled, self.beta_coeffs)
+                    #except:
+                    #    predicted = np.dot(xscaled, self.beta_coeffs.T)
                     predicted = np.dot(xscaled, self.beta_coeffs)
                     if predicted.ndim == 1:
                         predicted = predicted.reshape(-1, 1)
@@ -428,7 +433,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 # Predict X from Y
                 elif y is not None:
                     # Going through calculation of U and then X = Ub_uW'
-                    u_scores = ChemometricsPLS.transform(self, x=None, y=y)
+                    u_scores = ChemometricsPLS.transform(self, None, y)
                     predicted = np.dot(np.dot(u_scores, self.b_u), self.weights_w.T)
                     if predicted.ndim == 1:
                         predicted = predicted.reshape(-1, 1)

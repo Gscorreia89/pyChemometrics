@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import numpy as np
 import pandas as pds
-from scipy import interp
+from numpy import interp
 from sklearn import metrics
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
 from sklearn.cross_decomposition import PLSRegression
@@ -126,16 +126,24 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
             # Instead, we just do some on the fly detection of binary vs multiclass classification
             # Verify number of classes in the provided class label y vector so the algorithm can adjust accordingly
-            n_classes = np.unique(y).size
+            # detect dummy vector
+            if (np.unique(y).size == 2) and (np.all(np.isin(np.unique(y), np.array([0, 1]), assume_unique=True))):
+                n_classes = y.shape[1]
+                isDummy = True
+            else:
+                n_classes = np.unique(y).size
+                isDummy = False
             self.n_classes = n_classes
 
             # If there are more than 2 classes, a Dummy 0-1 matrix is generated so PLS can do its job in
             # multi-class setting
             # Only for PLS: the sklearn LogisticRegression still requires a single vector!
-            if self.n_classes > 2:
+            if self.n_classes > 2 and isDummy is False:
                 dummy_mat = pds.get_dummies(y).values
                 # If the user wants OneVsRest, etc, provide a different binary labelled y vector to use it instead.
                 y_scaled = self.y_scaler.fit_transform(dummy_mat)
+            elif self.n_classes > 2 and isDummy is True:
+                y_scaled = self.y_scaler.fit_transform(y)
             else:
                 if y.ndim == 1:
                     y = y.reshape(-1, 1)
@@ -161,14 +169,19 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                               self.scores_t)
             self.b_t = np.dot(np.dot(np.linalg.pinv(np.dot(self.scores_t.T, self.scores_t)), self.scores_t.T),
                               self.scores_u)
-            self.beta_coeffs = self.pls_algorithm.coef_
+            self.beta_coeffs = self.pls_algorithm.coef_.T
 
             # Get the mean score per class to use in prediction
             # To use im a simple rule on how to turn PLS prediction into a classifier for multiclass PLS-DA
             self.class_means = np.zeros((n_classes, self.ncomps))
+
             for curr_class in range(self.n_classes):
-                curr_class_idx = np.where(y == curr_class)
-                self.class_means[curr_class, :] = np.mean(self.scores_t[curr_class_idx])
+                if not isDummy:
+                    curr_class_idx = np.where(y == curr_class)
+                else:
+                    curr_class_idx = np.where(y[:, curr_class] == 1)
+
+            self.class_means[curr_class, :] = np.mean(self.scores_t[curr_class_idx])
 
             # Needs to come here for the method shortcuts down the line to work...
             self._isfitted = True
@@ -440,7 +453,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 # euclidean distance to mean of class for multiclass PLS-DA
                 # probably better to use a Logistic/Multinomial or PLS-LDA anyway...
                 # project X onto T - so then we can get
-                pred_scores = self.transform(x=x)
+                pred_scores = self.transform(x)
                 # prediction rule - find the closest class mean (centroid) for each sample in the score space
                 closest_class_mean = lambda x: np.argmin(np.linalg.norm((x - self.class_means), axis=1))
                 class_pred = np.apply_along_axis(closest_class_mean, axis=1, arr=pred_scores)
