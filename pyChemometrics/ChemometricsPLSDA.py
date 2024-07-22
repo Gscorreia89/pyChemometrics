@@ -121,14 +121,14 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             # Scaling for the classifier setting proceeds as usual for the X block
             xscaled = self.x_scaler.fit_transform(x)
 
-            # For this "classifier" PLS objects, the yscaler is not used, as we are not interesting in decentering and
-            # scaling class labels and dummy matrices.
-
-            # Instead, we just do some on the fly detection of binary vs multiclass classification
+            # On the fly detection of binary vs multiclass classification
             # Verify number of classes in the provided class label y vector so the algorithm can adjust accordingly
             # detect dummy vector
             if (np.unique(y).size == 2) and (np.all(np.isin(np.unique(y), np.array([0, 1]), assume_unique=True))):
-                n_classes = y.shape[1]
+                if y.ndim == 1:
+                    n_classes = 2
+                else:
+                    n_classes = y.shape[1]
                 isDummy = True
             else:
                 n_classes = np.unique(y).size
@@ -178,8 +178,10 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             for curr_class in range(self.n_classes):
                 if not isDummy:
                     curr_class_idx = np.where(y == curr_class)
-                else:
+                elif isDummy and n_classes > 2:
                     curr_class_idx = np.where(y[:, curr_class] == 1)
+                else:
+                    curr_class_idx = np.where(y[curr_class] == 1)
 
             self.class_means[curr_class, :] = np.mean(self.scores_t[curr_class_idx])
 
